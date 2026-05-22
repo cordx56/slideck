@@ -1,5 +1,5 @@
 export { DeckSchema } from "./deck";
-export { ThemeSchema } from "./theme";
+export { BaseSchema } from "./base";
 export { ElementSchema } from "./element";
 export {
   PositionSchema,

@@ -114,8 +114,10 @@ export interface TextDefaults {
   letterSpacing?: number;
 }
 
-export interface ThemeHir {
-  name: string;
+// Base: theme と overlay を統合した合成可能レイヤー。
+// 旧 theme.yaml と同じ構造。id は deck.bases 側で付与するため name は任意。
+export interface BaseHir {
+  name?: string;
   extends?: string;
   fonts?: Record<string, FontDecl>;
   colors?: Record<string, string>;
@@ -128,18 +130,23 @@ export interface ThemeHir {
 
 // デッキ -----------------------------------------------------------------
 
+// deck.yaml における base の宣言。
+export interface BaseRef {
+  id: string;
+  always?: boolean; // true なら全スライドに自動適用 (旧 overlay 相当)
+  file: string;
+}
+
 export interface SlideHir {
   id?: string;
-  use?: string;
+  use?: string | string[];
   vars?: Record<string, unknown>;
   background?: string;
   elements?: HirElement[];
 }
 
 export interface DeckHir {
-  theme?: string;
-  themes?: string[];
-  overlays?: string[];
+  bases: BaseRef[];
   vars?: Record<string, unknown>;
   slides: SlideHir[];
 }

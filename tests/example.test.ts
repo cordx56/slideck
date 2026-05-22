@@ -45,8 +45,11 @@ describe("examples/basic", () => {
     // intro: タイトル + サブタイトル + 画像 + フッタ
     expect(svgs[0]).toContain("YAML スライドの世界");
     expect(svgs[0]).toContain("<image");
-    // overlay は全スライドに適用される
+    // always:true の footer base は全スライドに適用される
     for (const svg of svgs) expect(svg).toContain("Slider — YAML Slides");
+    // システム変数によるページ番号 (footer base 内 ${slideNumber}/${slideCount})
+    expect(svgs[0]).toContain("1 / 5");
+    expect(svgs[4]).toContain("5 / 5");
     // section テーマ (extends) のスライド
     expect(svgs[2]).toContain("背景と動機");
     // closing: light プリセット (extends で配色のみ上書き) の明るい背景

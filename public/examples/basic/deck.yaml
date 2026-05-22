@@ -1,10 +1,15 @@
-theme: ./theme.yaml
-themes:
-  - ./theme-section.yaml
-  - ./theme-light.yaml
-
-overlays:
-  - ./overlays/footer.yaml
+bases:
+  # always:true は全スライドに自動適用される (旧 overlay 相当)。宣言順=z下から。
+  - id: footer
+    always: true
+    file: ./overlays/footer.yaml
+  # 以下は use: で選択する base。
+  - id: standard
+    file: ./theme.yaml
+  - id: section
+    file: ./theme-section.yaml
+  - id: light
+    file: ./theme-light.yaml
 
 vars:
   accent: "#7aa2f7"
@@ -45,7 +50,7 @@ slides:
     use: light
     vars:
       title: "ありがとうございました"
-      subtitle: "light テーマプリセットの例"
+      subtitle: "light base プリセットの例"
 
   - id: feature
     use: standard

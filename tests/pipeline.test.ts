@@ -26,9 +26,11 @@ layout:
 `;
 
 const deck = `
-theme: ./theme.yaml
+bases:
+  - { id: standard, file: ./theme.yaml }
 slides:
   - id: one
+    use: standard
     vars: { title: "こんにちは" }
 `;
 
@@ -48,7 +50,7 @@ describe("compileDeck (end-to-end)", () => {
     expect(svg).toContain('fill="#0e0e10"');
   });
 
-  it("テーマ未指定はエラー", async () => {
+  it("bases 未指定はエラー", async () => {
     const resolver = resolverFrom({ "deck.yaml": "slides: [{ id: x }]" });
     const { compiled, errors } = await compileDeck(resolver);
     expect(compiled).toBeFalsy();

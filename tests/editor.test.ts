@@ -28,8 +28,10 @@ function base(deckText: string) {
 
 describe("OverrideResolver + recompileDeck (live edit)", () => {
   it("メモリ上の deck テキストでディスクを差し替える", async () => {
-    const onDisk = base(`theme: ./theme.yaml\nslides: [{ id: s, vars: { title: disk } }]`);
-    const edited = `theme: ./theme.yaml\nslides: [{ id: s, vars: { title: edited } }]`;
+    const mkDeck = (t: string) =>
+      `bases: [{ id: standard, file: ./theme.yaml }]\nslides: [{ id: s, use: standard, vars: { title: ${t} } }]`;
+    const onDisk = base(mkDeck("disk"));
+    const edited = mkDeck("edited");
     const resolver = new OverrideResolver(
       onDisk,
       new Map([["deck.yaml", edited]]),

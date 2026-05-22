@@ -1,39 +1,60 @@
-import type { ThemeHir, VarDecl } from "../ir/hir";
+import type { VarDecl } from "../ir/hir";
 import { PipelineError } from "../lib/error";
 import { isHexColor } from "../lib/color";
+import { isReservedVar } from "./system-vars";
 
 export interface VarContext {
   // 変数名 -> 解決済み値
   values: Record<string, unknown>;
 }
 
-// 変数スコープを解決する: theme.schema.vars の default
-//   <- deck-level vars <- slide.vars
-// 宣言された変数は型検証し、未宣言の追加変数はそのまま通す。
+// 変数スコープを解決する。優先度 (低->高):
+//   システム変数 < schema default < deck.vars < slide.vars
+// マージ済み schema (全 base 合成済み) で型検証する。未宣言の追加変数は通す。
 export function buildVarContext(
-  theme: ThemeHir,
+  mergedVars: Record<string, VarDecl>,
+  systemVars: Record<string, unknown>,
   deckVars: Record<string, unknown> | undefined,
   slideVars: Record<string, unknown> | undefined,
+  palette: Record<string, string>,
   errors: PipelineError[],
 ): VarContext {
-  const decls = theme.schema?.vars ?? {};
-  const palette = theme.colors ?? {};
   const values: Record<string, unknown> = {};
 
-  // まず追加 (未宣言) 変数を通す。宣言変数で上書きされる。
-  Object.assign(values, deckVars ?? {}, slideVars ?? {});
+  // システム変数を土台に置く (最低優先度)。
+  Object.assign(values, systemVars);
 
-  for (const [name, decl] of Object.entries(decls)) {
-    const provided =
-      slideVars?.[name] ?? deckVars?.[name] ?? decl.default ?? undefined;
-    if (provided === undefined) {
-      if (decl.required) {
-        errors.push(new PipelineError(`変数 "${name}" は必須です`));
-      }
+  // 宣言された default を載せる。
+  for (const [name, decl] of Object.entries(mergedVars)) {
+    if (isReservedVar(name)) {
+      errors.push(
+        new PipelineError(`"${name}" はシステム変数のため schema.vars で宣言できません`),
+      );
       continue;
     }
-    if (!validateVarType(name, provided, decl, palette, errors)) continue;
-    values[name] = provided;
+    if (decl.default !== undefined) values[name] = decl.default;
+  }
+
+  // ユーザ変数 (未宣言含む) を載せる。slide が deck を上書き。
+  Object.assign(values, deckVars ?? {});
+  for (const name of Object.keys(slideVars ?? {})) {
+    if (isReservedVar(name)) {
+      errors.push(
+        new PipelineError(`システム変数 "${name}" を slide.vars で上書きしています`),
+      );
+    }
+  }
+  Object.assign(values, slideVars ?? {});
+
+  // 宣言変数の required / 型を検証する。
+  for (const [name, decl] of Object.entries(mergedVars)) {
+    if (isReservedVar(name)) continue;
+    const value = values[name];
+    if (value === undefined) {
+      if (decl.required) errors.push(new PipelineError(`変数 "${name}" は必須です`));
+      continue;
+    }
+    validateVarType(name, value, decl, palette, errors);
   }
 
   return { values };

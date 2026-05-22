@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ElementSchema } from "./element";
-import type { ThemeHir } from "../ir/hir";
+import type { BaseHir } from "../ir/hir";
 
 const FontDeclSchema = z
   .object({
@@ -31,9 +31,10 @@ const TextDefaultsSchema = z
   })
   .strict();
 
-export const ThemeSchema: z.ZodType<ThemeHir, z.ZodTypeDef, unknown> = z
+// base ファイル本体のスキーマ (旧 theme.yaml 構造)。id は deck.bases 側。
+export const BaseSchema: z.ZodType<BaseHir, z.ZodTypeDef, unknown> = z
   .object({
-    name: z.string(),
+    name: z.string().optional(),
     extends: z.string().optional(),
     fonts: z.record(FontDeclSchema).optional(),
     colors: z.record(z.string()).optional(),

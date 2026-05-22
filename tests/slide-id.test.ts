@@ -23,7 +23,7 @@ function resolver(deckText: string) {
 describe("スライド id", () => {
   it("id は任意 (省略可)", () => {
     const r = DeckSchema.safeParse({
-      theme: "./theme.yaml",
+      bases: [{ id: "standard", file: "./theme.yaml" }],
       slides: [{ use: "standard" }, { id: "named" }],
     });
     expect(r.success).toBe(true);
@@ -31,7 +31,7 @@ describe("スライド id", () => {
 
   it("明示 id の重複はエラー (パス付き)", () => {
     const r = DeckSchema.safeParse({
-      theme: "./theme.yaml",
+      bases: [{ id: "standard", file: "./theme.yaml" }],
       slides: [{ id: "dup" }, { id: "dup" }],
     });
     expect(r.success).toBe(false);
@@ -45,7 +45,9 @@ describe("スライド id", () => {
 
   it("id 省略時はインデックス由来の id が割り当たる", async () => {
     const { compiled, errors } = await compileDeck(
-      resolver(`theme: ./theme.yaml\nslides: [{}, { id: agenda }]`),
+      resolver(
+        `bases: [{ id: standard, file: ./theme.yaml }]\nslides: [{}, { id: agenda }]`,
+      ),
     );
     expect(errors).toHaveLength(0);
     expect(compiled!.deck.slides[0].id).toBe("slide-1");
@@ -54,7 +56,9 @@ describe("スライド id", () => {
 
   it("重複 id はコンパイル時にエラーとして返る (preview は更新されない)", async () => {
     const { compiled, errors } = await compileDeck(
-      resolver(`theme: ./theme.yaml\nslides: [{ id: x }, { id: x }]`),
+      resolver(
+        `bases: [{ id: standard, file: ./theme.yaml }]\nslides: [{ id: x }, { id: x }]`,
+      ),
     );
     expect(compiled).toBeFalsy();
     expect(errors.some((e) => e.message.includes("重複"))).toBe(true);

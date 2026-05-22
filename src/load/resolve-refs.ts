@@ -1,18 +1,14 @@
-import { z } from "zod";
 import type { AssetResolver } from "./assets";
 import { resolveFrom } from "./assets";
 import { parseAndValidate } from "./parse";
-import { DeckSchema, ThemeSchema, ElementSchema } from "../schema";
-import type { DeckHir, ThemeHir, HirElement } from "../ir/hir";
+import { DeckSchema, BaseSchema } from "../schema";
+import type { DeckHir, BaseHir } from "../ir/hir";
 import { PipelineError } from "../lib/error";
 
 export interface LoadedDeck {
   deck: DeckHir;
-  // theme.name -> 解決済みテーマ (extends 適用後)
-  themes: Map<string, ThemeHir>;
-  // deck.theme で指定されたメインテーマ名
-  defaultThemeName: string;
-  overlays: HirElement[];
+  // base id -> 解決済み base (extends 適用後)。順序/always は deck.bases を参照。
+  basesById: Map<string, BaseHir>;
   resolver: AssetResolver;
 }
 
@@ -21,16 +17,10 @@ export interface LoadResult {
   errors: PipelineError[];
 }
 
-// overlay ファイルは要素の配列、または { elements: [...] }。
-const OverlaySchema = z.union([
-  z.array(ElementSchema),
-  z.object({ elements: z.array(ElementSchema) }).strict(),
-]);
-
-// テーマの extends マージ。derived が base を上書きする。
-function mergeTheme(base: ThemeHir, derived: ThemeHir): ThemeHir {
+// base の extends マージ。derived が base を上書きする。
+function mergeBase(base: BaseHir, derived: BaseHir): BaseHir {
   return {
-    name: derived.name,
+    name: derived.name ?? base.name,
     fonts: { ...base.fonts, ...derived.fonts },
     colors: { ...base.colors, ...derived.colors },
     slide: derived.slide ?? base.slide,
@@ -41,14 +31,14 @@ function mergeTheme(base: ThemeHir, derived: ThemeHir): ThemeHir {
   };
 }
 
-async function loadTheme(
+async function loadBaseFile(
   resolver: AssetResolver,
   path: string,
   seen: Set<string>,
   errors: PipelineError[],
-): Promise<ThemeHir | undefined> {
+): Promise<BaseHir | undefined> {
   if (seen.has(path)) {
-    errors.push(new PipelineError(`テーマの循環 extends を検出: ${path}`));
+    errors.push(new PipelineError(`base の循環 extends を検出: ${path}`));
     return undefined;
   }
   seen.add(path);
@@ -57,24 +47,24 @@ async function loadTheme(
   try {
     text = await resolver.readText(path);
   } catch (e) {
-    errors.push(new PipelineError(`テーマ読込失敗: ${path} (${String(e)})`));
+    errors.push(new PipelineError(`base 読込失敗: ${path} (${String(e)})`));
     return undefined;
   }
 
-  const parsed = parseAndValidate(text, ThemeSchema, path);
+  const parsed = parseAndValidate(text, BaseSchema, path);
   if (!parsed.value) {
     errors.push(...parsed.errors);
     return undefined;
   }
-  const theme = parsed.value;
+  const base = parsed.value;
 
-  if (theme.extends) {
-    const basePath = resolveFrom(path, theme.extends);
-    const base = await loadTheme(resolver, basePath, seen, errors);
-    if (!base) return undefined;
-    return mergeTheme(base, theme);
+  if (base.extends) {
+    const parentPath = resolveFrom(path, base.extends);
+    const parent = await loadBaseFile(resolver, parentPath, seen, errors);
+    if (!parent) return undefined;
+    return mergeBase(parent, base);
   }
-  return theme;
+  return base;
 }
 
 export async function loadDeck(
@@ -96,45 +86,15 @@ export async function loadDeck(
   if (!parsedDeck.value) return { errors: parsedDeck.errors };
   const deck = parsedDeck.value;
 
-  if (!deck.theme) {
-    return { errors: [new PipelineError("deck.theme (メインテーマ) が必要です")] };
-  }
-
-  const themes = new Map<string, ThemeHir>();
-  const themePaths = [deck.theme, ...(deck.themes ?? [])];
-  let defaultThemeName = "";
-
-  for (const tp of themePaths) {
-    const path = resolveFrom(entry, tp);
-    const theme = await loadTheme(resolver, path, new Set(), errors);
-    if (theme) {
-      themes.set(theme.name, theme);
-      if (tp === deck.theme) defaultThemeName = theme.name;
-    }
-  }
-
-  const overlays: HirElement[] = [];
-  for (const op of deck.overlays ?? []) {
-    const path = resolveFrom(entry, op);
-    try {
-      const text = await resolver.readText(path);
-      const parsed = parseAndValidate(text, OverlaySchema, path);
-      if (parsed.value) {
-        overlays.push(
-          ...(Array.isArray(parsed.value) ? parsed.value : parsed.value.elements),
-        );
-      } else {
-        errors.push(...parsed.errors);
-      }
-    } catch (e) {
-      errors.push(new PipelineError(`overlay 読込失敗: ${path} (${String(e)})`));
-    }
+  // 各 base ファイルを読み込み id でマップ化する。
+  const basesById = new Map<string, BaseHir>();
+  for (const ref of deck.bases) {
+    const path = resolveFrom(entry, ref.file);
+    const base = await loadBaseFile(resolver, path, new Set(), errors);
+    if (base) basesById.set(ref.id, base);
   }
 
   if (errors.length > 0) return { errors };
 
-  return {
-    loaded: { deck, themes, defaultThemeName, overlays, resolver },
-    errors: [],
-  };
+  return { loaded: { deck, basesById, resolver }, errors: [] };
 }

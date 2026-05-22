@@ -784,6 +784,21 @@ Phase 1〜5 すべて実装済み。テスト 49 件 (vitest)、`npm run build` 
 - **画像 fit**: `contain`/`fill` を実装。`cover` はクリップ未対応のため当面 `fill` 相当。
 - **px 単位**: position の `px`/数値は実装済み (% と同等に解決)。
 
+### 追加リファクタ: Theme/Overlay の Base 統合 (NEW-OVERLAY.md)
+
+`theme` (use 切替) と `overlay` (全スライド重畳) を単一の **Base** 概念に統合済み。
+
+- deck.yaml は `bases: [{ id, always?, file }]` で宣言。`always:true` が旧 overlay、
+  `use:` 選択が旧 theme。`use` は文字列/配列の両対応。
+- 適用順 (z 下->上): always 群 (宣言順) -> use 群 (指定順) -> slide.elements。
+- 複数 base の `schema.vars` を union マージ (型不一致はエラー、required は OR、
+  default 後勝ち)。`defaults` は深いマージ (後勝ち)。`colors`/`fonts` も合成。
+- システム変数 `${slideNumber}` `${slideCount}` `${slideId}` `${baseIds}` を
+  normalize で自動注入。予約名で schema 宣言不可、slide.vars 上書きは警告。
+- 関連ファイル: `schema/base.ts` (旧 theme.ts), `normalize/bases.ts` (旧 theme-apply.ts),
+  `normalize/{schema-merge,defaults-merge,system-vars}.ts`。`overlays.ts` は廃止。
+- 旧 `theme:`/`themes:`/`overlays:` フィールドは廃止 (移行警告なし、個人利用段階のため)。
+
 ### 既知の残課題（将来）
 
 - `cover` の正確なクリッピング、letterSpacing の描画反映、禁則処理。

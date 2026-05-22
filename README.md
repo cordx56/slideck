@@ -8,7 +8,9 @@ YAML を宣言的に書いて、ブラウザ上でスライドを作成・編集
 - **サーバ不要**: 静的ホスティング (GitHub Pages 等) で配布可能。
 - **三層 IR** (HIR → MIR → LIR): SVG レンダラと PDF レンダラが同一の LIR を消費し、
   レイアウトが一致する。フォント計測 (fontkit) も両者で共有。
-- **宣言的 YAML**: テーマ・変数・配置・グループ・auto-layout を記述。
+- **宣言的 YAML**: Base (合成可能レイヤー)・変数・配置・グループ・auto-layout を記述。
+  他ツールでいうテーマ・オーバーレイは **Base** に統合されている (`always:true` で
+  全スライド適用、`use:` で選択)。`${slideNumber}` 等のシステム変数も使える。
 - **PDF**: TrueType サブセット埋め込み + ToUnicode (テキスト選択/抽出可)。
 - **3 ペインエディタ**: アウトライン/インスペクタ・プレビュー・CodeMirror。
   インスペクタ編集はコメントを保ったまま YAML AST を in-place 更新する。
@@ -40,8 +42,8 @@ VITE_BASE=/slider/ npm run build
 src/
   schema/    HIR の zod スキーマ
   ir/        HIR / MIR / LIR 型
-  load/      パース, $ref 解決, アセット (fetch/FS/ZIP), prepare
-  normalize/ HIR -> MIR (変数展開, テーマ適用, デフォルト)
+  load/      パース, base 解決 (extends), アセット (fetch/FS/ZIP), prepare
+  normalize/ HIR -> MIR (base 合成, 変数展開, schema/defaults マージ, システム変数)
   lower/     MIR -> LIR (位置解決, グループ, auto-layout, テキストシェイプ)
   render/    svg/ と pdf/ レンダラ
   edit/      YAML AST 編集 (インスペクタ書き戻し)

@@ -1,5 +1,5 @@
 import type { LoadedDeck } from "../load/resolve-refs";
-import type { ThemeHir, HirElement } from "../ir/hir";
+import type { HirElement, TextDefaults } from "../ir/hir";
 import type {
   MirDeck,
   MirElement,
@@ -9,7 +9,16 @@ import type {
 import { PipelineError } from "../lib/error";
 import { resolveColor } from "../lib/color";
 import { buildVarContext, expandString, type VarContext } from "./variables";
-import { pickTheme, composeSlideElements } from "./theme-apply";
+import {
+  resolveAppliedBases,
+  composeLayers,
+  mergePalette,
+  mergeFontKeys,
+  pickBackground,
+} from "./bases";
+import { mergeSchemas } from "./schema-merge";
+import { mergeDefaults } from "./defaults-merge";
+import { buildSystemVars } from "./system-vars";
 import {
   DEFAULT_SLIDE,
   DEFAULT_FIT,
@@ -35,17 +44,39 @@ interface ConvertCtx {
 export function normalize(loaded: LoadedDeck): NormalizeResult {
   const errors: PipelineError[] = [];
 
-  const fonts = buildFontRegistry(loaded.themes);
-  const mainTheme = loaded.themes.get(loaded.defaultThemeName);
-  const slideSize = mainTheme?.slide ?? DEFAULT_SLIDE;
+  const fonts = buildFontRegistry(loaded);
+  const slideSize = pickSlideSize(loaded);
+  const slideCount = loaded.deck.slides.length;
 
   const slides: MirSlide[] = loaded.deck.slides.map((slide, i) => {
-    const theme = pickTheme(loaded, slide, errors);
-    const fontKeyToFamily = fontKeyMap(theme);
-    const palette = theme.colors ?? {};
-    const vars = buildVarContext(theme, loaded.deck.vars, slide.vars, errors);
+    const slideId = slide.id ?? `slide-${i + 1}`;
+    const applied = resolveAppliedBases(loaded, slide, errors);
 
-    const textDefaults = resolveTextDefaultsFor(theme, fontKeyToFamily, palette);
+    const mergedVars = mergeSchemas(applied, errors);
+    const mergedDefaults = mergeDefaults(applied);
+    const palette = mergePalette(applied);
+    const fontKeyToFamily = mergeFontKeys(applied);
+
+    const systemVars = buildSystemVars({
+      slideId,
+      slideNumber: i + 1,
+      slideCount,
+      baseIds: applied.map((a) => a.id),
+    });
+    const vars = buildVarContext(
+      mergedVars,
+      systemVars,
+      loaded.deck.vars,
+      slide.vars,
+      palette,
+      errors,
+    );
+
+    const textDefaults = resolveTextDefaultsFor(
+      mergedDefaults.text,
+      fontKeyToFamily,
+      palette,
+    );
     const ctx: ConvertCtx = {
       vars,
       palette,
@@ -54,17 +85,17 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
       errors,
     };
 
-    const composed = composeSlideElements(theme, slide, loaded.overlays);
+    const composed = composeLayers(applied, slide);
     const elements = composed.map((el) => convertElement(el, ctx));
 
-    const bgRaw = slide.background ?? theme.background;
+    const bgRaw = slide.background ?? pickBackground(applied);
     const background = bgRaw
       ? resolveColorLenient(expandString(bgRaw, vars, errors), palette)
       : undefined;
 
     // id は任意。未指定時はインデックス由来の id を割り当てる
     // (重複の検証は DeckSchema で済んでいる)。
-    return { id: slide.id ?? `slide-${i + 1}`, background, elements };
+    return { id: slideId, background, elements };
   });
 
   return {
@@ -73,11 +104,11 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
   };
 }
 
-// 全テーマのフォント宣言を family 名で集約。
-function buildFontRegistry(themes: Map<string, ThemeHir>): Map<string, MirFont> {
+// 全 base のフォント宣言を family 名で集約 (デッキ全体のフォントレジストリ)。
+function buildFontRegistry(loaded: LoadedDeck): Map<string, MirFont> {
   const registry = new Map<string, MirFont>();
-  for (const theme of themes.values()) {
-    for (const decl of Object.values(theme.fonts ?? {})) {
+  for (const base of loaded.basesById.values()) {
+    for (const decl of Object.values(base.fonts ?? {})) {
       registry.set(decl.family, {
         family: decl.family,
         path: decl.path,
@@ -89,21 +120,21 @@ function buildFontRegistry(themes: Map<string, ThemeHir>): Map<string, MirFont> 
   return registry;
 }
 
-// あるテーマの font キー -> family 名。
-function fontKeyMap(theme: ThemeHir): Map<string, string> {
-  const m = new Map<string, string>();
-  for (const [key, decl] of Object.entries(theme.fonts ?? {})) {
-    m.set(key, decl.family);
+// スライドサイズは deck.bases の宣言順で最初に slide を持つ base から採る。
+function pickSlideSize(loaded: LoadedDeck): { width: number; height: number } {
+  for (const ref of loaded.deck.bases) {
+    const base = loaded.basesById.get(ref.id);
+    if (base?.slide) return base.slide;
   }
-  return m;
+  return DEFAULT_SLIDE;
 }
 
 function resolveTextDefaultsFor(
-  theme: ThemeHir,
+  text: TextDefaults,
   fontKeyToFamily: Map<string, string>,
   palette: Record<string, string>,
 ): ResolvedTextDefaults {
-  const raw = resolveTextDefaults(theme.defaults?.text);
+  const raw = resolveTextDefaults(text);
   return {
     ...raw,
     family: fontKeyToFamily.get(raw.family) ?? raw.family,

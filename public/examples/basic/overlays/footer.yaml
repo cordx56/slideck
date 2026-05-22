@@ -1,5 +1,7 @@
-# 全スライド共通のフッタ。
-elements:
+# footer base — deck.yaml で always:true 指定。全スライドに乗る。
+# layout は base ファイルの標準フィールド。${slideNumber}/${slideCount} は
+# システム変数 (normalize が自動注入)。
+layout:
   - type: line
     from: { x: 4%, y: 94% }
     to: { x: 96%, y: 94% }
@@ -12,3 +14,11 @@ elements:
     size: 24
     color: muted
     text: "Slider — YAML Slides"
+
+  - type: text
+    position: { right: 4%, top: 95%, width: 20% }
+    font: body
+    size: 24
+    color: muted
+    align: right
+    text: "${slideNumber} / ${slideCount}"

@@ -13,7 +13,7 @@ schema: { vars: { title: { type: string, required: true } } }
 layout:
   - { type: text, text: "\${title}" }
 `;
-const deck = `theme: ./theme.yaml\nslides: [{ id: s, vars: { title: "ジップ" } }]`;
+const deck = `bases: [{ id: standard, file: ./theme.yaml }]\nslides: [{ id: s, use: standard, vars: { title: "ジップ" } }]`;
 
 async function makeZipFile(prefix: string): Promise<File> {
   const zip = new JSZip();
@@ -44,7 +44,7 @@ describe("openZip", () => {
     const { resolver } = await openZip(await makeZipFile(""));
     await resolver.writeText(
       "deck.yaml",
-      `theme: ./theme.yaml\nslides: [{ id: s, vars: { title: "編集後" } }]`,
+      `bases: [{ id: standard, file: ./theme.yaml }]\nslides: [{ id: s, use: standard, vars: { title: "編集後" } }]`,
     );
     const blob = await resolver.toBlob();
     const reopened = await openZip(
@@ -68,7 +68,7 @@ describe("openZip", () => {
       new Map([
         [
           "deck.yaml",
-          `theme: ./theme.yaml\nslides: [{ id: s, vars: { title: "上書き" } }]`,
+          `bases: [{ id: standard, file: ./theme.yaml }]\nslides: [{ id: s, use: standard, vars: { title: "上書き" } }]`,
         ],
       ]),
     );
