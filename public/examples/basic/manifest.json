@@ -1,0 +1,12 @@
+{
+  "files": [
+    "deck.yaml",
+    "theme.yaml",
+    "theme-section.yaml",
+    "theme-light.yaml",
+    "overlays/footer.yaml",
+    "img/cover.png",
+    "fonts/IPAexGothic.ttf",
+    "fonts/IPAexMincho.ttf"
+  ]
+}

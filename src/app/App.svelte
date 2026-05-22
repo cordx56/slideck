@@ -3,6 +3,7 @@
   import { store } from "./store.svelte";
   import EditorView from "./editor/EditorView.svelte";
   import PresentView from "./present/PresentView.svelte";
+  import WelcomeView from "./WelcomeView.svelte";
 
   // ハッシュベースの簡易ルーティング ("#present" でプレゼンモード)。
   let route = $state(currentRoute());
@@ -12,16 +13,17 @@
   }
 
   onMount(() => {
-    const base = `${import.meta.env.BASE_URL}examples/basic/`;
-    void store.openSample(base);
+    void store.boot();
     const onHash = () => (route = currentRoute());
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   });
 </script>
 
-{#if !store.ready}
+{#if store.screen === "loading"}
   <div class="boot">読み込み中...</div>
+{:else if store.screen === "welcome"}
+  <WelcomeView />
 {:else if route === "present"}
   <PresentView />
 {:else}

@@ -1,13 +1,9 @@
 import type { AssetResolver } from "../load/assets";
-import {
-  CachingResolver,
-  OverrideResolver,
-  FetchAssetResolver,
-  isWritable,
-  normalizePath,
-} from "../load/assets";
-import { openDirectory } from "../load/fs-access";
-import { openZip, ZipAssetResolver } from "../load/zip";
+import { OverrideResolver } from "../load/assets";
+import { VfsResolver } from "../load/vfs-resolver";
+import { openVfs, type VFS, type FileEntry } from "../vfs";
+import { extname } from "../vfs/path";
+import { installSample, createEmptyProject } from "./sample";
 import {
   compileDeck,
   recompileDeck,
@@ -18,7 +14,7 @@ import type { LowerCtx, LoadedFont } from "../lower/context";
 import type { PipelineError } from "../lib/error";
 import { debounce } from "../lib/debounce";
 import { registerFonts } from "../lib/fonts-register";
-import { downloadBytes } from "../lib/download";
+import { isImagePath } from "../lib/mime";
 import {
   parseDeck,
   serialize,
@@ -31,35 +27,39 @@ import {
   type Path,
 } from "../edit/ast";
 
-export type ProjectKind = "sample" | "folder" | "zip";
+const ENTRY = "deck.yaml"; // VFS では /deck.yaml
+export type Screen = "loading" | "welcome" | "editor";
 
-// --- リアクティブ状態 (Runes) ---
+// --- リアクティブ状態 ---
+let screen = $state<Screen>("loading");
+let openPath = $state("/deck.yaml");
 let yamlText = $state("");
-let compiled = $state.raw<CompiledDeck | null>(null); // 最後に成功した結果
+let dirty = $state(false);
+let compiled = $state.raw<CompiledDeck | null>(null);
 let errors = $state.raw<PipelineError[]>([]);
 let currentSlide = $state(0);
-let ready = $state(false);
-let entry = $state("deck.yaml");
-let projectName = $state("examples/basic");
-let projectKind = $state<ProjectKind>("sample");
-let dirty = $state(false);
-let saving = $state(false);
+let files = $state.raw<FileEntry[]>([]);
 let selectedIndex = $state<number | null>(null);
 
-// --- 非リアクティブな保持物 ---
-let sourceResolver: AssetResolver | null = null;
-let baseResolver: AssetResolver | null = null;
-let zipResolver: ZipAssetResolver | null = null;
-// フォント/画像は編集中に変わらない前提でキャッシュし、編集時は再ロードしない。
+// --- 非リアクティブ ---
+let vfs: VFS | null = null;
 let cachedCtx: LowerCtx | null = null;
 let cachedFonts: Map<string, LoadedFont> | null = null;
+let unsubscribe: (() => void) | null = null;
 
-function overrideResolver(): AssetResolver {
-  if (!baseResolver) throw new Error("store 未初期化");
-  return new OverrideResolver(
-    baseResolver,
-    new Map([[normalizePath(entry), yamlText]]),
-  );
+function isYaml(path: string): boolean {
+  const e = extname(path);
+  return e === ".yaml" || e === ".yml";
+}
+
+function compileResolver(): AssetResolver {
+  if (!vfs) throw new Error("VFS 未初期化");
+  const base = new VfsResolver(vfs);
+  if (dirty && isYaml(openPath)) {
+    const key = openPath.replace(/^\//, "");
+    return new OverrideResolver(base, new Map([[key, yamlText]]));
+  }
+  return base;
 }
 
 function clampSlide() {
@@ -67,9 +67,8 @@ function clampSlide() {
   if (currentSlide >= n) currentSlide = Math.max(0, n - 1);
 }
 
-// 初回の完全コンパイル (フォント/画像ロードを含む)。
 async function fullCompile() {
-  const result = await compileDeck(overrideResolver(), { entry });
+  const result = await compileDeck(compileResolver(), { entry: ENTRY });
   errors = result.errors;
   if (result.compiled) {
     compiled = result.compiled;
@@ -80,14 +79,12 @@ async function fullCompile() {
   }
 }
 
-// 編集時の軽量再コンパイル: parse + normalize のみ、ctx/fonts は再利用。
-// 失敗時は前回成功した compiled を保持し、errors のみ更新する。
 async function liveRecompile() {
   if (!cachedCtx || !cachedFonts) {
     await fullCompile();
     return;
   }
-  const result = await recompileDeck(overrideResolver(), entry);
+  const result = await recompileDeck(compileResolver(), ENTRY);
   errors = result.errors;
   if (result.deck) {
     compiled = { deck: result.deck, ctx: cachedCtx, fonts: cachedFonts };
@@ -95,47 +92,57 @@ async function liveRecompile() {
   }
 }
 
-const scheduleRecompile = debounce(() => {
-  void liveRecompile();
-}, 200);
+const scheduleLive = debounce(() => void liveRecompile(), 200);
+const scheduleFull = debounce(() => void fullCompile(), 200);
 
-// テキスト更新の共通処理 (エディタ入力 / インスペクタ書き戻し 両方)。
+async function refreshFiles() {
+  if (vfs) files = await vfs.list();
+}
+
 function applyYaml(text: string) {
   yamlText = text;
   dirty = true;
-  scheduleRecompile();
+  scheduleLive();
 }
 
-// 現在スライドのソース要素パス。
-function selectedPath(): Path {
-  return ["slides", currentSlide, "elements", selectedIndex ?? 0];
-}
-
-async function loadProject(
-  source: AssetResolver,
-  entryPath: string,
-  name: string,
-  kind: ProjectKind,
-) {
-  ready = false;
-  sourceResolver = source;
-  baseResolver = new CachingResolver(source);
-  zipResolver = source instanceof ZipAssetResolver ? source : null;
-  entry = entryPath;
-  projectName = name;
-  projectKind = kind;
+async function openProject() {
+  if (!vfs) return;
+  unsubscribe?.();
+  unsubscribe = vfs.subscribe(() => {
+    void refreshFiles();
+    scheduleFull();
+  });
+  await refreshFiles();
+  openPath = "/deck.yaml";
+  yamlText = (await vfs.exists("/deck.yaml")) ? await vfs.readText("/deck.yaml") : "";
+  dirty = false;
   cachedCtx = null;
   cachedFonts = null;
   currentSlide = 0;
-  yamlText = await baseResolver.readText(entryPath);
   await fullCompile();
-  dirty = false;
-  ready = true;
+  screen = "editor";
 }
 
+const selectedPath = (): Path => ["slides", currentSlide, "elements", selectedIndex ?? 0];
+
 export const store = {
+  get screen() {
+    return screen;
+  },
+  get openPath() {
+    return openPath;
+  },
+  get isYamlOpen() {
+    return isYaml(openPath);
+  },
+  get isImageOpen() {
+    return isImagePath(openPath);
+  },
   get yamlText() {
     return yamlText;
+  },
+  get dirty() {
+    return dirty;
   },
   get compiled() {
     return compiled;
@@ -149,87 +156,116 @@ export const store = {
   set currentSlide(v: number) {
     currentSlide = v;
   },
+  get files() {
+    return files;
+  },
   get ready() {
-    return ready;
-  },
-  get entry() {
-    return entry;
-  },
-  get projectName() {
-    return projectName;
-  },
-  get projectKind() {
-    return projectKind;
-  },
-  get dirty() {
-    return dirty;
-  },
-  get saving() {
-    return saving;
-  },
-  get canSave() {
-    return sourceResolver !== null && isWritable(sourceResolver);
+    return screen === "editor";
   },
   get slideCount() {
     return compiled ? compiled.deck.slides.length : 0;
   },
-
-  // バンドルされたサンプルを開く (読み取り専用)。
-  async openSample(baseUrl: string) {
-    await loadProject(
-      new FetchAssetResolver(baseUrl),
-      "deck.yaml",
-      "examples/basic",
-      "sample",
-    );
+  get vfs() {
+    return vfs;
   },
 
-  // ローカルフォルダを開く (File System Access API、書き込み可)。
-  async openFolder(): Promise<boolean> {
-    const opened = await openDirectory();
-    if (!opened) return false;
-    await loadProject(opened.resolver, "deck.yaml", opened.name, "folder");
-    return true;
+  // 起動: VFS を開き、空ならようこそ画面、そうでなければプロジェクトを開く。
+  async boot() {
+    vfs = await openVfs();
+    void navigator.storage?.persist?.();
+    const list = await vfs.list();
+    if (list.length === 0) screen = "welcome";
+    else await openProject();
   },
 
-  // アップロードされた ZIP を開く (メモリ上、書き込み可)。
-  async openZipFile(file: File) {
-    const opened = await openZip(file);
-    await loadProject(opened.resolver, opened.entry, opened.name, "zip");
+  async chooseSample(baseUrl: string) {
+    if (!vfs) return;
+    screen = "loading";
+    await installSample(vfs, baseUrl);
+    await openProject();
+  },
+  async chooseEmpty() {
+    if (!vfs) return;
+    screen = "loading";
+    await createEmptyProject(vfs);
+    await openProject();
+  },
+  async chooseImportZip(file: File) {
+    if (!vfs) return;
+    screen = "loading";
+    await vfs.importZip(file);
+    await openProject();
   },
 
-  // 編集中の deck テキストをプロジェクトへ書き戻す。
+  // --- ファイルを開く / 保存 ---
+  async openFile(path: string) {
+    const v = vfs;
+    if (!v) return;
+    if (dirty && isYaml(openPath)) await this.save();
+    openPath = path;
+    selectedIndex = null;
+    yamlText = isYaml(path) ? await v.readText(path) : "";
+    dirty = false;
+  },
+
   async save() {
-    if (!sourceResolver || !isWritable(sourceResolver) || saving) return;
-    saving = true;
-    try {
-      await sourceResolver.writeText(entry, yamlText);
-      dirty = false;
-    } finally {
-      saving = false;
-    }
+    if (!vfs || !dirty || !isYaml(openPath)) return;
+    await vfs.writeText(openPath, yamlText);
+    dirty = false;
   },
 
-  // ZIP プロジェクトを保存して再ダウンロードする。
-  async exportZip() {
-    if (!zipResolver) return;
-    await this.save();
-    const blob = await zipResolver.toBlob();
-    const bytes = new Uint8Array(await blob.arrayBuffer());
-    downloadBytes(bytes, projectName.endsWith(".zip") ? projectName : "deck.zip", "application/zip");
-  },
-
-  // エディタからのテキスト更新。即座に状態反映し、再コンパイルはデバウンス。
   setYaml(text: string) {
     applyYaml(text);
   },
 
-  // --- インスペクタ (AST 書き戻し) ---
+  // --- ZIP ---
+  async exportZip() {
+    if (!vfs) return;
+    const blob = await vfs.exportZip();
+    const { downloadBytes } = await import("../lib/download");
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    downloadBytes(
+      new Uint8Array(await blob.arrayBuffer()),
+      `deck-${ts}.zip`,
+      "application/zip",
+    );
+  },
+  async importZip(file: File, targetDir = "/") {
+    if (!vfs) return;
+    await vfs.importZip(file, targetDir);
+  },
+
+  async resetProject() {
+    if (!vfs) return;
+    await vfs.clear();
+    compiled = null;
+    cachedCtx = null;
+    cachedFonts = null;
+    screen = "welcome";
+  },
+
+  // --- スライド操作 ---
+  goSlide(i: number) {
+    currentSlide = Math.max(0, Math.min(this.slideCount - 1, i));
+    selectedIndex = null;
+  },
+  next() {
+    this.goSlide(currentSlide + 1);
+  },
+  prev() {
+    this.goSlide(currentSlide - 1);
+  },
+  renderSvg(index = currentSlide): string {
+    if (!compiled) return "";
+    return renderSlideSvg(compiled, index) ?? "";
+  },
+
+  // --- インスペクタ (deck.yaml 編集時のみ) ---
   get selectedIndex() {
     return selectedIndex;
   },
-  // 現在スライドのソース要素一覧 (AST ベース、編集対象)。
   get sourceElements(): ElementRef[] {
+    if (openPath !== "/deck.yaml") return [];
     try {
       return listSlideElements(parseDeck(yamlText), currentSlide);
     } catch {
@@ -243,7 +279,6 @@ export const store = {
   selectElement(i: number | null) {
     selectedIndex = i;
   },
-  // 選択要素のフィールド (ネスト可) の現在値を文字列で取得。
   getFieldValue(field: Path): string {
     if (selectedIndex === null) return "";
     try {
@@ -252,18 +287,15 @@ export const store = {
       return "";
     }
   },
-  // 選択要素のフィールドを AST 経由で更新 (コメント・書式を保持)。
   updateField(field: Path, value: string) {
     if (selectedIndex === null) return;
     const doc = parseDeck(yamlText);
     setField(doc, selectedPath(), field, value);
     applyYaml(serialize(doc));
   },
-  // 現在スライドにテンプレート要素を追加し選択する。
   addElement(type: string) {
     const doc = parseDeck(yamlText);
-    const idx = astAddElement(doc, currentSlide, type);
-    selectedIndex = idx;
+    selectedIndex = astAddElement(doc, currentSlide, type);
     applyYaml(serialize(doc));
   },
   deleteSelected() {
@@ -272,22 +304,5 @@ export const store = {
     removeElement(doc, selectedPath());
     selectedIndex = null;
     applyYaml(serialize(doc));
-  },
-
-  goSlide(i: number) {
-    currentSlide = Math.max(0, Math.min(this.slideCount - 1, i));
-    selectedIndex = null;
-  },
-  next() {
-    this.goSlide(currentSlide + 1);
-  },
-  prev() {
-    this.goSlide(currentSlide - 1);
-  },
-
-  // 現在/指定スライドの SVG 文字列。
-  renderSvg(index = currentSlide): string {
-    if (!compiled) return "";
-    return renderSlideSvg(compiled, index) ?? "";
   },
 };
