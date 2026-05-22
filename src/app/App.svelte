@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { store } from "./store.svelte";
-  import { FetchAssetResolver } from "../load/assets";
   import EditorView from "./editor/EditorView.svelte";
   import PresentView from "./present/PresentView.svelte";
 
@@ -14,7 +13,7 @@
 
   onMount(() => {
     const base = `${import.meta.env.BASE_URL}examples/basic/`;
-    void store.init(new FetchAssetResolver(base));
+    void store.openSample(base);
     const onHash = () => (route = currentRoute());
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);

@@ -7,6 +7,15 @@ export interface AssetResolver {
   exists(relativePath: string): Promise<boolean>;
 }
 
+// 書き戻しに対応する resolver (ローカルフォルダ / ZIP)。
+export interface WritableResolver extends AssetResolver {
+  writeText(relativePath: string, text: string): Promise<void>;
+}
+
+export function isWritable(r: AssetResolver): r is WritableResolver {
+  return typeof (r as WritableResolver).writeText === "function";
+}
+
 // "./a/../b/c" のような相対パスを "b/c" に正規化する。先頭の "./" は除去。
 export function normalizePath(p: string): string {
   const parts = p.split("/");

@@ -4,10 +4,38 @@
   import RightPane from "./RightPane.svelte";
   import { store } from "../store.svelte";
   import { downloadBytes } from "../../lib/download";
+  import { supportsFileSystemAccess } from "../../load/fs-access";
 
   let exporting = $state(false);
+  let zipInput: HTMLInputElement;
 
   const errorTitle = $derived(store.errors.map((e) => e.message).join("\n"));
+  const fsa = supportsFileSystemAccess();
+
+  async function openFolder() {
+    try {
+      await store.openFolder();
+    } catch (e) {
+      alert(`フォルダを開けませんでした: ${String(e)}`);
+    }
+  }
+
+  async function onZipPicked(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    try {
+      await store.openZipFile(file);
+    } catch (err) {
+      alert(`ZIP を開けませんでした: ${String(err)}`);
+    }
+  }
+
+  function onKey(e: KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+      e.preventDefault();
+      if (store.canSave) void store.save();
+    }
+  }
 
   async function exportPdf() {
     if (!store.compiled || exporting) return;
@@ -26,10 +54,12 @@
   }
 </script>
 
+<svelte:window on:keydown={onKey} />
+
 <div class="editor">
   <header class="topbar">
     <strong>Slider</strong>
-    <span class="file">{store.entry}</span>
+    <span class="file">{store.projectName}{store.dirty ? " *" : ""}</span>
     {#if store.errors.length > 0}
       <span class="err" title={errorTitle}>⚠ {store.errors.length} エラー</span>
     {:else}
@@ -37,6 +67,26 @@
     {/if}
 
     <span class="spacer"></span>
+
+    {#if fsa}
+      <button onclick={openFolder} title="ローカルフォルダを開く">Open Folder</button>
+    {/if}
+    <button onclick={() => zipInput.click()} title="ZIP を開く">Open ZIP</button>
+    <input
+      bind:this={zipInput}
+      type="file"
+      accept=".zip"
+      hidden
+      onchange={onZipPicked}
+    />
+    {#if store.canSave}
+      <button onclick={() => store.save()} disabled={store.saving || !store.dirty}>
+        {store.saving ? "保存中..." : "Save"}
+      </button>
+    {/if}
+    {#if store.projectKind === "zip"}
+      <button onclick={() => store.exportZip()}>Download ZIP</button>
+    {/if}
 
     <span class="nav">
       <button onclick={() => store.prev()} disabled={store.currentSlide === 0}
