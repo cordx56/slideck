@@ -799,6 +799,31 @@ Phase 1〜5 すべて実装済み。テスト 49 件 (vitest)、`npm run build` 
   `normalize/{schema-merge,defaults-merge,system-vars}.ts`。`overlays.ts` は廃止。
 - 旧 `theme:`/`themes:`/`overlays:` フィールドは廃止 (移行警告なし、個人利用段階のため)。
 
+### 追加リファクタ: 仮想ファイルシステム (PLAN-vfs.md)
+
+ファイル管理を IndexedDB ベースの VFS に統一。FSA/ZIP の二系統 resolver は廃止。
+
+- `src/vfs/`: `idb` バックエンド (files/meta store)、絶対パス正規化、イベントバス、
+  Object URL キャッシュ、`fflate` による ZIP import/export。
+- `VfsResolver` が `AssetResolver` を実装しパイプラインを VFS で駆動。編集中ファイルは
+  `OverrideResolver` で未保存テキストを反映。
+- 起動フロー: 空なら welcome (サンプル/ZIP/空)、既存なら自動オープン。サンプルは
+  `examples/basic/manifest.json` を fetch して投入。
+- ファイルツリー UI (FileTree/TreeNode/ContextMenu/ConfirmDialog/FilePreview):
+  右クリックメニュー、インライン rename、削除確認、D&D (外部アップロード/内部移動、
+  衝突ダイアログ)、キーボード操作、隠しファイルトグル、展開状態の meta 永続化。
+  選択カーソルは open ファイルと別にハイライト (outline)。
+- 参照グラフ (`load/references.ts`): bases[].file / extends / fonts.path / image.src を
+  収集し、壊れた参照を CodeMirror 下線 + ツリー赤ドットで表示。
+- 旧 LeftPane (palette/outline/inspector) は削除し FileTree に置換。非 YAML ファイルは
+  右ペインを FilePreview (画像/フォント/バイナリ) に切替。
+
+実装上の判断 (PLAN-vfs からの差分):
+- **SVG は自己完結 data URI を維持** (§10.2 の getObjectURL 化は UI プレビュー/ツリーの
+  `<img>` にのみ適用)。エクスポート用に SVG 単体で完結させるため、かつ Node テスト維持のため。
+- フォルダ単位の ZIP ダウンロードは未実装 (プロジェクト全体エクスポートのみ)。
+- §11.2 のメモリテスト (10MB 画像) はブラウザ前提のため自動検証外。
+
 ### 既知の残課題（将来）
 
 - `cover` の正確なクリッピング、letterSpacing の描画反映、禁則処理。

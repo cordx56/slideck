@@ -1,9 +1,10 @@
 <script lang="ts">
-  import LeftPane from "./LeftPane.svelte";
+  import FileTree from "./FileTree.svelte";
   import CenterPane from "./CenterPane.svelte";
   import RightPane from "./RightPane.svelte";
   import { store } from "../store.svelte";
   import { downloadBytes } from "../../lib/download";
+  import { handleGlobalShortcut } from "../keyboard/shortcuts";
 
   let exporting = $state(false);
   let zipInput: HTMLInputElement;
@@ -22,10 +23,11 @@
   }
 
   function onKey(e: KeyboardEvent) {
-    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-      e.preventDefault();
-      void store.save();
-    }
+    handleGlobalShortcut(e, {
+      save: () => void store.save(),
+      present,
+      exportPdf: () => void exportPdf(),
+    });
   }
 
   async function exportPdf() {
@@ -88,7 +90,7 @@
     </button>
   </header>
 
-  <LeftPane />
+  <FileTree />
   <CenterPane />
   <RightPane />
 </div>

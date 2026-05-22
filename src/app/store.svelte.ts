@@ -2,8 +2,9 @@ import type { AssetResolver } from "../load/assets";
 import { OverrideResolver } from "../load/assets";
 import { VfsResolver } from "../load/vfs-resolver";
 import { openVfs, type VFS, type FileEntry } from "../vfs";
-import { extname } from "../vfs/path";
+import { extname, dirname, basename, join, normalize, isDescendant } from "../vfs/path";
 import { installSample, createEmptyProject } from "./sample";
+import { uniqueName, type UploadEntry } from "./editor/file-ops";
 import {
   compileDeck,
   recompileDeck,
@@ -16,17 +17,6 @@ import { debounce } from "../lib/debounce";
 import { registerFonts } from "../lib/fonts-register";
 import { isImagePath } from "../lib/mime";
 import { collectBrokenReferences, type Reference } from "../load/references";
-import {
-  parseDeck,
-  serialize,
-  listSlideElements,
-  getField,
-  setField,
-  addElement as astAddElement,
-  removeElement,
-  type ElementRef,
-  type Path,
-} from "../edit/ast";
 
 const ENTRY = "deck.yaml"; // VFS では /deck.yaml
 export type Screen = "loading" | "welcome" | "editor";
@@ -41,7 +31,8 @@ let errors = $state.raw<PipelineError[]>([]);
 let currentSlide = $state(0);
 let files = $state.raw<FileEntry[]>([]);
 let brokenRefs = $state.raw<Reference[]>([]);
-let selectedIndex = $state<number | null>(null);
+let expanded = $state.raw<Set<string>>(new Set());
+let showHidden = $state(false);
 
 // --- 非リアクティブ ---
 let vfs: VFS | null = null;
@@ -128,6 +119,8 @@ async function openProject() {
     scheduleRefs();
   });
   await refreshFiles();
+  expanded = new Set((await vfs.getMeta<string[]>("treeExpanded")) ?? []);
+  showHidden = (await vfs.getMeta<boolean>("showHidden")) ?? false;
   openPath = "/deck.yaml";
   yamlText = (await vfs.exists("/deck.yaml")) ? await vfs.readText("/deck.yaml") : "";
   dirty = false;
@@ -138,8 +131,6 @@ async function openProject() {
   await recomputeRefs();
   screen = "editor";
 }
-
-const selectedPath = (): Path => ["slides", currentSlide, "elements", selectedIndex ?? 0];
 
 export const store = {
   get screen() {
@@ -227,7 +218,6 @@ export const store = {
     if (!v) return;
     if (dirty && isYaml(openPath)) await this.save();
     openPath = path;
-    selectedIndex = null;
     yamlText = isYaml(path) ? await v.readText(path) : "";
     dirty = false;
   },
@@ -268,10 +258,110 @@ export const store = {
     screen = "welcome";
   },
 
+  // --- ツリー状態 ---
+  get expanded() {
+    return expanded;
+  },
+  get showHidden() {
+    return showHidden;
+  },
+  isExpanded(path: string): boolean {
+    return expanded.has(path);
+  },
+  toggleExpanded(path: string) {
+    const s = new Set(expanded);
+    if (s.has(path)) s.delete(path);
+    else s.add(path);
+    expanded = s;
+    void vfs?.setMeta("treeExpanded", [...s]);
+  },
+  setExpanded(path: string, on: boolean) {
+    const s = new Set(expanded);
+    if (on) s.add(path);
+    else s.delete(path);
+    expanded = s;
+    void vfs?.setMeta("treeExpanded", [...s]);
+  },
+  toggleHidden() {
+    showHidden = !showHidden;
+    void vfs?.setMeta("showHidden", showHidden);
+  },
+
+  // --- ファイル操作 ---
+  async createFile(dir: string, name: string) {
+    const v = vfs;
+    if (!v) return;
+    const p = normalize(join(dir, name));
+    await v.writeText(p, "");
+    this.setExpanded(dir, true);
+    await this.openFile(p);
+  },
+  async createFolder(dir: string, name: string) {
+    if (!vfs) return;
+    await vfs.createFolder(normalize(join(dir, name)));
+    this.setExpanded(dir, true);
+  },
+  async renamePath(path: string, newName: string) {
+    if (!vfs || basename(path) === newName) return;
+    const to = normalize(join(dirname(path), newName));
+    await vfs.move(path, to);
+    await this.followMove(path, to);
+  },
+  async moveNode(from: string, toDir: string) {
+    const v = vfs;
+    if (!v) return;
+    const to = normalize(join(toDir, basename(from)));
+    if (from === to || to.startsWith(from + "/")) return;
+    await v.move(from, to);
+    await this.followMove(from, to);
+  },
+  // 移動後、開いているファイルのパスを追従させる。
+  async followMove(from: string, to: string) {
+    if (openPath === from) await this.openFile(to);
+    else if (isDescendant(openPath, from)) {
+      await this.openFile(to + openPath.slice(from.length));
+    }
+  },
+  async deletePath(path: string) {
+    if (!vfs) return;
+    const affectsOpen = openPath === path || isDescendant(openPath, path);
+    await vfs.delete(path);
+    if (affectsOpen) {
+      if (await vfs.exists("/deck.yaml")) await this.openFile("/deck.yaml");
+      else {
+        openPath = "/";
+        yamlText = "";
+        dirty = false;
+      }
+    }
+  },
+  async duplicatePath(path: string) {
+    if (!vfs) return;
+    const dir = dirname(path);
+    const name = await uniqueName(vfs, dir, basename(path));
+    await vfs.copy(path, normalize(join(dir, name)));
+  },
+  async downloadFile(path: string) {
+    if (!vfs) return;
+    const bytes = await vfs.readBytes(path);
+    const { downloadBytes } = await import("../lib/download");
+    const { mimeFromPath } = await import("../lib/mime");
+    downloadBytes(bytes, basename(path), mimeFromPath(path));
+  },
+  // OS からのアップロード。overwrite=false なら衝突分はスキップ。
+  async uploadEntries(targetDir: string, entries: UploadEntry[], overwrite: boolean) {
+    if (!vfs) return;
+    for (const e of entries) {
+      const p = normalize(join(targetDir, e.path));
+      if (!overwrite && (await vfs.exists(p))) continue;
+      await vfs.writeBlob(p, new Blob([e.data as BlobPart]));
+    }
+    this.setExpanded(targetDir, true);
+  },
+
   // --- スライド操作 ---
   goSlide(i: number) {
     currentSlide = Math.max(0, Math.min(this.slideCount - 1, i));
-    selectedIndex = null;
   },
   next() {
     this.goSlide(currentSlide + 1);
@@ -282,51 +372,5 @@ export const store = {
   renderSvg(index = currentSlide): string {
     if (!compiled) return "";
     return renderSlideSvg(compiled, index) ?? "";
-  },
-
-  // --- インスペクタ (deck.yaml 編集時のみ) ---
-  get selectedIndex() {
-    return selectedIndex;
-  },
-  get sourceElements(): ElementRef[] {
-    if (openPath !== "/deck.yaml") return [];
-    try {
-      return listSlideElements(parseDeck(yamlText), currentSlide);
-    } catch {
-      return [];
-    }
-  },
-  get selectedRef(): ElementRef | null {
-    if (selectedIndex === null) return null;
-    return this.sourceElements[selectedIndex] ?? null;
-  },
-  selectElement(i: number | null) {
-    selectedIndex = i;
-  },
-  getFieldValue(field: Path): string {
-    if (selectedIndex === null) return "";
-    try {
-      return getField(parseDeck(yamlText), selectedPath(), field);
-    } catch {
-      return "";
-    }
-  },
-  updateField(field: Path, value: string) {
-    if (selectedIndex === null) return;
-    const doc = parseDeck(yamlText);
-    setField(doc, selectedPath(), field, value);
-    applyYaml(serialize(doc));
-  },
-  addElement(type: string) {
-    const doc = parseDeck(yamlText);
-    selectedIndex = astAddElement(doc, currentSlide, type);
-    applyYaml(serialize(doc));
-  },
-  deleteSelected() {
-    if (selectedIndex === null) return;
-    const doc = parseDeck(yamlText);
-    removeElement(doc, selectedPath());
-    selectedIndex = null;
-    applyYaml(serialize(doc));
   },
 };
