@@ -1,0 +1,70 @@
+theme: ./theme.yaml
+themes:
+  - ./theme-section.yaml
+
+overlays:
+  - ./overlays/footer.yaml
+
+vars:
+  accent: "#7aa2f7"
+
+slides:
+  - id: intro
+    use: standard
+    vars:
+      title: "YAML スライドの世界"
+      subtitle: "宣言的記述で SVG と PDF を同時に"
+    elements:
+      - type: image
+        src: ./img/cover.png
+        position: { right: 6%, bottom: 9%, width: 18% }
+
+  - id: agenda
+    use: standard
+    vars:
+      title: "目次"
+    elements:
+      - type: group
+        position: { left: 12%, right: 12%, top: 40%, bottom: 14% }
+        layout: column
+        gap: 3%
+        align: stretch
+        children:
+          - { type: text, text: "1. 背景と動機", size: 56 }
+          - { type: text, text: "2. 三層 IR アーキテクチャ", size: 56 }
+          - { type: text, text: "3. レンダラの一貫性", size: 56 }
+          - { type: text, text: "4. これからの拡張", size: 56 }
+
+  - id: section-1
+    use: section
+    vars:
+      title: "背景と動機"
+
+  - id: feature
+    use: standard
+    vars:
+      title: "配置システム"
+      subtitle: "CSS absolute と同じセマンティクス"
+    elements:
+      - type: group
+        position: { left: 10%, right: 10%, top: 42%, height: 40% }
+        layout: row
+        gap: 3%
+        align: stretch
+        children:
+          - type: rect
+            flex: 1
+            fill: panel
+            stroke: accent
+            strokeWidth: 2
+            rx: 16
+          - type: rect
+            flex: 2
+            fill: panel
+            stroke: muted
+            strokeWidth: 2
+            rx: 16
+          - type: rect
+            flex: 1
+            fill: accent
+            rx: 16

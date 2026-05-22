@@ -1,0 +1,14 @@
+# 全スライド共通のフッタ。
+elements:
+  - type: line
+    from: { x: 4%, y: 94% }
+    to: { x: 96%, y: 94% }
+    stroke: muted
+    strokeWidth: 2
+
+  - type: text
+    position: { left: 4%, top: 95%, width: 50% }
+    font: body
+    size: 24
+    color: muted
+    text: "Slider — YAML Slides"
