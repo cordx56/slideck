@@ -15,26 +15,68 @@ import {
 } from "@codemirror/commands";
 import { yaml } from "@codemirror/lang-yaml";
 import { linter, lintGutter, type Diagnostic } from "@codemirror/lint";
-import { DeckSchema } from "../../schema";
+import { DeckSchema, BaseSchema } from "../../schema";
 import { parseAndValidate } from "../../load/parse";
+import { collectFileReferences } from "../../load/references";
+import { extname } from "../../vfs/path";
+import type { VFS } from "../../vfs";
 
-// deck.yaml を YAML 構文 + DeckSchema で検証し、CodeMirror 診断に変換する。
-// 変数型や未知テーマ等の意味エラーは別途ストア側に出る (テーマ文脈が必要なため)。
-const deckLinter = linter((view): Diagnostic[] => {
-  const text = view.state.doc.toString();
-  const len = text.length;
-  const { errors } = parseAndValidate(text, DeckSchema, "deck.yaml");
-  const diags: Diagnostic[] = [];
-  for (const e of errors) {
-    const off = e.pos?.offset;
-    if (!off) continue;
-    let from = Math.max(0, Math.min(off[0], len));
-    let to = Math.max(from, Math.min(off[1], len));
-    if (to <= from) to = Math.min(len, from + 1);
-    diags.push({ from, to, severity: "error", message: e.message });
-  }
-  return diags;
-});
+// 開いているファイルの種別 (deck.yaml / base / 非 YAML) を判定するコンテキスト。
+export interface EditorContext {
+  vfs: VFS | null;
+  openPath: string;
+}
+
+function isYamlPath(path: string): boolean {
+  const e = extname(path);
+  return e === ".yaml" || e === ".yml";
+}
+
+// 開いているファイルに応じたスキーマ検証 (deck.yaml -> DeckSchema, それ以外の
+// YAML -> BaseSchema)。構文/型エラーを CodeMirror 診断にする。
+function schemaLinter(ctx: () => EditorContext) {
+  return linter((view): Diagnostic[] => {
+    const { openPath } = ctx();
+    if (!isYamlPath(openPath)) return [];
+    const text = view.state.doc.toString();
+    const len = text.length;
+    const { errors } =
+      openPath === "/deck.yaml"
+        ? parseAndValidate(text, DeckSchema, openPath)
+        : parseAndValidate(text, BaseSchema, openPath);
+    const diags: Diagnostic[] = [];
+    for (const e of errors) {
+      const off = e.pos?.offset;
+      if (!off) continue;
+      const from = Math.max(0, Math.min(off[0], len));
+      let to = Math.max(from, Math.min(off[1], len));
+      if (to <= from) to = Math.min(len, from + 1);
+      diags.push({ from, to, severity: "error", message: e.message });
+    }
+    return diags;
+  });
+}
+
+// パス参照が VFS 上に存在しない場合に該当範囲へ警告を出す (§7)。
+function brokenRefLinter(ctx: () => EditorContext) {
+  return linter(async (view): Promise<Diagnostic[]> => {
+    const { vfs, openPath } = ctx();
+    if (!vfs || !isYamlPath(openPath)) return [];
+    const refs = collectFileReferences(openPath, view.state.doc.toString());
+    const diags: Diagnostic[] = [];
+    for (const r of refs) {
+      if (!(await vfs.exists(r.toPath))) {
+        diags.push({
+          from: r.range[0],
+          to: r.range[1],
+          severity: "warning",
+          message: `参照先が見つかりません: ${r.toPath}`,
+        });
+      }
+    }
+    return diags;
+  });
+}
 
 const darkTheme = EditorView.theme(
   {
@@ -65,6 +107,7 @@ export function createEditor(opts: {
   parent: HTMLElement;
   doc: string;
   onChange: (text: string) => void;
+  ctx: () => EditorContext;
 }): EditorHandle {
   const state = EditorState.create({
     doc: opts.doc,
@@ -76,7 +119,8 @@ export function createEditor(opts: {
       history(),
       yaml(),
       lintGutter(),
-      deckLinter,
+      schemaLinter(opts.ctx),
+      brokenRefLinter(opts.ctx),
       keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
       darkTheme,
       EditorView.lineWrapping,

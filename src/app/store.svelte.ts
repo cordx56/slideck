@@ -15,6 +15,7 @@ import type { PipelineError } from "../lib/error";
 import { debounce } from "../lib/debounce";
 import { registerFonts } from "../lib/fonts-register";
 import { isImagePath } from "../lib/mime";
+import { collectBrokenReferences, type Reference } from "../load/references";
 import {
   parseDeck,
   serialize,
@@ -39,6 +40,7 @@ let compiled = $state.raw<CompiledDeck | null>(null);
 let errors = $state.raw<PipelineError[]>([]);
 let currentSlide = $state(0);
 let files = $state.raw<FileEntry[]>([]);
+let brokenRefs = $state.raw<Reference[]>([]);
 let selectedIndex = $state<number | null>(null);
 
 // --- 非リアクティブ ---
@@ -92,8 +94,19 @@ async function liveRecompile() {
   }
 }
 
+async function recomputeRefs() {
+  if (vfs) {
+    brokenRefs = await collectBrokenReferences(
+      vfs,
+      openPath,
+      dirty ? yamlText : undefined,
+    );
+  }
+}
+
 const scheduleLive = debounce(() => void liveRecompile(), 200);
 const scheduleFull = debounce(() => void fullCompile(), 200);
+const scheduleRefs = debounce(() => void recomputeRefs(), 200);
 
 async function refreshFiles() {
   if (vfs) files = await vfs.list();
@@ -103,6 +116,7 @@ function applyYaml(text: string) {
   yamlText = text;
   dirty = true;
   scheduleLive();
+  scheduleRefs();
 }
 
 async function openProject() {
@@ -111,6 +125,7 @@ async function openProject() {
   unsubscribe = vfs.subscribe(() => {
     void refreshFiles();
     scheduleFull();
+    scheduleRefs();
   });
   await refreshFiles();
   openPath = "/deck.yaml";
@@ -120,6 +135,7 @@ async function openProject() {
   cachedFonts = null;
   currentSlide = 0;
   await fullCompile();
+  await recomputeRefs();
   screen = "editor";
 }
 
@@ -159,6 +175,13 @@ export const store = {
   get files() {
     return files;
   },
+  get brokenRefs() {
+    return brokenRefs;
+  },
+  // 壊れた参照を持つ YAML ファイルパスの集合 (ツリーの赤ドット用)。
+  get filesWithBrokenRefs(): Set<string> {
+    return new Set(brokenRefs.map((r) => r.fromFile));
+  },
   get ready() {
     return screen === "editor";
   },
@@ -171,9 +194,10 @@ export const store = {
 
   // 起動: VFS を開き、空ならようこそ画面、そうでなければプロジェクトを開く。
   async boot() {
-    vfs = await openVfs();
+    const v = await openVfs();
+    vfs = v;
     void navigator.storage?.persist?.();
-    const list = await vfs.list();
+    const list = await v.list();
     if (list.length === 0) screen = "welcome";
     else await openProject();
   },

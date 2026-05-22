@@ -15,6 +15,7 @@
       onChange: (t) => {
         if (!applying) store.setYaml(t);
       },
+      ctx: () => ({ vfs: store.vfs, openPath: store.openPath }),
     });
   });
   onDestroy(() => handle?.destroy());
