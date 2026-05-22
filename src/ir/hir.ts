@@ -129,7 +129,7 @@ export interface ThemeHir {
 // デッキ -----------------------------------------------------------------
 
 export interface SlideHir {
-  id: string;
+  id?: string;
   use?: string;
   vars?: Record<string, unknown>;
   background?: string;

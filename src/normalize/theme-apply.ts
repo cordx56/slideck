@@ -14,7 +14,7 @@ export function pickTheme(
   if (theme) return theme;
   errors.push(
     new PipelineError(
-      `スライド "${slide.id}" が未知のテーマ "${name}" を参照しています`,
+      `スライド "${slide.id ?? "(id 未指定)"}" が未知のテーマ "${name}" を参照しています`,
     ),
   );
   // フォールバック: メインテーマ

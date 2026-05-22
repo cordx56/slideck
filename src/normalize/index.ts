@@ -39,7 +39,7 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
   const mainTheme = loaded.themes.get(loaded.defaultThemeName);
   const slideSize = mainTheme?.slide ?? DEFAULT_SLIDE;
 
-  const slides: MirSlide[] = loaded.deck.slides.map((slide) => {
+  const slides: MirSlide[] = loaded.deck.slides.map((slide, i) => {
     const theme = pickTheme(loaded, slide, errors);
     const fontKeyToFamily = fontKeyMap(theme);
     const palette = theme.colors ?? {};
@@ -62,7 +62,9 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
       ? resolveColorLenient(expandString(bgRaw, vars, errors), palette)
       : undefined;
 
-    return { id: slide.id, background, elements };
+    // id は任意。未指定時はインデックス由来の id を割り当てる
+    // (重複の検証は DeckSchema で済んでいる)。
+    return { id: slide.id ?? `slide-${i + 1}`, background, elements };
   });
 
   return {
