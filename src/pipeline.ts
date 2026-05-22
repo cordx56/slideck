@@ -44,6 +44,24 @@ export async function compileDeck(
   return { compiled: { deck: normalized.deck, ctx, fonts }, errors };
 }
 
+export interface RecompileResult {
+  deck?: MirDeck;
+  errors: PipelineError[];
+}
+
+// deck テキスト編集時用の軽量再コンパイル。prepare (フォント/画像ロード) を
+// 行わず parse + normalize のみ。呼び出し側が既存の ctx/fonts を再利用する。
+export async function recompileDeck(
+  resolver: AssetResolver,
+  entry = "deck.yaml",
+): Promise<RecompileResult> {
+  const loaded = await loadDeck(resolver, entry);
+  if (!loaded.loaded) return { errors: loaded.errors };
+  const normalized = normalize(loaded.loaded);
+  if (!normalized.deck) return { errors: normalized.errors };
+  return { deck: normalized.deck, errors: normalized.errors };
+}
+
 // 指定スライドを LIR に下ろす。
 export function lowerSlide(compiled: CompiledDeck, index: number): SlideLir | undefined {
   const slide = compiled.deck.slides[index];

@@ -63,6 +63,75 @@ export class FetchAssetResolver implements AssetResolver {
   }
 }
 
+// 別 resolver をラップし、readText/readBytes をパス単位でメモ化する。
+// エディタのライブ再コンパイルでフォント/画像の再取得を避ける。
+export class CachingResolver implements AssetResolver {
+  private textCache = new Map<string, Promise<string>>();
+  private bytesCache = new Map<string, Promise<Uint8Array>>();
+
+  constructor(private readonly base: AssetResolver) {}
+
+  readText(relativePath: string): Promise<string> {
+    const key = normalizePath(relativePath);
+    let p = this.textCache.get(key);
+    if (!p) {
+      p = this.base.readText(relativePath);
+      this.textCache.set(key, p);
+    }
+    return p;
+  }
+
+  readBytes(relativePath: string): Promise<Uint8Array> {
+    const key = normalizePath(relativePath);
+    let p = this.bytesCache.get(key);
+    if (!p) {
+      p = this.base.readBytes(relativePath);
+      this.bytesCache.set(key, p);
+    }
+    return p;
+  }
+
+  exists(relativePath: string): Promise<boolean> {
+    return this.base.exists(relativePath);
+  }
+
+  invalidate(relativePath?: string): void {
+    if (relativePath === undefined) {
+      this.textCache.clear();
+      this.bytesCache.clear();
+      return;
+    }
+    const key = normalizePath(relativePath);
+    this.textCache.delete(key);
+    this.bytesCache.delete(key);
+  }
+}
+
+// 指定パスのテキストをメモリ上の値で差し替え、他は base に委譲する。
+// エディタが編集中の deck.yaml をディスクに書かずに反映するために使う。
+export class OverrideResolver implements AssetResolver {
+  constructor(
+    private readonly base: AssetResolver,
+    private readonly overrides: Map<string, string>,
+  ) {}
+
+  async readText(relativePath: string): Promise<string> {
+    const key = normalizePath(relativePath);
+    const override = this.overrides.get(key);
+    if (override !== undefined) return override;
+    return this.base.readText(relativePath);
+  }
+
+  readBytes(relativePath: string): Promise<Uint8Array> {
+    return this.base.readBytes(relativePath);
+  }
+
+  exists(relativePath: string): Promise<boolean> {
+    if (this.overrides.has(normalizePath(relativePath))) return Promise.resolve(true);
+    return this.base.exists(relativePath);
+  }
+}
+
 // メモリ上のファイルマップを使う resolver。テストや ZIP 展開後に使う。
 export class MemoryAssetResolver implements AssetResolver {
   constructor(private readonly files: Map<string, Uint8Array>) {}
