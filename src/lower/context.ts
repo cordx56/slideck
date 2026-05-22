@@ -14,3 +14,11 @@ export interface LowerCtx {
   metrics: FontMetrics;
   images: Map<string, LoadedImage>;
 }
+
+// PDF 埋め込み・SVG プレビュー登録に使う、ロード済みフォントバイト列。
+export interface LoadedFont {
+  family: string;
+  bytes: Uint8Array;
+  weight?: number;
+  style?: "normal" | "italic";
+}

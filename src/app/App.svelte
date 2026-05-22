@@ -6,6 +6,8 @@
     renderSlideSvg,
     type CompiledDeck,
   } from "../pipeline";
+  import { downloadBytes } from "../lib/download";
+  import { registerFonts } from "../lib/fonts-register";
   import type { PipelineError } from "../lib/error";
 
   // Phase 1: サンプルを読み込み SVG プレビューする最小ビューア。
@@ -14,6 +16,7 @@
   let errors = $state<PipelineError[]>([]);
   let current = $state(0);
   let loading = $state(true);
+  let exporting = $state(false);
 
   const slideCount = $derived(compiled ? compiled.deck.slides.length : 0);
   const svg = $derived(
@@ -30,12 +33,27 @@
     else if (e.key === "ArrowLeft") go(-1);
   }
 
+  async function exportPdf() {
+    if (!compiled || exporting) return;
+    exporting = true;
+    try {
+      // pdf-lib は重いので必要時に動的ロードして初期バンドルから外す。
+      const { renderPdf } = await import("../render/pdf");
+      const { bytes, errors: pdfErrors } = await renderPdf(compiled);
+      downloadBytes(bytes, "slides.pdf", "application/pdf");
+      if (pdfErrors.length > 0) errors = pdfErrors;
+    } finally {
+      exporting = false;
+    }
+  }
+
   onMount(async () => {
     const base = `${import.meta.env.BASE_URL}examples/basic/`;
     const result = await compileDeck(new FetchAssetResolver(base));
     compiled = result.compiled ?? null;
     errors = result.errors;
     loading = false;
+    if (compiled) await registerFonts(compiled.fonts);
   });
 </script>
 
@@ -52,6 +70,9 @@
         <button onclick={() => go(1)} disabled={current >= slideCount - 1}
           >→</button
         >
+        <button onclick={exportPdf} disabled={exporting}>
+          {exporting ? "出力中..." : "Export PDF"}
+        </button>
       </span>
     {/if}
   </header>

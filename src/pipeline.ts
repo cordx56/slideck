@@ -3,18 +3,19 @@
 import type { AssetResolver } from "./load/assets";
 import type { MirDeck } from "./ir/mir";
 import type { SlideLir } from "./ir/lir";
-import type { LowerCtx } from "./lower/context";
+import type { LowerCtx, LoadedFont } from "./lower/context";
 import { loadDeck } from "./load/resolve-refs";
 import { normalize } from "./normalize";
 import { prepare } from "./load/prepare";
 import { lower } from "./lower";
-import { ApproximateMetrics, type FontMetrics } from "./lower/metrics";
 import { renderSvgString, type SvgRenderOptions } from "./render/svg";
 import { PipelineError } from "./lib/error";
 
 export interface CompiledDeck {
   deck: MirDeck;
   ctx: LowerCtx;
+  // family -> ロード済みフォント (PDF 埋め込み / プレビュー登録用)
+  fonts: Map<string, LoadedFont>;
 }
 
 export interface CompileResult {
@@ -24,7 +25,6 @@ export interface CompileResult {
 
 export interface CompileOptions {
   entry?: string;
-  metrics?: FontMetrics;
 }
 
 // プロジェクトを読み込み、MIR + lower 用リソースまで構築する。
@@ -39,10 +39,9 @@ export async function compileDeck(
   if (!normalized.deck) return { errors: normalized.errors };
 
   const errors = [...normalized.errors];
-  const metrics = options.metrics ?? new ApproximateMetrics();
-  const ctx = await prepare(normalized.deck, resolver, metrics, errors);
+  const { ctx, fonts } = await prepare(normalized.deck, resolver, errors);
 
-  return { compiled: { deck: normalized.deck, ctx }, errors };
+  return { compiled: { deck: normalized.deck, ctx, fonts }, errors };
 }
 
 // 指定スライドを LIR に下ろす。

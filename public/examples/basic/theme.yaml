@@ -1,8 +1,8 @@
 name: standard
 
 fonts:
-  heading: { path: ./fonts/NotoSansJP-Bold.ttf, family: "Noto Sans JP" }
-  body: { path: ./fonts/NotoSansJP-Regular.ttf, family: "Noto Sans JP" }
+  heading: { path: ./fonts/IPAexMincho.ttf, family: "IPAexMincho" }
+  body: { path: ./fonts/IPAexGothic.ttf, family: "IPAexGothic" }
 
 colors:
   bg: "#0e0e10"

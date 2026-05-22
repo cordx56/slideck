@@ -1,7 +1,9 @@
 import type { MirDeck, MirElement } from "../ir/mir";
 import type { AssetResolver } from "./assets";
 import type { FontMetrics } from "../lower/metrics";
-import type { LoadedImage, LowerCtx } from "../lower/context";
+import { ApproximateMetrics } from "../lower/metrics";
+import { FontkitMetrics, createFkFont } from "../lower/fontkit-metrics";
+import type { LoadedImage, LoadedFont, LowerCtx } from "../lower/context";
 import { PipelineError } from "../lib/error";
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -19,6 +21,12 @@ export function mimeFromPath(path: string): string {
   return MIME_BY_EXT[ext] ?? "application/octet-stream";
 }
 
+// lower 用リソース一式。fonts は PDF 埋め込み/プレビュー登録にも使う。
+export interface PreparedAssets {
+  ctx: LowerCtx;
+  fonts: Map<string, LoadedFont>;
+}
+
 // 全スライドの要素ツリーを走査して image の src を集める。
 function collectImageSrcs(deck: MirDeck): Set<string> {
   const srcs = new Set<string>();
@@ -32,7 +40,7 @@ function collectImageSrcs(deck: MirDeck): Set<string> {
   return srcs;
 }
 
-// 画像 Blob から自然サイズを得る (ブラウザ)。
+// 画像 Blob から自然サイズを得る (ブラウザ)。Node では 0 を返す。
 async function decodeSize(
   data: Uint8Array,
   mime: string,
@@ -47,13 +55,48 @@ async function decodeSize(
   return size;
 }
 
-// lower に渡すリソース (画像バイト + メトリクス) を非同期に揃える。
+async function loadFonts(
+  deck: MirDeck,
+  resolver: AssetResolver,
+  errors: PipelineError[],
+): Promise<Map<string, LoadedFont>> {
+  const fonts = new Map<string, LoadedFont>();
+  for (const [family, decl] of deck.fonts) {
+    if (!decl.path) continue;
+    try {
+      const bytes = await resolver.readBytes(decl.path);
+      fonts.set(family, {
+        family,
+        bytes,
+        weight: decl.weight,
+        style: decl.style,
+      });
+    } catch (e) {
+      errors.push(new PipelineError(`フォント読込失敗: ${decl.path} (${String(e)})`));
+    }
+  }
+  return fonts;
+}
+
+function buildMetrics(fonts: Map<string, LoadedFont>): FontMetrics {
+  if (fonts.size === 0) return new ApproximateMetrics();
+  const fk = new Map();
+  for (const [family, lf] of fonts) {
+    const font = createFkFont(lf.bytes);
+    if (font) fk.set(family, font);
+  }
+  return fk.size > 0 ? new FontkitMetrics(fk) : new ApproximateMetrics();
+}
+
+// lower に渡すリソース (画像・フォント・メトリクス) を非同期に揃える。
 export async function prepare(
   deck: MirDeck,
   resolver: AssetResolver,
-  metrics: FontMetrics,
   errors: PipelineError[] = [],
-): Promise<LowerCtx> {
+): Promise<PreparedAssets> {
+  const fonts = await loadFonts(deck, resolver, errors);
+  const metrics = buildMetrics(fonts);
+
   const images = new Map<string, LoadedImage>();
   for (const src of collectImageSrcs(deck)) {
     try {
@@ -65,5 +108,6 @@ export async function prepare(
       errors.push(new PipelineError(`画像読込失敗: ${src} (${String(e)})`));
     }
   }
-  return { metrics, images };
+
+  return { ctx: { metrics, images }, fonts };
 }
