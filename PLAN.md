@@ -754,3 +754,38 @@ npm run build       # → dist/
 3. `src/ir/`, `src/schema/` を最初に書く（型ファースト）
 4. **Phase 1 から順に実装**。各フェーズで動くものを残す。
 5. Phase 1 完了後にこのドキュメントを再読し、Phase 2 へ進む前に仕様の齟齬を点検する。
+
+---
+
+## 15. 実装ステータス（2026-05-22 時点）
+
+Phase 1〜5 すべて実装済み。テスト 49 件 (vitest)、`npm run build` / `npm run check` 通過。
+
+### 当初計画からの差分（実装上の判断）
+
+- **フォント**: サンプルは NotoSansJP の代わりに **IPAex Gothic/Mincho** (TrueType
+  glyf) を使用。NotoSansCJK は `.ttc` かつ CFF で、PLAN 10章の指摘どおり pdf-lib の
+  サブセット化に難があるため。IPAex は単一 TTF (glyf) でサブセット化が安定する。
+  - サブセット化は実際に効いている (4-5 スライドで PDF 約 30KB)。ただし pdf-lib は
+    標準のサブセット接頭辞を付けないため `pdffonts` の `sub` 列は `no` 表示になる。
+  - `uni=yes` (ToUnicode あり) なので **PDF テキスト選択/抽出が可能** (Phase 5 項目4)。
+- **フォント計測**: `lower/fontkit-metrics.ts` を追加。SVG と PDF が同じ `FontMetrics`
+  を使うことで折り返しを一致させる (実フォント未ロード時は近似メトリクスに自動降格)。
+  プレビューは FontFace API で実フォントを登録し見た目も一致させる。
+- **追加モジュール** (当初構造になし):
+  - `src/pipeline.ts`: parse→normalize→prepare→lower→render の全体束ね。
+  - `src/load/prepare.ts`: 画像/フォントの非同期ロードと ctx 構築 (lower を同期純粋に保つ)。
+  - `src/edit/ast.ts`: インスペクタ書き戻し用の YAML AST 編集 (コメント保持)。
+  - `src/load/{fs-access,zip}.ts`: File System Access / ZIP の WritableResolver。
+- **エディタのライブ編集**: フォント/画像は初回 prepare 結果をキャッシュし、編集時は
+  `recompileDeck` (parse+normalize のみ) で高速反映 (`CachingResolver`/`OverrideResolver`)。
+- **インスペクタ書き戻し**: deck.yaml の `slides[i].elements` (ソース要素) を対象に実装。
+  テーマ layout/overlay 由来の要素は読み取り専用 (deck.yaml に実体が無いため)。
+- **画像 fit**: `contain`/`fill` を実装。`cover` はクリップ未対応のため当面 `fill` 相当。
+- **px 単位**: position の `px`/数値は実装済み (% と同等に解決)。
+
+### 既知の残課題（将来）
+
+- `cover` の正確なクリッピング、letterSpacing の描画反映、禁則処理。
+- インスペクタからのテーマ/overlay 編集、グループ children の D&D 並べ替え。
+- 大規模デッキでのサムネイル再レンダリングのキャッシュ。

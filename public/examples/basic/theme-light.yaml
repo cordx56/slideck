@@ -1,0 +1,11 @@
+# standard を継承し、配色だけ明るくしたプリセット。
+# layout/fonts/defaults は継承されるため、色の上書きだけで成立する。
+name: light
+extends: ./theme.yaml
+
+colors:
+  bg: "#f7f7fb"
+  fg: "#1a1b26"
+  accent: "#5a4cf0"
+  muted: "#6a6f87"
+  panel: "#ffffff"

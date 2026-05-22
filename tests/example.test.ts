@@ -37,7 +37,7 @@ describe("examples/basic", () => {
     expect(compiled).toBeTruthy();
 
     const slides = compiled!.deck.slides;
-    expect(slides).toHaveLength(4);
+    expect(slides).toHaveLength(5);
 
     const svgs = slides.map((_, i) => renderSlideSvg(compiled!, i)!);
     for (const svg of svgs) expect(svg.startsWith("<svg")).toBe(true);
@@ -45,10 +45,13 @@ describe("examples/basic", () => {
     // intro: タイトル + サブタイトル + 画像 + フッタ
     expect(svgs[0]).toContain("YAML スライドの世界");
     expect(svgs[0]).toContain("<image");
-    expect(svgs[0]).toContain("Slider — YAML Slides"); // overlay
+    // overlay は全スライドに適用される
+    for (const svg of svgs) expect(svg).toContain("Slider — YAML Slides");
     // section テーマ (extends) のスライド
     expect(svgs[2]).toContain("背景と動機");
+    // closing: light プリセット (extends で配色のみ上書き) の明るい背景
+    expect(svgs[3]).toContain('fill="#f7f7fb"');
     // feature: row レイアウトの矩形が 3 つ + フッタ line
-    expect((svgs[3].match(/<rect/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    expect((svgs[4].match(/<rect/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });
 });

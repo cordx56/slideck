@@ -1,6 +1,7 @@
 theme: ./theme.yaml
 themes:
   - ./theme-section.yaml
+  - ./theme-light.yaml
 
 overlays:
   - ./overlays/footer.yaml
@@ -39,6 +40,12 @@ slides:
     use: section
     vars:
       title: "背景と動機"
+
+  - id: closing
+    use: light
+    vars:
+      title: "ありがとうございました"
+      subtitle: "light テーマプリセットの例"
 
   - id: feature
     use: standard

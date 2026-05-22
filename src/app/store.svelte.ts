@@ -19,6 +19,17 @@ import type { PipelineError } from "../lib/error";
 import { debounce } from "../lib/debounce";
 import { registerFonts } from "../lib/fonts-register";
 import { downloadBytes } from "../lib/download";
+import {
+  parseDeck,
+  serialize,
+  listSlideElements,
+  getField,
+  setField,
+  addElement as astAddElement,
+  removeElement,
+  type ElementRef,
+  type Path,
+} from "../edit/ast";
 
 export type ProjectKind = "sample" | "folder" | "zip";
 
@@ -33,6 +44,7 @@ let projectName = $state("examples/basic");
 let projectKind = $state<ProjectKind>("sample");
 let dirty = $state(false);
 let saving = $state(false);
+let selectedIndex = $state<number | null>(null);
 
 // --- 非リアクティブな保持物 ---
 let sourceResolver: AssetResolver | null = null;
@@ -86,6 +98,18 @@ async function liveRecompile() {
 const scheduleRecompile = debounce(() => {
   void liveRecompile();
 }, 200);
+
+// テキスト更新の共通処理 (エディタ入力 / インスペクタ書き戻し 両方)。
+function applyYaml(text: string) {
+  yamlText = text;
+  dirty = true;
+  scheduleRecompile();
+}
+
+// 現在スライドのソース要素パス。
+function selectedPath(): Path {
+  return ["slides", currentSlide, "elements", selectedIndex ?? 0];
+}
 
 async function loadProject(
   source: AssetResolver,
@@ -197,13 +221,62 @@ export const store = {
 
   // エディタからのテキスト更新。即座に状態反映し、再コンパイルはデバウンス。
   setYaml(text: string) {
-    yamlText = text;
-    dirty = true;
-    scheduleRecompile();
+    applyYaml(text);
+  },
+
+  // --- インスペクタ (AST 書き戻し) ---
+  get selectedIndex() {
+    return selectedIndex;
+  },
+  // 現在スライドのソース要素一覧 (AST ベース、編集対象)。
+  get sourceElements(): ElementRef[] {
+    try {
+      return listSlideElements(parseDeck(yamlText), currentSlide);
+    } catch {
+      return [];
+    }
+  },
+  get selectedRef(): ElementRef | null {
+    if (selectedIndex === null) return null;
+    return this.sourceElements[selectedIndex] ?? null;
+  },
+  selectElement(i: number | null) {
+    selectedIndex = i;
+  },
+  // 選択要素のフィールド (ネスト可) の現在値を文字列で取得。
+  getFieldValue(field: Path): string {
+    if (selectedIndex === null) return "";
+    try {
+      return getField(parseDeck(yamlText), selectedPath(), field);
+    } catch {
+      return "";
+    }
+  },
+  // 選択要素のフィールドを AST 経由で更新 (コメント・書式を保持)。
+  updateField(field: Path, value: string) {
+    if (selectedIndex === null) return;
+    const doc = parseDeck(yamlText);
+    setField(doc, selectedPath(), field, value);
+    applyYaml(serialize(doc));
+  },
+  // 現在スライドにテンプレート要素を追加し選択する。
+  addElement(type: string) {
+    const doc = parseDeck(yamlText);
+    const idx = astAddElement(doc, currentSlide, type);
+    selectedIndex = idx;
+    applyYaml(serialize(doc));
+  },
+  deleteSelected() {
+    if (selectedIndex === null) return;
+    const doc = parseDeck(yamlText);
+    removeElement(doc, selectedPath());
+    selectedIndex = null;
+    applyYaml(serialize(doc));
   },
 
   goSlide(i: number) {
     currentSlide = Math.max(0, Math.min(this.slideCount - 1, i));
+    selectedIndex = null;
   },
   next() {
     this.goSlide(currentSlide + 1);

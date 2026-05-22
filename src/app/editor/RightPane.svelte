@@ -5,15 +5,31 @@
 
   let host: HTMLDivElement;
   let handle: EditorHandle | undefined;
+  // インスペクタ等からのプログラム更新中は onChange を無視してループを防ぐ。
+  let applying = false;
 
   onMount(() => {
     handle = createEditor({
       parent: host,
       doc: store.yamlText,
-      onChange: (t) => store.setYaml(t),
+      onChange: (t) => {
+        if (!applying) store.setYaml(t);
+      },
     });
   });
   onDestroy(() => handle?.destroy());
+
+  // store.yamlText が外部 (インスペクタ書き戻し) で変わったらエディタに反映。
+  $effect(() => {
+    const text = store.yamlText;
+    if (!handle) return;
+    if (handle.view.state.doc.toString() === text) return;
+    applying = true;
+    handle.view.dispatch({
+      changes: { from: 0, to: handle.view.state.doc.length, insert: text },
+    });
+    applying = false;
+  });
 </script>
 
 <div class="right" bind:this={host}></div>

@@ -1,35 +1,28 @@
 <script lang="ts">
   import { store } from "../store.svelte";
-  import type { MirElement } from "../../ir/mir";
+  import Inspector from "./Inspector.svelte";
 
   const slides = $derived(store.compiled?.deck.slides ?? []);
+  // 現在スライドの編集可能なソース要素 (AST 由来)。
+  const sourceEls = $derived(store.sourceElements);
 
-  function label(el: MirElement): string {
-    switch (el.type) {
-      case "text":
-        return el.text.length > 24 ? el.text.slice(0, 24) + "…" : el.text;
-      case "image":
-        return el.src;
-      case "group":
-        return el.layout ? `layout: ${el.layout}` : "";
-      default:
-        return "";
-    }
+  function trim(s: string): string {
+    return s.length > 22 ? s.slice(0, 22) + "…" : s;
   }
 </script>
 
 <aside class="left">
   <section>
-    <h2>パレット</h2>
+    <h2>追加</h2>
     <div class="palette">
-      {#each ["Text", "Image", "Rect", "Group"] as kind (kind)}
-        <button disabled title="インスペクタ書き戻しは Phase 5">+ {kind}</button>
+      {#each [["Text", "text"], ["Image", "image"], ["Rect", "rect"], ["Group", "group"]] as [labelText, kind] (kind)}
+        <button onclick={() => store.addElement(kind)}>+ {labelText}</button>
       {/each}
     </div>
   </section>
 
   <section>
-    <h2>アウトライン</h2>
+    <h2>スライド</h2>
     {#each slides as slide, i (slide.id)}
       <button
         class="slide-head"
@@ -39,28 +32,33 @@
         <span class="idx">{i + 1}</span>
         {slide.id}
       </button>
-      {#if i === store.currentSlide}
-        <div class="tree">
-          {#each slide.elements as el (el)}
-            {@render node(el, 0)}
-          {/each}
-        </div>
-      {/if}
     {/each}
   </section>
-</aside>
 
-{#snippet node(el: MirElement, depth: number)}
-  <div class="node" style="padding-left:{8 + depth * 14}px">
-    <span class="type">{el.type}</span>
-    <span class="lbl">{label(el)}</span>
-  </div>
-  {#if el.type === "group"}
-    {#each el.children as child (child)}
-      {@render node(child, depth + 1)}
+  <section>
+    <h2>要素 (このスライド)</h2>
+    {#if sourceEls.length === 0}
+      <p class="empty">ソース要素なし (テーマ layout のみ)</p>
+    {/if}
+    {#each sourceEls as el (el.index)}
+      <button
+        class="el-row"
+        class:active={el.index === store.selectedIndex}
+        onclick={() => store.selectElement(el.index)}
+      >
+        <span class="type">{el.type}</span>
+        <span class="lbl">{trim(el.summary)}</span>
+      </button>
     {/each}
+  </section>
+
+  {#if store.selectedRef}
+    <section>
+      <h2>インスペクタ</h2>
+      <Inspector />
+    </section>
   {/if}
-{/snippet}
+</aside>
 
 <style>
   .left {
@@ -90,7 +88,8 @@
     font-size: 0.8rem;
     padding: 5px;
   }
-  .slide-head {
+  .slide-head,
+  .el-row {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -100,8 +99,10 @@
     border: none;
     border-radius: 4px;
     padding: 5px 6px;
+    color: var(--fg-dim);
   }
-  .slide-head.active {
+  .slide-head.active,
+  .el-row.active {
     background: rgba(122, 162, 247, 0.12);
     color: var(--accent);
   }
@@ -116,24 +117,19 @@
     font-size: 0.7rem;
     color: var(--fg-dim);
   }
-  .tree {
-    margin: 2px 0 8px;
-  }
-  .node {
-    display: flex;
-    gap: 6px;
-    padding: 2px 0;
-    color: var(--fg-dim);
-    white-space: nowrap;
-    overflow: hidden;
-  }
-  .type {
+  .el-row .type {
     color: var(--accent);
     font-family: ui-monospace, monospace;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
   }
-  .lbl {
+  .el-row .lbl {
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .empty {
+    margin: 0;
+    color: var(--fg-dim);
+    font-size: 0.78rem;
   }
 </style>

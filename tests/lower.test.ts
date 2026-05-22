@@ -132,6 +132,74 @@ describe("computeAutoLayout", () => {
     expect(placed[1].box.y).toBeCloseTo(expectedY);
   });
 
+  it("justify: center は両端に等しい余白を残す", () => {
+    const r = (h: number) => ({
+      type: "rect" as const,
+      position: { height: pct(h) },
+      strokeWidth: 0,
+      rx: 0,
+    });
+    const group: MirGroup = {
+      type: "group",
+      children: [r(20), r(20)], // inner.h=200 -> 各 40px, 計 80
+      layout: "column",
+      gap: pct(0),
+      align: "stretch",
+      justify: "center",
+      padding: pct(0),
+    };
+    const inner = { x: 0, y: 0, w: 100, h: 200 };
+    const placed = computeAutoLayout(group, inner, ctx);
+    // 余白 (200-80)/2 = 60 が先頭オフセット
+    expect(placed[0].box.y).toBeCloseTo(60);
+  });
+
+  it("justify: space-between は要素間に余白を分配する", () => {
+    const r = () => ({
+      type: "rect" as const,
+      position: { width: pct(10) }, // inner.w=400 -> 40px
+      strokeWidth: 0,
+      rx: 0,
+    });
+    const group: MirGroup = {
+      type: "group",
+      children: [r(), r(), r()],
+      layout: "row",
+      gap: pct(0),
+      align: "stretch",
+      justify: "space-between",
+      padding: pct(0),
+    };
+    const inner = { x: 0, y: 0, w: 400, h: 100 };
+    const placed = computeAutoLayout(group, inner, ctx);
+    expect(placed[0].box.x).toBeCloseTo(0);
+    expect(placed[2].box.x).toBeCloseTo(360); // 末尾は右端
+  });
+
+  it("padding は内側ボックスを縮める", () => {
+    const group: MirGroup = {
+      type: "group",
+      position: { left: pct(0), top: pct(0), width: pct(100), height: pct(100) },
+      children: [
+        {
+          type: "rect",
+          position: { left: pct(0), top: pct(0), width: pct(100), height: pct(100) },
+          strokeWidth: 0,
+          rx: 0,
+          fill: "#fff",
+        },
+      ],
+      gap: pct(0),
+      align: "stretch",
+      justify: "start",
+      padding: pct(10), // 1000*10% = 100
+    };
+    const deck = deckWith([group]);
+    const lir = lower(deck.slides[0], deck, ctx);
+    // 子 rect は inner (100,100,800,800)
+    expect(lir.primitives[0]).toMatchObject({ kind: "rect", x: 100, y: 100, w: 800, h: 800 });
+  });
+
   it("flex は main 軸の残余を比率配分する", () => {
     const rect = (flex: number) => ({
       type: "rect" as const,
