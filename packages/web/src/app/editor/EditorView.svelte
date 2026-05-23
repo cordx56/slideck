@@ -119,16 +119,7 @@
       Export ZIP
     </button>
 
-    <span class="nav">
-      <button onclick={() => store.prev()} disabled={store.currentSlide === 0}
-        >←</button
-      >
-      <span>{store.currentSlide + 1} / {store.slideCount}</span>
-      <button
-        onclick={() => store.next()}
-        disabled={store.currentSlide >= store.slideCount - 1}>→</button
-      >
-    </span>
+    <span class="nav">{store.currentSlide + 1} / {store.slideCount}</span>
     <button onclick={present}>Present</button>
     <button class="pdf" onclick={exportPdf} disabled={exporting}>
       {#if exporting}<Spinner />{/if}

@@ -3,8 +3,34 @@
 
   const slides = $derived(store.compiled?.deck.slides ?? []);
   const svg = $derived(store.renderSvg(store.currentSlide));
+  const aspect = $derived(store.slideAspect);
 
   let thumbEls = $state<HTMLButtonElement[]>([]);
+
+  // Thumbnail strip height. Resizable by dragging its top edge, persisted in localStorage.
+  const TH = "slideck:thumbH";
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+  let thumbH = $state(Number(localStorage.getItem(TH)) || 100);
+
+  function startThumbResize(e: PointerEvent) {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = thumbH;
+    const move = (ev: PointerEvent) => {
+      thumbH = clamp(startH + (startY - ev.clientY), 64, 360);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      localStorage.setItem(TH, String(thumbH));
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+  }
 
   // When the thumbnail strip has focus, arrow keys move between slides.
   function onThumbKey(e: KeyboardEvent) {
@@ -27,14 +53,24 @@
     {@html svg}
   </div>
 
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="thumb-resizer"
+    role="separator"
+    aria-orientation="horizontal"
+    title="Drag to resize"
+    onpointerdown={startThumbResize}
+  ></div>
+
   <!-- keydown is delegated from the focused thumbnail button inside -->
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-  <nav class="thumbs" onkeydown={onThumbKey}>
+  <nav class="thumbs" style="height: {thumbH}px" onkeydown={onThumbKey}>
     {#each slides as slide, i (slide.id)}
       <button
         bind:this={thumbEls[i]}
         class="thumb"
         class:active={i === store.currentSlide}
+        style="aspect-ratio: {aspect}"
         onclick={() => store.goSlide(i)}
         title={slide.id}
       >
@@ -69,20 +105,31 @@
     max-height: 100%;
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
   }
+  .thumb-resizer {
+    flex: 0 0 auto;
+    height: 6px;
+    cursor: row-resize;
+    background: var(--border);
+    transition: background 0.15s;
+  }
+  .thumb-resizer:hover {
+    background: var(--accent);
+  }
   .thumbs {
     display: flex;
     gap: 8px;
     padding: 10px 14px;
-    border-top: 1px solid var(--border);
     overflow-x: auto;
+    overflow-y: hidden;
     background: var(--bg);
+    box-sizing: border-box;
   }
   .thumb {
     position: relative;
     flex: 0 0 auto;
     padding: 0;
-    width: 132px;
-    height: 74px;
+    height: 100%;
+    width: auto;
     overflow: hidden;
     border: 2px solid var(--border);
     border-radius: 4px;

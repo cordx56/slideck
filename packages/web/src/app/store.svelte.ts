@@ -233,6 +233,11 @@ export const store = {
   get slideCount() {
     return compiled ? compiled.deck.slides.length : 0;
   },
+  // Slide aspect ratio (width/height) for thumbnail sizing.
+  get slideAspect() {
+    const s = compiled?.deck.slide;
+    return s && s.height > 0 ? s.width / s.height : 16 / 9;
+  },
   get vfs() {
     return vfs;
   },
