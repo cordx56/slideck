@@ -6,7 +6,8 @@
     "theme-light.yaml",
     "overlays/footer.yaml",
     "img/cover.png",
-    "fonts/IPAexGothic.ttf",
-    "fonts/IPAexMincho.ttf"
+    "fonts/NotoSans-Regular.ttf",
+    "fonts/NotoSerif-Regular.ttf",
+    "fonts/OFL.txt"
   ]
 }

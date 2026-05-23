@@ -29,7 +29,7 @@ function wrapAsTtc(ttf: Uint8Array): Uint8Array {
   return out;
 }
 
-const ttfPath = resolve(__dirname, "../public/examples/basic/fonts/IPAexGothic.ttf");
+const ttfPath = resolve(__dirname, "../public/examples/basic/fonts/NotoSans-Regular.ttf");
 
 describe("ttc", () => {
   it("isTtc detects the ttcf signature", async () => {

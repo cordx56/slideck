@@ -1,8 +1,8 @@
 name: standard
 
 fonts:
-  heading: { path: ./fonts/IPAexMincho.ttf, family: "IPAexMincho" }
-  body: { path: ./fonts/IPAexGothic.ttf, family: "IPAexGothic" }
+  heading: { path: ./fonts/NotoSerif-Regular.ttf, family: "NotoSerif" }
+  body: { path: ./fonts/NotoSans-Regular.ttf, family: "NotoSans" }
 
 # colors are injected as variables (referenced via ${bg} etc.). Can be overridden by a slide's vars.
 colors:
