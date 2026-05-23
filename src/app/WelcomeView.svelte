@@ -2,14 +2,29 @@
   import { store } from "./store.svelte";
 
   let zipInput: HTMLInputElement;
+  let busy = $state(false);
 
   function sampleBase() {
     return `${import.meta.env.BASE_URL}examples/basic/`;
   }
 
+  function toEditor() {
+    location.hash = "#editor";
+  }
+
+  async function run(action: () => Promise<void>) {
+    busy = true;
+    try {
+      await action();
+      toEditor();
+    } finally {
+      busy = false;
+    }
+  }
+
   async function onZip(e: Event) {
     const file = (e.target as HTMLInputElement).files?.[0];
-    if (file) await store.chooseImportZip(file);
+    if (file) await run(() => store.chooseImportZip(file));
   }
 </script>
 
@@ -18,11 +33,22 @@
     <h1>Slider</h1>
     <p>YAML で書くスライドエディタ</p>
     <div class="actions">
-      <button class="primary" onclick={() => store.chooseSample(sampleBase())}>
+      {#if store.hasProject}
+        <button class="primary" onclick={toEditor} disabled={busy}>
+          エディタを開く
+        </button>
+      {/if}
+      <button
+        class:primary={!store.hasProject}
+        disabled={busy}
+        onclick={() => run(() => store.chooseSample(sampleBase()))}
+      >
         サンプルを開く
       </button>
-      <button onclick={() => zipInput.click()}>ZIP インポート</button>
-      <button onclick={() => store.chooseEmpty()}>空のプロジェクトを作成</button>
+      <button disabled={busy} onclick={() => zipInput.click()}>ZIP インポート</button>
+      <button disabled={busy} onclick={() => run(() => store.chooseEmpty())}>
+        空のプロジェクトを作成
+      </button>
     </div>
     <input
       bind:this={zipInput}

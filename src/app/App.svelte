@@ -18,16 +18,23 @@
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   });
+
+  // #editor / #present はプロジェクトのロードが前提。未ロードならトップへ戻す。
+  $effect(() => {
+    if (!store.booting && (route === "editor" || route === "present") && !store.ready) {
+      location.hash = "";
+    }
+  });
 </script>
 
-{#if store.screen === "loading"}
+{#if store.booting}
   <div class="boot">読み込み中...</div>
-{:else if store.screen === "welcome"}
-  <WelcomeView />
-{:else if route === "present"}
+{:else if route === "editor" && store.ready}
+  <EditorView />
+{:else if route === "present" && store.ready}
   <PresentView />
 {:else}
-  <EditorView />
+  <WelcomeView />
 {/if}
 
 <style>

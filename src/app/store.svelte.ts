@@ -19,10 +19,11 @@ import { isImagePath } from "../lib/mime";
 import { collectBrokenReferences, type Reference } from "../load/references";
 
 const ENTRY = "deck.yaml"; // VFS では /deck.yaml
-export type Screen = "loading" | "welcome" | "editor";
 
 // --- リアクティブ状態 ---
-let screen = $state<Screen>("loading");
+// 画面遷移は URL ハッシュで決める (App 側)。store は VFS 初期化状態のみ持つ。
+let booting = $state(true); // VFS オープン完了まで true
+let ready = $state(false); // プロジェクトがロード済み (エディタ表示可能)
 let openPath = $state("/deck.yaml");
 let yamlText = $state("");
 let dirty = $state(false);
@@ -129,12 +130,12 @@ async function openProject() {
   currentSlide = 0;
   await fullCompile();
   await recomputeRefs();
-  screen = "editor";
+  ready = true;
 }
 
 export const store = {
-  get screen() {
-    return screen;
+  get booting() {
+    return booting;
   },
   get openPath() {
     return openPath;
@@ -173,8 +174,13 @@ export const store = {
   get filesWithBrokenRefs(): Set<string> {
     return new Set(brokenRefs.map((r) => r.fromFile));
   },
+  // プロジェクトがロード済みでエディタ表示可能か。
   get ready() {
-    return screen === "editor";
+    return ready;
+  },
+  // VFS にプロジェクト (deck.yaml) が存在するか (welcome の「続きを開く」用)。
+  get hasProject() {
+    return files.length > 0;
   },
   get slideCount() {
     return compiled ? compiled.deck.slides.length : 0;
@@ -183,31 +189,29 @@ export const store = {
     return vfs;
   },
 
-  // 起動: VFS を開き、空ならようこそ画面、そうでなければプロジェクトを開く。
+  // 起動: VFS を開き、既存プロジェクトがあればロードしておく。
+  // どの画面を出すかは URL ハッシュで決める (App)。
   async boot() {
     const v = await openVfs();
     vfs = v;
     void navigator.storage?.persist?.();
-    const list = await v.list();
-    if (list.length === 0) screen = "welcome";
-    else await openProject();
+    files = await v.list();
+    if (files.length > 0) await openProject();
+    booting = false;
   },
 
   async chooseSample(baseUrl: string) {
     if (!vfs) return;
-    screen = "loading";
     await installSample(vfs, baseUrl);
     await openProject();
   },
   async chooseEmpty() {
     if (!vfs) return;
-    screen = "loading";
     await createEmptyProject(vfs);
     await openProject();
   },
   async chooseImportZip(file: File) {
     if (!vfs) return;
-    screen = "loading";
     await vfs.importZip(file);
     await openProject();
   },
@@ -255,7 +259,8 @@ export const store = {
     compiled = null;
     cachedCtx = null;
     cachedFonts = null;
-    screen = "welcome";
+    files = [];
+    ready = false;
   },
 
   // --- ツリー状態 ---

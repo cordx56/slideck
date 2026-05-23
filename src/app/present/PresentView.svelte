@@ -32,7 +32,7 @@
         store.prev();
         break;
       case "Escape":
-        location.hash = "";
+        location.hash = "#editor";
         break;
       case "f":
       case "F":
