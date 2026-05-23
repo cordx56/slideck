@@ -260,7 +260,7 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    border-right: 1px solid var(--border);
+    min-width: 0;
     background: var(--bg-2);
     outline: none;
   }

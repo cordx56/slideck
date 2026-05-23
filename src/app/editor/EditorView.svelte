@@ -12,6 +12,41 @@
 
   const errorTitle = $derived(store.errors.map((e) => e.message).join("\n"));
 
+  // 左 (FileTree) / 右 (CodeMirror) ペイン幅。ボーダのドラッグで可変、localStorage 永続。
+  const LW = "slider:leftW";
+  const RW = "slider:rightW";
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+  const loadW = (k: string, d: number) => {
+    const v = Number(localStorage.getItem(k));
+    return v > 0 ? v : d;
+  };
+  let leftWidth = $state(loadW(LW, 240));
+  let rightWidth = $state(loadW(RW, 460));
+
+  function startResize(which: "left" | "right", e: PointerEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startLeft = leftWidth;
+    const startRight = rightWidth;
+    const move = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX;
+      if (which === "left") leftWidth = clamp(startLeft + dx, 160, 600);
+      else rightWidth = clamp(startRight - dx, 240, 800);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      localStorage.setItem(LW, String(leftWidth));
+      localStorage.setItem(RW, String(rightWidth));
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }
+
   async function onZipPicked(e: Event) {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
@@ -50,7 +85,10 @@
 
 <svelte:window on:keydown={onKey} />
 
-<div class="editor">
+<div
+  class="editor"
+  style="grid-template-columns: {leftWidth}px 5px 1fr 5px {rightWidth}px"
+>
   <header class="topbar">
     <button class="home" title="プロジェクト一覧" onclick={() => (location.hash = "")}>
       Slider
@@ -96,16 +134,40 @@
   </header>
 
   <FileTree />
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="splitter"
+    role="separator"
+    aria-orientation="vertical"
+    title="ドラッグで幅を変更"
+    onpointerdown={(e) => startResize("left", e)}
+  ></div>
   <CenterPane />
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="splitter"
+    role="separator"
+    aria-orientation="vertical"
+    title="ドラッグで幅を変更"
+    onpointerdown={(e) => startResize("right", e)}
+  ></div>
   <RightPane />
 </div>
 
 <style>
   .editor {
     display: grid;
-    grid-template-columns: 240px 1fr 460px;
+    /* grid-template-columns はインライン (可変幅) で指定 */
     grid-template-rows: 48px 1fr;
     height: 100vh;
+  }
+  .splitter {
+    cursor: col-resize;
+    background: var(--border);
+    transition: background 0.15s;
+  }
+  .splitter:hover {
+    background: var(--accent);
   }
   .topbar {
     grid-column: 1 / -1;

@@ -45,8 +45,8 @@
 <style>
   .right {
     height: 100%;
+    min-width: 0;
     overflow: hidden;
-    border-left: 1px solid var(--border);
     background: var(--bg-2);
   }
   .cm {
