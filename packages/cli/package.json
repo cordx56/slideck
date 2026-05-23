@@ -1,10 +1,10 @@
 {
-  "name": "@slider/cli",
+  "name": "@slideck/cli",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "bin": {
-    "slider": "./src/cli.ts"
+    "slideck": "./src/cli.ts"
   },
   "scripts": {
     "start": "tsx src/cli.ts",
@@ -12,7 +12,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@slider/core": "workspace:*"
+    "@slideck/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.19",

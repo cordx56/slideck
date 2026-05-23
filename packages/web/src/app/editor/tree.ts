@@ -1,5 +1,5 @@
 import type { FileEntry } from "../../vfs";
-import { dirname, basename } from "@slider/core";
+import { dirname, basename } from "@slideck/core";
 
 export interface TreeNode {
   path: string;

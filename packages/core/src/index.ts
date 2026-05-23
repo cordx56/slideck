@@ -1,5 +1,5 @@
-// @slider/core — ブラウザ非依存のスライドコンパイル/レンダリングパイプライン。
-// (PDF レンダラは重い pdf-lib を含むため "@slider/core/pdf" に分離している)
+// @slideck/core — ブラウザ非依存のスライドコンパイル/レンダリングパイプライン。
+// (PDF レンダラは重い pdf-lib を含むため "@slideck/core/pdf" に分離している)
 
 // パイプライン
 export * from "./pipeline";

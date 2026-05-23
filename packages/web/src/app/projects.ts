@@ -7,8 +7,8 @@ export interface ProjectMeta {
   createdAt: number;
 }
 
-const LIST_KEY = "slider:projects";
-const LAST_KEY = "slider:lastProject";
+const LIST_KEY = "slideck:projects";
+const LAST_KEY = "slideck:lastProject";
 
 function ls(): Storage | null {
   return typeof localStorage !== "undefined" ? localStorage : null;
@@ -50,7 +50,7 @@ export function unregisterProject(name: string): void {
 
 // プロジェクト名 -> IndexedDB データベース名。
 export function dbNameFor(name: string): string {
-  return `slider-proj:${name}`;
+  return `slideck-proj:${name}`;
 }
 
 export function getLastProject(): string | null {

@@ -1,14 +1,14 @@
 {
-  "name": "slider",
+  "name": "slideck",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter @slider/web dev",
+    "dev": "pnpm --filter @slideck/web dev",
     "build": "pnpm -r build",
     "check": "pnpm -r check",
     "test": "pnpm -r test",
-    "cli": "pnpm --filter @slider/cli start"
+    "cli": "pnpm --filter @slideck/cli start"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

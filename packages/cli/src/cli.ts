@@ -1,8 +1,8 @@
 #!/usr/bin/env tsx
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { resolve, dirname, basename } from "node:path";
-import { compileDeck, renderSlideSvg } from "@slider/core";
-import { renderPdf } from "@slider/core/pdf";
+import { compileDeck, renderSlideSvg } from "@slideck/core";
+import { renderPdf } from "@slideck/core/pdf";
 import { NodeAssetResolver } from "./node-resolver";
 
 interface Options {
@@ -23,10 +23,10 @@ function parseArgs(argv: string[]): Options | null {
   return opts.deck ? (opts as Options) : null;
 }
 
-const USAGE = `slider — YAML スライドを PDF/SVG にビルド
+const USAGE = `slideck — YAML スライドを PDF/SVG にビルド
 
 使い方:
-  slider <deck.yaml> [-o out.pdf] [--svg <dir>]
+  slideck <deck.yaml> [-o out.pdf] [--svg <dir>]
 
 オプション:
   -o, --out <file>   出力 PDF パス (既定: <deck>.pdf)

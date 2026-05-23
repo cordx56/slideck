@@ -13,8 +13,8 @@
   const errorTitle = $derived(store.errors.map((e) => e.message).join("\n"));
 
   // 左 (FileTree) / 右 (CodeMirror) ペイン幅。ボーダのドラッグで可変、localStorage 永続。
-  const LW = "slider:leftW";
-  const RW = "slider:rightW";
+  const LW = "slideck:leftW";
+  const RW = "slideck:rightW";
   const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
   const loadW = (k: string, d: number) => {
     const v = Number(localStorage.getItem(k));
@@ -70,7 +70,7 @@
     if (!store.compiled || exporting) return;
     exporting = true;
     try {
-      const { renderPdf } = await import("@slider/core/pdf");
+      const { renderPdf } = await import("@slideck/core/pdf");
       const { bytes } = await renderPdf(store.compiled);
       downloadBytes(bytes, "slides.pdf", "application/pdf");
     } finally {
@@ -91,7 +91,7 @@
 >
   <header class="topbar">
     <button class="home" title="プロジェクト一覧" onclick={() => (location.hash = "")}>
-      Slider
+      slideck
     </button>
     <span class="proj">{store.currentProject}</span>
     <span class="file">{store.openPath}{store.dirty ? " ●" : ""}</span>

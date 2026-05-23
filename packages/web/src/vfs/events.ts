@@ -1,4 +1,4 @@
-import type { VFSEvent, VFSListener } from "@slider/core";
+import type { VFSEvent, VFSListener } from "@slideck/core";
 
 export class EventBus {
   private listeners = new Set<VFSListener>();

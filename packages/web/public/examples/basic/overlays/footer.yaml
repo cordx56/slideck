@@ -13,7 +13,7 @@ layout:
     font: body
     size: 24
     color: ${muted}
-    text: "Slider — YAML Slides"
+    text: "slideck — YAML Slides"
 
   - type: text
     position: { right: 4%, top: 95%, width: 20% }

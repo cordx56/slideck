@@ -1,8 +1,8 @@
-import type { AssetResolver } from "@slider/core";
-import { OverrideResolver } from "@slider/core";
+import type { AssetResolver } from "@slideck/core";
+import { OverrideResolver } from "@slideck/core";
 import { VfsResolver } from "../load/vfs-resolver";
 import { openVfs, type VFS, type FileEntry } from "../vfs";
-import { extname, dirname, basename, join, normalize, isDescendant } from "@slider/core";
+import { extname, dirname, basename, join, normalize, isDescendant } from "@slideck/core";
 import { uniqueName, type UploadEntry } from "./editor/file-ops";
 import {
   dbNameFor,
@@ -19,13 +19,13 @@ import {
   recompileDeck,
   renderSlideSvg,
   type CompiledDeck,
-} from "@slider/core";
-import type { LowerCtx, LoadedFont } from "@slider/core";
-import type { PipelineError } from "@slider/core";
-import { debounce } from "@slider/core";
+} from "@slideck/core";
+import type { LowerCtx, LoadedFont } from "@slideck/core";
+import type { PipelineError } from "@slideck/core";
+import { debounce } from "@slideck/core";
 import { registerFonts } from "../lib/fonts-register";
-import { isImagePath } from "@slider/core";
-import { collectBrokenReferences, type Reference } from "@slider/core";
+import { isImagePath } from "@slideck/core";
+import { collectBrokenReferences, type Reference } from "@slideck/core";
 
 const ENTRY = "deck.yaml"; // VFS では /deck.yaml
 
@@ -409,7 +409,7 @@ export const store = {
     if (!vfs) return;
     const bytes = await vfs.readBytes(path);
     const { downloadBytes } = await import("../lib/download");
-    const { mimeFromPath } = await import("@slider/core");
+    const { mimeFromPath } = await import("@slideck/core");
     downloadBytes(bytes, basename(path), mimeFromPath(path));
   },
   // OS からのアップロード。overwrite=false なら衝突分はスキップ。

@@ -1,4 +1,4 @@
-import type { LoadedFont } from "@slider/core";
+import type { LoadedFont } from "@slideck/core";
 
 // 同じ family を二重登録しないための記録 (バイト長で簡易識別)。
 const registered = new Set<string>();

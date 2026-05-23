@@ -1,8 +1,8 @@
 <script lang="ts">
   import { store } from "../store.svelte";
-  import { isImagePath, isFontPath } from "@slider/core";
-  import { basename } from "@slider/core";
-  import { isTtc, extractFontFromTtc } from "@slider/core";
+  import { isImagePath, isFontPath } from "@slideck/core";
+  import { basename } from "@slideck/core";
+  import { isTtc, extractFontFromTtc } from "@slideck/core";
 
   interface Props {
     path: string;

@@ -1,6 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
-import type { VFS, FileEntry, VFSListener } from "@slider/core";
-import { normalize, join, mimeFromPath } from "@slider/core";
+import type { VFS, FileEntry, VFSListener } from "@slideck/core";
+import { normalize, join, mimeFromPath } from "@slideck/core";
 import { EventBus } from "./events";
 import { ObjectURLCache } from "./object-url-cache";
 import { readZip, writeZip, type ZipEntry } from "./zip";

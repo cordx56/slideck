@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { isTtc, extractFontFromTtc } from "@slider/core";
-import { createFkFont, FontkitMetrics } from "@slider/core";
+import { isTtc, extractFontFromTtc } from "@slideck/core";
+import { createFkFont, FontkitMetrics } from "@slideck/core";
 
 function measure(bytes: Uint8Array, text: string): number {
   const font = createFkFont(bytes);

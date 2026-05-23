@@ -1,5 +1,5 @@
 import type { VFS } from "../../vfs";
-import { join, normalize, extname } from "@slider/core";
+import { join, normalize, extname } from "@slideck/core";
 
 export interface UploadEntry {
   path: string; // ターゲットからの相対パス (ディレクトリ drop で階層を含む)

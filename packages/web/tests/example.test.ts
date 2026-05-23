@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import type { AssetResolver } from "@slider/core";
-import { normalizePath } from "@slider/core";
-import { compileDeck, renderSlideSvg } from "@slider/core";
+import type { AssetResolver } from "@slideck/core";
+import { normalizePath } from "@slideck/core";
+import { compileDeck, renderSlideSvg } from "@slideck/core";
 
 // public/examples/basic を実ディスクから読む resolver (Node 専用、テスト用)。
 class DiskResolver implements AssetResolver {
@@ -46,7 +46,7 @@ describe("examples/basic", () => {
     expect(svgs[0]).toContain("YAML スライドの世界");
     expect(svgs[0]).toContain("<image");
     // always:true の footer base は全スライドに適用される
-    for (const svg of svgs) expect(svg).toContain("Slider — YAML Slides");
+    for (const svg of svgs) expect(svg).toContain("slideck — YAML Slides");
     // システム変数によるページ番号 (footer base 内 ${slideNumber}/${slideCount})
     expect(svgs[0]).toContain("1 / 5");
     expect(svgs[4]).toContain("5 / 5");

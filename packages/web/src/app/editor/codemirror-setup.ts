@@ -33,10 +33,10 @@ const yamlHighlight = HighlightStyle.define([
   { tag: [t.separator, t.punctuation], color: "#89ddff" }, // : , - ?
   { tag: [t.squareBracket, t.brace], color: "#89ddff" }, // [] {}
 ]);
-import { DeckSchema, BaseSchema } from "@slider/core";
-import { parseAndValidate } from "@slider/core";
-import { collectFileReferences } from "@slider/core";
-import { extname } from "@slider/core";
+import { DeckSchema, BaseSchema } from "@slideck/core";
+import { parseAndValidate } from "@slideck/core";
+import { collectFileReferences } from "@slideck/core";
+import { extname } from "@slideck/core";
 import type { VFS } from "../../vfs";
 
 // 開いているファイルの種別 (deck.yaml / base / 非 YAML) を判定するコンテキスト。

@@ -3,8 +3,8 @@
   import Self from "./TreeNode.svelte";
   import { store } from "../store.svelte";
   import { TREE_CTX, type TreeNode, type TreeCtx } from "./tree";
-  import { isImagePath, isFontPath } from "@slider/core";
-  import { extname } from "@slider/core";
+  import { isImagePath, isFontPath } from "@slideck/core";
+  import { extname } from "@slideck/core";
 
   interface Props {
     node: TreeNode;

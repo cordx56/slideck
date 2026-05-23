@@ -84,7 +84,7 @@
 
 <div class="welcome">
   <div class="card">
-    <h1>Slider</h1>
+    <h1>slideck</h1>
 
     {#if step === "menu"}
       <p>YAML で書くスライドエディタ</p>

@@ -1,5 +1,5 @@
-import type { AssetResolver, VFS } from "@slider/core";
-import { normalize } from "@slider/core";
+import type { AssetResolver, VFS } from "@slideck/core";
+import { normalize } from "@slideck/core";
 
 // パイプラインは相対パス ("deck.yaml", "theme.yaml", "img/x.png") を渡す。
 // VFS は絶対パスなので "/" 起点に正規化して橋渡しする。

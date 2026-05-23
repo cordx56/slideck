@@ -16,7 +16,7 @@
     detectConflicts,
     uniqueName,
   } from "./file-ops";
-  import { basename, dirname, join, normalize, isValidName, isDescendant } from "@slider/core";
+  import { basename, dirname, join, normalize, isValidName, isDescendant } from "@slideck/core";
 
   const tree = $derived(buildTree(store.files, store.showHidden));
 

@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import type { AssetResolver } from "@slider/core";
+import type { AssetResolver } from "@slideck/core";
 
 // ディスクからプロジェクトを読む AssetResolver。パイプラインが渡す
 // (root 相対の) パスを deck ディレクトリ起点で解決する。

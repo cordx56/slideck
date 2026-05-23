@@ -1,5 +1,5 @@
 import type { VFS } from "../vfs";
-import { mimeFromPath } from "@slider/core";
+import { mimeFromPath } from "@slideck/core";
 
 interface Manifest {
   files: string[];

@@ -2,10 +2,10 @@ import { describe, it, expect } from "vitest";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { PDFDocument } from "pdf-lib";
-import type { AssetResolver } from "@slider/core";
-import { normalizePath } from "@slider/core";
-import { compileDeck } from "@slider/core";
-import { renderPdf } from "@slider/core/pdf";
+import type { AssetResolver } from "@slideck/core";
+import { normalizePath } from "@slideck/core";
+import { compileDeck } from "@slideck/core";
+import { renderPdf } from "@slideck/core/pdf";
 
 class DiskResolver implements AssetResolver {
   constructor(private root: string) {}
