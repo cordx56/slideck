@@ -211,6 +211,28 @@ const FIELD_DOCS: Record<string, { type: string; desc: string }> = {
   link: { type: "{ color?, underline? }", desc: "Inline link style." },
 };
 
+// Type aliases referenced by FIELD_DOCS types. Hovering an alias name in the
+// tooltip expands its definition.
+const TYPE_ALIASES: Record<string, string> = {
+  Element: [
+    "discriminated by 'type'; common: position?: Position, id?, flex?",
+    "  text   { text, font?, size?, color?, align?, lineHeight?, letterSpacing? }",
+    "  image  { src, fit? }",
+    "  rect   { fill?, stroke?, strokeWidth?, rx? }",
+    "  line   { from, to, stroke, strokeWidth }",
+    "  path   { d, fill?, stroke?, strokeWidth? }",
+    "  group  { children: Element[], layout?, gap?, align?, justify?, padding? }",
+    "  ul/ol  { items: Element[], gap?, align?, font?, size?, color?, start? }",
+  ].join("\n"),
+  Position: "{ left?, top?: % | px | 'center';  right?, bottom?, width?, height?: % | px }",
+  BaseRef: "{ id: string; file: string; always?: boolean }",
+  Slide:
+    "{ id?: string; use?: string | string[]; vars?; background?: string; elements?: Element[] }",
+  FontDecl:
+    "{ path: string; family: string; weight?: number; style?: 'normal' | 'italic'; index?: number }",
+};
+const ALIAS_RE = new RegExp(`\\b(${Object.keys(TYPE_ALIASES).join("|")})\\b`, "g");
+
 const KEY_CHAR = /[A-Za-z0-9_-]/;
 
 // Hover over a YAML key to show its schema (type + description). Keys only:
@@ -238,13 +260,38 @@ function schemaHover(ctx: () => EditorContext) {
       create() {
         const dom = document.createElement("div");
         dom.className = "cm-schema-tooltip";
+
+        // Panel that expands the definition of a hovered type alias.
+        const expand = document.createElement("div");
+        expand.className = "cm-schema-expand";
+        expand.style.display = "none";
+        const showAlias = (nm: string) => {
+          expand.textContent = `${nm} = ${TYPE_ALIASES[nm]}`;
+          expand.style.display = "block";
+        };
+
+        // Render "key: <type>" with alias names as hoverable tokens.
         const head = document.createElement("div");
         head.className = "cm-schema-head";
-        head.textContent = `${text.slice(s, e)}: ${info.type}`;
+        head.append(document.createTextNode(`${text.slice(s, e)}: `));
+        let last = 0;
+        for (const m of info.type.matchAll(ALIAS_RE)) {
+          const idx = m.index ?? 0;
+          if (idx > last) head.append(document.createTextNode(info.type.slice(last, idx)));
+          const ref = document.createElement("span");
+          ref.className = "cm-schema-ref";
+          ref.textContent = m[1];
+          ref.addEventListener("mouseenter", () => showAlias(m[1]));
+          head.append(ref);
+          last = idx + m[1].length;
+        }
+        if (last < info.type.length) head.append(document.createTextNode(info.type.slice(last)));
+
         const desc = document.createElement("div");
         desc.className = "cm-schema-desc";
         desc.textContent = info.desc;
-        dom.append(head, desc);
+
+        dom.append(head, desc, expand);
         return { dom };
       },
     };
@@ -272,13 +319,23 @@ const darkTheme = EditorView.theme(
       border: "1px solid var(--border)",
       borderRadius: "4px",
     },
-    ".cm-schema-tooltip": { padding: "6px 9px", maxWidth: "360px", lineHeight: "1.45" },
+    ".cm-schema-tooltip": { padding: "6px 9px", maxWidth: "460px", lineHeight: "1.45" },
     ".cm-schema-head": {
       color: "var(--accent)",
       fontWeight: "600",
       fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
     },
+    ".cm-schema-ref": { textDecoration: "underline dotted", cursor: "help" },
     ".cm-schema-desc": { marginTop: "3px", color: "var(--fg-dim)", fontSize: "12px" },
+    ".cm-schema-expand": {
+      marginTop: "6px",
+      paddingTop: "6px",
+      borderTop: "1px solid var(--border)",
+      whiteSpace: "pre-wrap",
+      fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+      fontSize: "12px",
+      color: "var(--fg)",
+    },
   },
   { dark: true },
 );
