@@ -1,6 +1,7 @@
 <script lang="ts">
   import { store } from "./store.svelte";
   import { installSample, createEmptyProject } from "./sample";
+  import Spinner from "./Spinner.svelte";
   import type { VFS } from "../vfs";
 
   type PendingKind = "empty" | "sample" | "zip";
@@ -10,7 +11,9 @@
   let pending = $state<{ kind: PendingKind; file?: File } | null>(null);
   let nameValue = $state("");
   let error = $state("");
-  let busy = $state(false);
+  // 進行中の処理: "create" / `open:<name>` / null。押されたボタンにのみ spinner。
+  let loading = $state<string | null>(null);
+  const busy = $derived(loading !== null);
   let zipInput: HTMLInputElement;
 
   const projects = $derived(store.projects);
@@ -49,7 +52,7 @@
 
   async function submitName() {
     if (!pending || busy) return;
-    busy = true;
+    loading = "create";
     error = "";
     try {
       await store.createProject(nameValue, initializer(pending));
@@ -57,17 +60,18 @@
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     } finally {
-      busy = false;
+      loading = null;
     }
   }
 
   async function open(name: string) {
-    busy = true;
+    if (busy) return;
+    loading = `open:${name}`;
     try {
       await store.openProject(name);
       toEditor();
     } finally {
-      busy = false;
+      loading = null;
     }
   }
 
@@ -108,7 +112,11 @@
           <li>
             <button class="open" onclick={() => open(p.name)} disabled={busy}>
               <span class="pname">{p.name}</span>
-              <span class="pdate">{new Date(p.createdAt).toLocaleDateString()}</span>
+              {#if loading === `open:${p.name}`}
+                <Spinner />
+              {:else}
+                <span class="pdate">{new Date(p.createdAt).toLocaleDateString()}</span>
+              {/if}
             </button>
             <button class="del" title="削除" onclick={() => remove(p.name)}>✕</button>
           </li>
@@ -134,8 +142,13 @@
         />
         {#if error}<p class="error">{error}</p>{/if}
         <div class="actions">
-          <button type="button" onclick={() => (step = "menu")}>戻る</button>
-          <button type="submit" class="primary" disabled={busy}>作成</button>
+          <button type="button" onclick={() => (step = "menu")} disabled={busy}>
+            戻る
+          </button>
+          <button type="submit" class="primary" disabled={busy}>
+            {#if loading === "create"}<Spinner />{/if}
+            作成
+          </button>
         </div>
       </form>
     {/if}
@@ -175,6 +188,10 @@
     gap: 10px;
   }
   .actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     padding: 10px 16px;
   }
   .primary {

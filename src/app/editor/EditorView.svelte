@@ -3,6 +3,7 @@
   import CenterPane from "./CenterPane.svelte";
   import RightPane from "./RightPane.svelte";
   import { store } from "../store.svelte";
+  import Spinner from "../Spinner.svelte";
   import { downloadBytes } from "../../lib/download";
   import { handleGlobalShortcut } from "../keyboard/shortcuts";
 
@@ -88,7 +89,8 @@
       >
     </span>
     <button onclick={present}>Present</button>
-    <button onclick={exportPdf} disabled={exporting}>
+    <button class="pdf" onclick={exportPdf} disabled={exporting}>
+      {#if exporting}<Spinner />{/if}
       {exporting ? "出力中..." : "Export PDF"}
     </button>
   </header>
@@ -149,5 +151,10 @@
   .ok {
     color: #9ece6a;
     font-size: 0.8rem;
+  }
+  .pdf {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
 </style>
