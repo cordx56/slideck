@@ -2,8 +2,5 @@ packages:
   - "packages/*"
 
 # pnpm 11 build-script approval (replaces the package.json "pnpm" field).
-# esbuild: our build. sharp/workerd: pulled in by `pnpm add wrangler@4` in the deploy step.
 allowBuilds:
   esbuild: true
-  sharp: true
-  workerd: true
