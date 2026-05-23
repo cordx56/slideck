@@ -1,0 +1,29 @@
+{
+  "name": "@slider/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./pdf": "./src/render/pdf/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
+    "katex": "^0.17.0",
+    "markdown-it": "^14.1.1",
+    "pdf-lib": "^1.17.1",
+    "yaml": "^2.9.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/katex": "^0.16.8",
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^22.19.19",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

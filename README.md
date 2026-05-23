@@ -16,37 +16,45 @@ YAML を宣言的に書いて、ブラウザ上でスライドを作成・編集
   インスペクタ編集はコメントを保ったまま YAML AST を in-place 更新する。
 - **ファイル入出力**: File System Access API (フォルダ読み書き) / ZIP フォールバック。
 
+## モノレポ構成 (pnpm workspace)
+
+```
+packages/
+  core/   @slider/core — ブラウザ非依存のパイプライン (ライブラリ)
+  web/    @slider/web  — Svelte エディタ/プレゼン (ブラウザ)
+  cli/    @slider/cli  — Node CLI (YAML -> PDF/SVG)
+```
+
+- **core**: schema(zod) / ir(HIR・MIR・LIR) / load(parse・base解決・prepare) /
+  normalize / lower / render(svg・pdf) / edit(YAML AST) / pipeline。`AssetResolver`
+  と `VFS` を抽象として持ち、具体実装 (IndexedDB 等) には依存しない。
+  PDF レンダラは重いので `@slider/core/pdf` に分離。
+- **web**: IndexedDB ベースの VFS、File ツリー UI、CodeMirror、KaTeX プレビュー等。
+- **cli**: ディスクから読む `NodeAssetResolver` + `core` でヘッドレスに PDF/SVG 生成。
+
 ## 開発
 
 ```bash
-npm install
-npm run dev      # 開発サーバ
-npm test         # ユニット/統合テスト (vitest)
-npm run check    # 型チェック (svelte-check)
-npm run build    # 本番ビルド -> dist/
+pnpm install
+pnpm dev          # web 開発サーバ (= pnpm --filter @slider/web dev)
+pnpm test         # 全パッケージのテスト (vitest)
+pnpm check        # 全パッケージの型チェック
+pnpm build        # web の本番ビルド
 ```
 
-サンプルは `public/examples/basic/`。起動時に自動で開く。
+サンプルは `packages/web/public/examples/basic/`。web 起動時に選択して開く。
 
-## デプロイ
-
-`dist/` は完全に静的。サブパス配信時は `VITE_BASE` を設定:
+### CLI
 
 ```bash
-VITE_BASE=/slider/ npm run build
+# YAML プロジェクトを PDF (と任意で SVG) に変換
+pnpm --filter @slider/cli start <deck.yaml> -o out.pdf --svg ./svg-out
 ```
 
-## プロジェクト構造
+## デプロイ (web)
 
-```
-src/
-  schema/    HIR の zod スキーマ
-  ir/        HIR / MIR / LIR 型
-  load/      パース, base 解決 (extends), アセット (fetch/FS/ZIP), prepare
-  normalize/ HIR -> MIR (base 合成, 変数展開, schema/defaults マージ, システム変数)
-  lower/     MIR -> LIR (位置解決, グループ, auto-layout, テキストシェイプ)
-  render/    svg/ と pdf/ レンダラ
-  edit/      YAML AST 編集 (インスペクタ書き戻し)
-  app/       Svelte UI (エディタ / プレゼン / ストア)
-  pipeline.ts  全体オーケストレーション
+`packages/web/dist/` は完全に静的。サブパス配信時は `VITE_BASE` を設定:
+
+```bash
+VITE_BASE=/slider/ pnpm --filter @slider/web build
 ```
