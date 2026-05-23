@@ -142,12 +142,12 @@
         />
         {#if error}<p class="error">{error}</p>{/if}
         <div class="actions">
-          <button type="button" onclick={() => (step = "menu")} disabled={busy}>
-            戻る
-          </button>
           <button type="submit" class="primary" disabled={busy}>
             {#if loading === "create"}<Spinner />{/if}
             作成
+          </button>
+          <button type="button" onclick={() => (step = "menu")} disabled={busy}>
+            戻る
           </button>
         </div>
       </form>
