@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve, basename } from "node:path";
 import { existsSync } from "node:fs";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, readdir, cp } from "node:fs/promises";
 import { compileDeck, renderSlideSvg } from "@slideck/core";
 import { renderPdf } from "@slideck/core/pdf";
 import { NodeAssetResolver } from "./node-resolver";
@@ -10,6 +10,7 @@ import { serve, type ServeOptions } from "./server";
 const USAGE = `slideck — YAML スライドの編集サーバ / PDF・SVG ビルド
 
 使い方:
+  slideck new [name]                  サンプルプロジェクトを name/ に作成 (既定: my-deck)
   slideck serve [dir]                 ディレクトリを編集サーバで開く (既定: カレント)
   slideck export <deck.yaml> [opts]   PDF/SVG にビルド
 
@@ -34,6 +35,44 @@ function webDir(): string {
   throw new Error(
     "web のビルド成果物が見つかりません。`pnpm --filter @slideck/web build` を実行してください。",
   );
+}
+
+// 同梱サンプル (examples/basic) の場所。公開パッケージでは dist/web、dev では
+// web の dist もしくは public を見る。
+function sampleDir(): string {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    join(here, "web", "examples", "basic"),
+    join(here, "..", "..", "web", "dist", "examples", "basic"),
+    join(here, "..", "..", "web", "public", "examples", "basic"),
+  ];
+  for (const c of candidates) if (existsSync(join(c, "manifest.json"))) return c;
+  throw new Error("サンプルが見つかりません。");
+}
+
+async function cmdNew(args: string[]): Promise<void> {
+  const name = args.find((a) => !a.startsWith("-")) ?? "my-deck";
+  const target = resolve(name);
+
+  // 既存ディレクトリが空でなければ上書きしない。
+  if (existsSync(target) && (await readdir(target).catch(() => [])).length > 0) {
+    console.error(`既に存在し空ではありません: ${target}`);
+    process.exit(1);
+  }
+
+  // manifest.json に列挙されたファイルだけを複製する (manifest 自体は含めない)。
+  const src = sampleDir();
+  const { files } = JSON.parse(await readFile(join(src, "manifest.json"), "utf8")) as {
+    files: string[];
+  };
+  for (const rel of files) {
+    const to = join(target, rel);
+    await mkdir(dirname(to), { recursive: true });
+    await cp(join(src, rel), to);
+  }
+
+  console.log(`作成しました: ${target} (${files.length} ファイル)`);
+  console.log(`  cd ${name} && slideck serve`);
 }
 
 async function cmdServe(args: string[]): Promise<void> {
@@ -103,6 +142,7 @@ async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const [cmd, ...rest] = argv;
 
+  if (cmd === "new") return cmdNew(rest);
   if (cmd === "serve") return cmdServe(rest);
   if (cmd === "export") return cmdExport(rest);
   if (cmd === "-h" || cmd === "--help" || cmd === undefined) {

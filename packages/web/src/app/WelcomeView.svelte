@@ -175,6 +175,7 @@
   h1 {
     margin: 0 0 4px;
     font-size: 2rem;
+    font-weight: 200;
     text-align: center;
   }
   p {

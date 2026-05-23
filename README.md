@@ -57,6 +57,9 @@ npm install -g @slideck/cli
 ```
 
 ```bash
+# サンプルプロジェクトを新規作成 (省略時は my-deck/)
+slideck new my-deck
+
 # ディスク上のプロジェクトを編集サーバで開く (ブラウザが自動で開く)
 slideck serve ./my-deck          # 省略時はカレントディレクトリ
 slideck serve ./my-deck --port 4321 --no-open
