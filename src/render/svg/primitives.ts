@@ -1,7 +1,6 @@
-import katex from "katex";
 import type { Primitive, Stroke } from "../../ir/lir";
 import { dataUri } from "../../lib/base64";
-import { parseInlineMath } from "../../lib/inline-math";
+import { renderRichHtml } from "../../lib/richtext";
 
 export function escapeXml(s: string): string {
   return s
@@ -65,11 +64,9 @@ export function renderPrimitive(p: Primitive): string {
         p.fill ? escapeXml(p.fill) : "none"
       }"${strokeAttrs(p.stroke)}/>`;
     case "richtext": {
-      // インライン数式入りテキストを foreignObject 内の HTML で描画する。
-      // 表示には katex の CSS/フォントがページに読み込まれている必要がある。
-      const inner = parseInlineMath(p.raw)
-        .map((seg) => (seg.math ? renderMath(seg.value) : escapeXml(seg.value)))
-        .join("");
+      // インライン Markdown + 数式入りテキストを foreignObject 内の HTML で描画する。
+      // 数式表示には katex の CSS/フォントがページに読み込まれている必要がある。
+      const inner = renderRichHtml(p.raw);
       const style =
         `font-family:${escapeXml(fontFamilyWithFallback(p.font.family))};` +
         `font-size:${num(p.size)}px;color:${escapeXml(p.color)};` +
@@ -80,18 +77,5 @@ export function renderPrimitive(p: Primitive): string {
         `</foreignObject>`
       );
     }
-  }
-}
-
-// インライン KaTeX (Node/ブラウザ両対応)。失敗時はソースを表示。
-function renderMath(tex: string): string {
-  try {
-    return katex.renderToString(tex, {
-      displayMode: false,
-      throwOnError: false,
-      output: "html",
-    });
-  } catch {
-    return escapeXml(tex);
   }
 }

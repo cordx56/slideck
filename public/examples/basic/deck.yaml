@@ -44,10 +44,10 @@ slides:
       title: "背景と動機"
     elements:
       - type: text
-        position: { left: 14%, top: 64%, width: 72% }
-        size: 36
+        position: { left: 14%, top: 60%, width: 74% }
+        size: 34
         color: ${muted}
-        text: 'インライン数式: 質量とエネルギーは $E = mc^2$、総和は $\sum_{i=1}^{n} i = \frac{n(n+1)}{2}$ で表せる。'
+        text: '**Markdown** と `inline code`、~~打ち消し~~、[リンク](https://example.com)、そして数式 $E = mc^2$ をテキスト中に書ける。'
 
   - id: closing
     use: light

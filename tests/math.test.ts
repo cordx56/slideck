@@ -7,6 +7,12 @@ import {
   hasInlineMath,
   stripInlineMath,
 } from "../src/lib/inline-math";
+import {
+  hasMarkdown,
+  hasRichMarkup,
+  renderRichHtml,
+  richToPlain,
+} from "../src/lib/richtext";
 import type { LowerCtx } from "../src/lower/context";
 import type { MirDeck, MirText } from "../src/ir";
 import type { Dimension } from "../src/schema/position";
@@ -75,5 +81,47 @@ describe("インライン数式テキストの lower / render", () => {
   it("不正な TeX でも例外を投げない", () => {
     const deck = deckWithText("x $\\frac{$ y");
     expect(() => renderSvgString(lower(deck.slides[0], deck, ctx))).not.toThrow();
+  });
+});
+
+describe("inline Markdown", () => {
+  it("hasMarkdown は対応マーカを検出する", () => {
+    expect(hasMarkdown("**bold**")).toBe(true);
+    expect(hasMarkdown("`code`")).toBe(true);
+    expect(hasMarkdown("~~del~~")).toBe(true);
+    expect(hasMarkdown("[t](u)")).toBe(true);
+    expect(hasMarkdown("ただの文")).toBe(false);
+  });
+
+  it("renderRichHtml が Markdown を HTML に変換する", () => {
+    const html = renderRichHtml("**強調** と `code` と ~~消し~~ と [L](https://e.com)");
+    expect(html).toContain("<strong>強調</strong>");
+    expect(html).toContain("<code>code</code>");
+    expect(html).toContain("<s>消し</s>");
+    expect(html).toContain('<a href="https://e.com"');
+  });
+
+  it("Markdown と数式を同居できる", () => {
+    const html = renderRichHtml("**E** は $E=mc^2$");
+    expect(html).toContain("<strong>E</strong>");
+    expect(html).toContain("katex");
+  });
+
+  it("richToPlain はマークアップを外す", () => {
+    expect(richToPlain("**a** `b` ~~c~~ [d](u) $x^2$")).toBe("a b c d x^2");
+  });
+
+  it("Markdown を含むテキストは richtext になり HTML を出す", () => {
+    const deck = deckWithText("これは **太字** です");
+    const prim = lower(deck.slides[0], deck, ctx).primitives[0];
+    expect(prim.kind).toBe("richtext");
+    expect(hasRichMarkup("これは **太字** です")).toBe(true);
+    const svg = renderSvgString(lower(deck.slides[0], deck, ctx));
+    expect(svg).toContain("<foreignObject");
+    expect(svg).toContain("<strong>太字</strong>");
+  });
+
+  it("生 HTML は無効化される (html:false)", () => {
+    expect(renderRichHtml("a `x` <script>bad</script>")).not.toContain("<script>");
   });
 });

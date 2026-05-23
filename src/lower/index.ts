@@ -4,7 +4,7 @@ import { type Box, resolveAxis, resolveBox, toPx } from "./position";
 import { applyPadding } from "./groups";
 import { computeAutoLayout } from "./auto-layout";
 import { shapeText } from "./text-shaping";
-import { hasInlineMath, stripInlineMath } from "../lib/inline-math";
+import { hasRichMarkup, richToPlain } from "../lib/richtext";
 import type { LowerCtx } from "./context";
 
 export type { LowerCtx } from "./context";
@@ -53,9 +53,9 @@ function lowerElement(
 function textBox(el: MirText, parent: Box, ctx: LowerCtx): Box {
   const p = el.position ?? {};
   const hx = resolveAxis(p.left, p.right, p.width, parent.x, parent.w);
-  // 高さは数式区切りを外した素テキストで概算する。
+  // 高さはマークアップを外した素テキストで概算する。
   const shaped = shapeText(
-    stripInlineMath(el.text),
+    richToPlain(el.text),
     el.font,
     el.size,
     hx.size,
@@ -77,7 +77,8 @@ function placeElement(
 ): void {
   switch (el.type) {
     case "text": {
-      const plain = hasInlineMath(el.text) ? stripInlineMath(el.text) : el.text;
+      const rich = hasRichMarkup(el.text);
+      const plain = rich ? richToPlain(el.text) : el.text;
       const shaped = shapeText(
         plain,
         el.font,
@@ -96,8 +97,8 @@ function placeElement(
         x: box.x + line.x,
         y: box.y + line.baseline,
       }));
-      if (hasInlineMath(el.text)) {
-        // インライン数式を含む: SVG は KaTeX、PDF は素テキスト (runs)。
+      if (rich) {
+        // 数式/Markdown を含む: SVG は HTML(KaTeX/md)、PDF は素テキスト (runs)。
         out.push({
           kind: "richtext",
           x: box.x,

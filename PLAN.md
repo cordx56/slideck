@@ -848,11 +848,14 @@ Phase 1〜5 すべて実装済み。テスト 49 件 (vitest)、`npm run build` 
 - **ul / ol**: group 同様の縦並びコンテナ。子は `items`。各 item の前にマーカ
   (`•` / `1.`、`start` で開始番号変更) を gutter に描く。`gap`/`align`/`padding` と
   マーカ用の `font`/`size`/`color`。
-- **インライン数式 (KaTeX)**: text 中に `$...$` で記述 (変数 `${...}` とは非衝突)。
-  `$` を含むテキストは `richtext` プリミティブになり、SVG は `<foreignObject>` 内に
-  周囲テキスト + インライン KaTeX を出す (プレビューには `katex` の CSS/フォントが必要、
-  main.ts で import)。PDF は HTML を組版できないため **素テキスト (runs) で代替描画**
-  (数式はソース表示)。専用 math 要素は廃止しインライン専用。
+- **インライン Markdown + 数式**: text 中にインライン記法を書ける。
+  - Markdown (インラインのみ): 太字 `**`、強調 `*`/`_`、コード `` ` ``、打ち消し `~~`、
+    リンク `[t](u)`。`markdown-it` の `renderInline` (html:false) を使用。
+  - 数式: `$...$` を KaTeX で。変数 `${...}` とは非衝突。
+  - これらを含むテキストは `richtext` プリミティブになり、SVG は `<foreignObject>` 内に
+    HTML (md + KaTeX) を出す (プレビューに `katex` CSS/フォントが必要、main.ts で import)。
+    PDF は HTML を組版できないため **素テキスト (runs) で代替描画**。
+    `lib/richtext.ts` (renderRichHtml / richToPlain / hasRichMarkup)。ブロック要素は非対応。
 
 ### 既知の残課題（将来）
 
