@@ -44,10 +44,7 @@ export function renderPrimitive(p: Primitive): string {
     case "image":
       return `<image x="${num(p.x)}" y="${num(p.y)}" width="${num(
         p.w,
-      )}" height="${num(p.h)}" preserveAspectRatio="none" href="${dataUri(
-        p.mime,
-        p.data,
-      )}"/>`;
+      )}" height="${num(p.h)}" preserveAspectRatio="none" href="${dataUri(p.mime, p.data)}"/>`;
     case "rect":
       return `<rect x="${num(p.x)}" y="${num(p.y)}" width="${num(
         p.w,

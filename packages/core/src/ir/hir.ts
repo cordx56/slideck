@@ -7,12 +7,7 @@ export type Align = "left" | "center" | "right";
 export type Fit = "contain" | "cover" | "fill";
 export type LayoutDir = "row" | "column";
 export type CrossAlign = "start" | "center" | "end" | "stretch";
-export type Justify =
-  | "start"
-  | "center"
-  | "end"
-  | "space-between"
-  | "space-around";
+export type Justify = "start" | "center" | "end" | "space-between" | "space-around";
 
 export interface BaseElement {
   id?: string;
@@ -107,13 +102,7 @@ export interface FontDecl {
   index?: number; // font index within a .ttc
 }
 
-export type VarType =
-  | "string"
-  | "number"
-  | "boolean"
-  | "color"
-  | "image"
-  | "enum";
+export type VarType = "string" | "number" | "boolean" | "color" | "image" | "enum";
 
 export interface VarDecl {
   type: VarType;

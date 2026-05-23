@@ -93,9 +93,7 @@ function build(root: string, webDir: string, name: string): Server {
   const originOf = (eventPath: string): string | undefined => {
     const now = Date.now();
     pending = pending.filter((p) => now - p.at < PENDING_TTL);
-    const hit = pending.find(
-      (p) => eventPath === p.path || eventPath.startsWith(p.path + "/"),
-    );
+    const hit = pending.find((p) => eventPath === p.path || eventPath.startsWith(p.path + "/"));
     return hit?.origin;
   };
 
@@ -272,7 +270,11 @@ function openBrowser(url: string): void {
   const cmd =
     process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
   try {
-    const child = spawn(cmd, [url], { stdio: "ignore", detached: true, shell: process.platform === "win32" });
+    const child = spawn(cmd, [url], {
+      stdio: "ignore",
+      detached: true,
+      shell: process.platform === "win32",
+    });
     child.on("error", () => {});
     child.unref();
   } catch {

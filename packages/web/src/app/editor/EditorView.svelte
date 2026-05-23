@@ -85,10 +85,7 @@
 
 <svelte:window on:keydown={onKey} />
 
-<div
-  class="editor"
-  style="grid-template-columns: {leftWidth}px 5px 1fr 5px {rightWidth}px"
->
+<div class="editor" style="grid-template-columns: {leftWidth}px 5px 1fr 5px {rightWidth}px">
   <header class="topbar">
     {#if store.serverMode}
       <span class="home" title="Disk-linked mode">slideck</span>
@@ -108,16 +105,8 @@
     <span class="spacer"></span>
 
     <button onclick={() => zipInput.click()} title="Import ZIP">Import ZIP</button>
-    <input
-      bind:this={zipInput}
-      type="file"
-      accept=".zip"
-      hidden
-      onchange={onZipPicked}
-    />
-    <button onclick={() => store.exportZip()} title="Export project as ZIP">
-      Export ZIP
-    </button>
+    <input bind:this={zipInput} type="file" accept=".zip" hidden onchange={onZipPicked} />
+    <button onclick={() => store.exportZip()} title="Export project as ZIP"> Export ZIP </button>
 
     <button onclick={present}>Present</button>
     <button class="pdf" onclick={exportPdf} disabled={exporting}>

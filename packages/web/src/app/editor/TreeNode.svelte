@@ -93,7 +93,9 @@
   }}
   ondblclick={() => ctx.startRename(node.path)}
 >
-  <span class="chev">{#if isFolder}{open ? "▾" : "▸"}{/if}</span>
+  <span class="chev"
+    >{#if isFolder}{open ? "▾" : "▸"}{/if}</span
+  >
   <span class="icon icon-{icon()}"></span>
 
   {#if ctx.renaming() === node.path}

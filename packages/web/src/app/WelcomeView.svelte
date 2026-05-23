@@ -146,9 +146,7 @@
             {#if loading === "create"}<Spinner />{/if}
             Create
           </button>
-          <button type="button" onclick={() => (step = "menu")} disabled={busy}>
-            Back
-          </button>
+          <button type="button" onclick={() => (step = "menu")} disabled={busy}> Back </button>
         </div>
       </form>
     {/if}

@@ -32,9 +32,7 @@ function webDir(): string {
   const here = dirname(fileURLToPath(import.meta.url));
   const candidates = [join(here, "web"), join(here, "..", "..", "web", "dist")];
   for (const c of candidates) if (existsSync(join(c, "index.html"))) return c;
-  throw new Error(
-    "web build artifacts not found. Run `pnpm --filter @slideck/web build`.",
-  );
+  throw new Error("web build artifacts not found. Run `pnpm --filter @slideck/web build`.");
 }
 
 // Location of the bundled sample (examples/basic). In the published package this is

@@ -7,12 +7,7 @@ import {
   drawSelection,
 } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
-import {
-  defaultKeymap,
-  history,
-  historyKeymap,
-  indentWithTab,
-} from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { yaml } from "@codemirror/lang-yaml";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
@@ -131,8 +126,7 @@ const vfsPathDropHandler = EditorView.domEventHandlers({
     if (!path) return false;
     event.preventDefault();
     const pos =
-      view.posAtCoords({ x: event.clientX, y: event.clientY }) ??
-      view.state.selection.main.head;
+      view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.selection.main.head;
     view.dispatch({
       changes: { from: pos, insert: path },
       selection: { anchor: pos + path.length },

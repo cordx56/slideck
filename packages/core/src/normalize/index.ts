@@ -1,11 +1,6 @@
 import type { LoadedDeck } from "../load/resolve-refs";
 import type { HirElement, TextDefaults, RichStyle } from "../ir/hir";
-import type {
-  MirDeck,
-  MirElement,
-  MirFont,
-  MirSlide,
-} from "../ir/mir";
+import type { MirDeck, MirElement, MirFont, MirSlide } from "../ir/mir";
 import { PipelineError } from "../lib/error";
 import { normalizeHex } from "../lib/color";
 import { buildVarContext, expandString, type VarContext } from "./variables";
@@ -72,19 +67,8 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
       errors,
     );
 
-    const textDefaults = resolveTextDefaultsFor(
-      mergedDefaults.text,
-      fontKeyToFamily,
-      vars,
-      errors,
-    );
-    const rich = resolveRichStyle(
-      mergedDefaults,
-      textDefaults,
-      fontKeyToFamily,
-      vars,
-      errors,
-    );
+    const textDefaults = resolveTextDefaultsFor(mergedDefaults.text, fontKeyToFamily, vars, errors);
+    const rich = resolveRichStyle(mergedDefaults, textDefaults, fontKeyToFamily, vars, errors);
     const ctx: ConvertCtx = {
       vars,
       fontKeyToFamily,
@@ -97,9 +81,7 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
     const elements = composed.map((el) => convertElement(el, ctx));
 
     const bgRaw = slide.background ?? pickBackground(applied);
-    const background = bgRaw
-      ? resolveColorLiteral(expandString(bgRaw, vars, errors))
-      : undefined;
+    const background = bgRaw ? resolveColorLiteral(expandString(bgRaw, vars, errors)) : undefined;
 
     // id is optional. When unspecified, assign an index-derived id
     // (duplicate validation is already done in DeckSchema).

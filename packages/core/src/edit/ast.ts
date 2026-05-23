@@ -48,12 +48,7 @@ export function getField(doc: Document, elPath: Path, field: Path): string {
 
 // Set a field. An empty string means delete.
 // Values that look like a number/boolean are converted to the appropriate type.
-export function setField(
-  doc: Document,
-  elPath: Path,
-  field: Path,
-  raw: string,
-): void {
+export function setField(doc: Document, elPath: Path, field: Path, raw: string): void {
   const full = [...elPath, ...field];
   if (raw === "") {
     doc.deleteIn(full);
@@ -97,11 +92,7 @@ const TEMPLATES: Record<string, () => Record<string, unknown>> = {
 };
 
 // Append an element template to the end of the given slide's elements and return the index.
-export function addElement(
-  doc: Document,
-  slideIndex: number,
-  type: string,
-): number {
+export function addElement(doc: Document, slideIndex: number, type: string): number {
   const elsPath: Path = ["slides", slideIndex, "elements"];
   const existing = doc.getIn(elsPath, true);
   const seq: YAMLSeq = isSeq(existing) ? existing : new YAMLSeq();

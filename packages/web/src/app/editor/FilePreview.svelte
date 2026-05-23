@@ -9,9 +9,7 @@
   }
   let { path }: Props = $props();
 
-  const kind = $derived(
-    isImagePath(path) ? "image" : isFontPath(path) ? "font" : "binary",
-  );
+  const kind = $derived(isImagePath(path) ? "image" : isFontPath(path) ? "font" : "binary");
 
   let imageUrl = $state<string | null>(null);
   let fontFamily = $state<string | null>(null);

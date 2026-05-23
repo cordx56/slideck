@@ -18,11 +18,7 @@ interface Measured {
 
 // Resolve row/column auto-layout and return each child's absolute Box.
 // inner is the group's box after padding is applied.
-export function computeAutoLayout(
-  group: MirGroup,
-  inner: Box,
-  ctx: LowerCtx,
-): PlacedChild[] {
+export function computeAutoLayout(group: MirGroup, inner: Box, ctx: LowerCtx): PlacedChild[] {
   const dir = group.layout ?? "column";
   const isRow = dir === "row";
   const mainExtent = isRow ? inner.w : inner.h;
@@ -38,9 +34,7 @@ export function computeAutoLayout(
 
   // flex distribution: split the remainder (after fixed mains and gaps) by ratio.
   const totalGap = gapPx * Math.max(0, n - 1);
-  const fixedMain = items
-    .filter((i) => i.flex === 0)
-    .reduce((s, i) => s + i.main, 0);
+  const fixedMain = items.filter((i) => i.flex === 0).reduce((s, i) => s + i.main, 0);
   const flexTotal = items.reduce((s, i) => s + i.flex, 0);
   const remaining = Math.max(0, mainExtent - fixedMain - totalGap);
   for (const i of items) {

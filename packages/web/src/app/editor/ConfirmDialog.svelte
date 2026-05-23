@@ -6,13 +6,7 @@
     onConfirm: () => void;
     onCancel: () => void;
   }
-  let {
-    message,
-    confirmLabel = "OK",
-    danger = false,
-    onConfirm,
-    onCancel,
-  }: Props = $props();
+  let { message, confirmLabel = "OK", danger = false, onConfirm, onCancel }: Props = $props();
 
   function onKey(e: KeyboardEvent) {
     if (e.key === "Escape") onCancel();
@@ -22,13 +16,7 @@
 
 <svelte:window on:keydown={onKey} />
 
-<div
-  class="overlay"
-  role="button"
-  tabindex="-1"
-  onclick={onCancel}
-  onkeydown={() => {}}
->
+<div class="overlay" role="button" tabindex="-1" onclick={onCancel} onkeydown={() => {}}>
   <div
     class="dialog"
     role="dialog"

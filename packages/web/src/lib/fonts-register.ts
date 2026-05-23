@@ -6,9 +6,7 @@ const registered = new Set<string>();
 // Register loaded fonts with the browser via the FontFace API.
 // This makes the preview SVG render with the same real fonts as the PDF,
 // keeping metrics (line wrapping) and appearance consistent.
-export async function registerFonts(
-  fonts: Map<string, LoadedFont>,
-): Promise<void> {
+export async function registerFonts(fonts: Map<string, LoadedFont>): Promise<void> {
   if (typeof FontFace === "undefined" || typeof document === "undefined") return;
   for (const [family, lf] of fonts) {
     const key = `${family}:${lf.bytes.byteLength}`;

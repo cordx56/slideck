@@ -44,7 +44,8 @@ export function collectFileReferences(fromFile: string, text: string): Reference
   const fonts = doc.get("fonts", true);
   if (isMap(fonts)) {
     for (const pair of fonts.items) {
-      if (isMap(pair.value)) push((pair.value as { get(k: string, keep: boolean): Node }).get("path", true));
+      if (isMap(pair.value))
+        push((pair.value as { get(k: string, keep: boolean): Node }).get("path", true));
     }
   }
 
@@ -68,9 +69,7 @@ export async function collectBrokenReferences(
   const refs: Reference[] = [];
   for (const f of files) {
     const text =
-      openFile === f.path && openText !== undefined
-        ? openText
-        : await vfs.readText(f.path);
+      openFile === f.path && openText !== undefined ? openText : await vfs.readText(f.path);
     refs.push(...collectFileReferences(f.path, text));
   }
 

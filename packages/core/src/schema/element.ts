@@ -7,28 +7,20 @@ const alignSchema = z.enum(["left", "center", "right"]);
 const fitSchema = z.enum(["contain", "cover", "fill"]);
 const layoutSchema = z.enum(["row", "column"]);
 const crossAlignSchema = z.enum(["start", "center", "end", "stretch"]);
-const justifySchema = z.enum([
-  "start",
-  "center",
-  "end",
-  "space-between",
-  "space-around",
-]);
+const justifySchema = z.enum(["start", "center", "end", "space-between", "space-around"]);
 
 // gap / padding are % or px lengths (center not allowed).
-const lengthSchema = z.union([z.string(), z.number()]).transform(
-  (raw, ctx): Dimension => {
-    const dim = parseDimension(raw, false);
-    if (!dim) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `invalid length: ${JSON.stringify(raw)}`,
-      });
-      return z.NEVER;
-    }
-    return dim;
-  },
-);
+const lengthSchema = z.union([z.string(), z.number()]).transform((raw, ctx): Dimension => {
+  const dim = parseDimension(raw, false);
+  if (!dim) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `invalid length: ${JSON.stringify(raw)}`,
+    });
+    return z.NEVER;
+  }
+  return dim;
+});
 
 const baseFields = {
   id: z.string().optional(),

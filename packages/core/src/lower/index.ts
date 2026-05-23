@@ -33,12 +33,7 @@ export function lower(slide: MirSlide, deck: MirDeck, ctx: LowerCtx): SlideLir {
 }
 
 // Resolve position relative to the parent box, then place and draw the element.
-function lowerElement(
-  el: MirElement,
-  parentBox: Box,
-  ctx: LowerCtx,
-  out: Primitive[],
-): void {
+function lowerElement(el: MirElement, parentBox: Box, ctx: LowerCtx, out: Primitive[]): void {
   if (el.type === "text") {
     placeElement(el, textBox(el, parentBox, ctx), ctx, out);
     return;
@@ -70,38 +65,61 @@ function textBox(el: MirText, parent: Box, ctx: LowerCtx): Box {
   const hx = resolveAxis(p.left, p.right, p.width, parent.x, parent.w);
   const height = hasRichMarkup(el.text)
     ? shapeRich(
-        el.text, el.font, el.size, hx.size, el.align,
-        el.lineHeight, el.letterSpacing, ctx.metrics, richStyleOf(el), el.color,
+        el.text,
+        el.font,
+        el.size,
+        hx.size,
+        el.align,
+        el.lineHeight,
+        el.letterSpacing,
+        ctx.metrics,
+        richStyleOf(el),
+        el.color,
       ).height
     : shapeText(
-        el.text, el.font, el.size, hx.size, el.align,
-        el.lineHeight, el.letterSpacing, ctx.metrics,
+        el.text,
+        el.font,
+        el.size,
+        hx.size,
+        el.align,
+        el.lineHeight,
+        el.letterSpacing,
+        ctx.metrics,
       ).height;
   const vy = resolveAxis(p.top, p.bottom, p.height, parent.y, parent.h, height);
   return { x: hx.pos, y: vy.pos, w: hx.size, h: vy.size };
 }
 
 // Draw an element into the resolved box (auto-layout passes this box directly).
-function placeElement(
-  el: MirElement,
-  box: Box,
-  ctx: LowerCtx,
-  out: Primitive[],
-): void {
+function placeElement(el: MirElement, box: Box, ctx: LowerCtx, out: Primitive[]): void {
   switch (el.type) {
     case "text": {
       if (hasRichMarkup(el.text)) {
         // inline markdown + math: expand into native text/line/path
         // (no foreignObject, so SVG/PDF/web all match).
         const layout = shapeRich(
-          el.text, el.font, el.size, box.w, el.align,
-          el.lineHeight, el.letterSpacing, ctx.metrics, richStyleOf(el), el.color,
+          el.text,
+          el.font,
+          el.size,
+          box.w,
+          el.align,
+          el.lineHeight,
+          el.letterSpacing,
+          ctx.metrics,
+          richStyleOf(el),
+          el.color,
         );
         emitRich(layout, box, el.color, out);
       } else {
         const shaped = shapeText(
-          el.text, el.font, el.size, box.w, el.align,
-          el.lineHeight, el.letterSpacing, ctx.metrics,
+          el.text,
+          el.font,
+          el.size,
+          box.w,
+          el.align,
+          el.lineHeight,
+          el.letterSpacing,
+          ctx.metrics,
         );
         const runs: TextRun[] = shaped.lines.map((line) => ({
           text: line.text,
@@ -246,12 +264,7 @@ function placeList(
 }
 
 // Place a child into the box assigned by auto-layout (the child's own position is ignored).
-function placeAtBox(
-  el: MirElement,
-  box: Box,
-  ctx: LowerCtx,
-  out: Primitive[],
-): void {
+function placeAtBox(el: MirElement, box: Box, ctx: LowerCtx, out: Primitive[]): void {
   placeElement(el, box, ctx, out);
 }
 
@@ -313,12 +326,7 @@ function makeStroke(color: string | undefined, width: number): Stroke | undefine
 }
 
 // Fit the image draw rect inside box per fit. cover behaves like fill in Phase 1.
-function fitImage(
-  box: Box,
-  iw: number,
-  ih: number,
-  fit: "contain" | "cover" | "fill",
-): Box {
+function fitImage(box: Box, iw: number, ih: number, fit: "contain" | "cover" | "fill"): Box {
   if (fit === "fill" || fit === "cover" || iw <= 0 || ih <= 0) {
     return box;
   }

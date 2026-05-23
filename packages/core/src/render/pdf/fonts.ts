@@ -41,9 +41,7 @@ async function embedOne(
         subset: false,
       });
     } catch (e) {
-      errors.push(
-        new PipelineError(`Font embed failed: ${lf.family} (${String(e)})`),
-      );
+      errors.push(new PipelineError(`Font embed failed: ${lf.family} (${String(e)})`));
       return undefined;
     }
   }

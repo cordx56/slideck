@@ -14,12 +14,7 @@ import {
   setLastProject,
   type ProjectMeta,
 } from "./projects";
-import {
-  compileDeck,
-  recompileDeck,
-  renderSlideSvg,
-  type CompiledDeck,
-} from "@slideck/core";
+import { compileDeck, recompileDeck, renderSlideSvg, type CompiledDeck } from "@slideck/core";
 import type { LowerCtx, LoadedFont } from "@slideck/core";
 import type { PipelineError } from "@slideck/core";
 import { debounce } from "@slideck/core";
@@ -100,11 +95,7 @@ async function liveRecompile() {
 
 async function recomputeRefs() {
   if (vfs) {
-    brokenRefs = await collectBrokenReferences(
-      vfs,
-      openPath,
-      dirty ? yamlText : undefined,
-    );
+    brokenRefs = await collectBrokenReferences(vfs, openPath, dirty ? yamlText : undefined);
   }
 }
 
@@ -332,11 +323,7 @@ export const store = {
     const blob = await vfs.exportZip();
     const { downloadBytes } = await import("../lib/download");
     const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    downloadBytes(
-      new Uint8Array(await blob.arrayBuffer()),
-      `deck-${ts}.zip`,
-      "application/zip",
-    );
+    downloadBytes(new Uint8Array(await blob.arrayBuffer()), `deck-${ts}.zip`, "application/zip");
   },
   async importZip(file: File, targetDir = "/") {
     if (!vfs) return;

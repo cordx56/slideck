@@ -1,12 +1,7 @@
 // System variables auto-injected during normalize. Referable both in a base layout
 // and in slide elements. They are reserved names and cannot be redeclared in schema.vars.
 
-export const SYSTEM_VAR_NAMES = [
-  "slideNumber",
-  "slideCount",
-  "slideId",
-  "baseIds",
-] as const;
+export const SYSTEM_VAR_NAMES = ["slideNumber", "slideCount", "slideId", "baseIds"] as const;
 
 export function isReservedVar(name: string): boolean {
   return (SYSTEM_VAR_NAMES as readonly string[]).includes(name);

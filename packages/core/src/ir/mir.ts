@@ -83,14 +83,7 @@ export interface MirList {
   start: number;
 }
 
-export type MirElement =
-  | MirText
-  | MirImage
-  | MirRect
-  | MirLine
-  | MirPath
-  | MirGroup
-  | MirList;
+export type MirElement = MirText | MirImage | MirRect | MirLine | MirPath | MirGroup | MirList;
 
 export interface MirFont {
   family: string;

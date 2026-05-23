@@ -31,22 +31,23 @@ export function resolveAxis(
   intrinsic?: number,
 ): AxisResult {
   const isCenter = start?.kind === "center";
-  const startPx =
-    start && !isCenter ? toPx(start, parentExtent) : undefined;
+  const startPx = start && !isCenter ? toPx(start, parentExtent) : undefined;
   const endPx = end ? toPx(end, parentExtent) : undefined;
   const sizePx = size ? toPx(size, parentExtent) : undefined;
 
   // size known
   if (sizePx !== undefined) {
-    return { pos: parentOrigin + place(startPx, endPx, isCenter, sizePx, parentExtent), size: sizePx };
+    return {
+      pos: parentOrigin + place(startPx, endPx, isCenter, sizePx, parentExtent),
+      size: sizePx,
+    };
   }
   // start + end -> size is determined
   if (startPx !== undefined && endPx !== undefined) {
     return { pos: parentOrigin + startPx, size: parentExtent - startPx - endPx };
   }
   // size unknown: intrinsic or full parent
-  const resolved =
-    intrinsic ?? parentExtent - (startPx ?? 0) - (endPx ?? 0);
+  const resolved = intrinsic ?? parentExtent - (startPx ?? 0) - (endPx ?? 0);
   return {
     pos: parentOrigin + place(startPx, endPx, isCenter, resolved, parentExtent),
     size: resolved,

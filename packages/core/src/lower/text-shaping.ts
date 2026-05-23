@@ -118,8 +118,7 @@ export function shapeText(
   let maxLineW = 0;
   const lines: ShapedLine[] = rawLines.map((lineText, i) => {
     const w =
-      metrics.measure(lineText, font, size) +
-      letterSpacing * Math.max(0, [...lineText].length - 1);
+      metrics.measure(lineText, font, size) + letterSpacing * Math.max(0, [...lineText].length - 1);
     maxLineW = Math.max(maxLineW, w);
     const ref = boxWidth || w;
     let x = 0;

@@ -109,7 +109,11 @@ class HttpVfs implements VFS {
     const f = normalize(from);
     const t = normalize(to);
     const body: PathPairBody = { from: f, to: t };
-    await fetch(VfsApi.move, { method: "POST", headers: this.h(JSON_CT), body: JSON.stringify(body) });
+    await fetch(VfsApi.move, {
+      method: "POST",
+      headers: this.h(JSON_CT),
+      body: JSON.stringify(body),
+    });
     this.bus.emit({ type: "move", from: f, to: t });
   }
 
@@ -117,7 +121,11 @@ class HttpVfs implements VFS {
     const f = normalize(from);
     const t = normalize(to);
     const body: PathPairBody = { from: f, to: t };
-    await fetch(VfsApi.copy, { method: "POST", headers: this.h(JSON_CT), body: JSON.stringify(body) });
+    await fetch(VfsApi.copy, {
+      method: "POST",
+      headers: this.h(JSON_CT),
+      body: JSON.stringify(body),
+    });
     this.bus.emit({ type: "create", path: t });
   }
 
@@ -140,7 +148,11 @@ class HttpVfs implements VFS {
   async importZip(blob: Blob, targetDir = "/"): Promise<void> {
     for (const e of await readZip(blob)) {
       const p = normalize(join(targetDir, e.path));
-      await this.writeBlob(p, new Blob([e.data as BlobPart], { type: mimeFromPath(p) }), mimeFromPath(p));
+      await this.writeBlob(
+        p,
+        new Blob([e.data as BlobPart], { type: mimeFromPath(p) }),
+        mimeFromPath(p),
+      );
     }
   }
 
@@ -155,7 +167,11 @@ class HttpVfs implements VFS {
   }
 
   async setMeta(key: string, value: unknown): Promise<void> {
-    await fetch(VfsApi.meta(key), { method: "PUT", headers: this.h(JSON_CT), body: JSON.stringify({ value }) });
+    await fetch(VfsApi.meta(key), {
+      method: "PUT",
+      headers: this.h(JSON_CT),
+      body: JSON.stringify({ value }),
+    });
   }
 
   // --- Subscribe / lifecycle ---

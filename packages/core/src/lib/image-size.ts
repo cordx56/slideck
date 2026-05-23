@@ -40,8 +40,14 @@ export function imageSize(data: Uint8Array): { width: number; height: number } {
   // WebP: RIFF....WEBP. VP8 (lossy) / VP8L (lossless) / VP8X (extended).
   if (
     len >= 30 &&
-    data[0] === 0x52 && data[1] === 0x49 && data[2] === 0x46 && data[3] === 0x46 &&
-    data[8] === 0x57 && data[9] === 0x45 && data[10] === 0x42 && data[11] === 0x50
+    data[0] === 0x52 &&
+    data[1] === 0x49 &&
+    data[2] === 0x46 &&
+    data[3] === 0x46 &&
+    data[8] === 0x57 &&
+    data[9] === 0x45 &&
+    data[10] === 0x42 &&
+    data[11] === 0x50
   ) {
     const fmt = String.fromCharCode(data[12], data[13], data[14], data[15]);
     if (fmt === "VP8 ") {

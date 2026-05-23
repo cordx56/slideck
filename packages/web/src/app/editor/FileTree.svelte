@@ -11,11 +11,7 @@
     type TreeNode as TNode,
     type TreeCtx,
   } from "./tree";
-  import {
-    readDataTransferEntries,
-    detectConflicts,
-    uniqueName,
-  } from "./file-ops";
+  import { readDataTransferEntries, detectConflicts, uniqueName } from "./file-ops";
   import { basename, dirname, join, normalize, isValidName, isDescendant } from "@slideck/core";
 
   const tree = $derived(buildTree(store.files, store.showHidden));
@@ -57,8 +53,7 @@
     if (conflicts.length > 0) {
       confirm = {
         message:
-          "The following files already exist:\n" +
-          conflicts.map((c) => " - " + c).join("\n"),
+          "The following files already exist:\n" + conflicts.map((c) => " - " + c).join("\n"),
         label: `Overwrite (${conflicts.length})`,
         onConfirm: () => void store.uploadEntries(toDir, entries, true),
       };
@@ -224,22 +219,11 @@
     {/each}
   </div>
 
-  <input
-    bind:this={zipInput}
-    type="file"
-    accept=".zip"
-    hidden
-    onchange={onZipPicked}
-  />
+  <input bind:this={zipInput} type="file" accept=".zip" hidden onchange={onZipPicked} />
 </div>
 
 {#if menu}
-  <ContextMenu
-    x={menu.x}
-    y={menu.y}
-    items={menuItems(menu.node)}
-    onClose={() => (menu = null)}
-  />
+  <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.node)} onClose={() => (menu = null)} />
 {/if}
 
 {#if confirm}

@@ -42,9 +42,7 @@ export function buildVarContext(
   Object.assign(values, deckVars ?? {});
   for (const name of Object.keys(slideVars ?? {})) {
     if (isReservedVar(name)) {
-      errors.push(
-        new PipelineError(`overriding system variable "${name}" in slide.vars`),
-      );
+      errors.push(new PipelineError(`overriding system variable "${name}" in slide.vars`));
     }
   }
   Object.assign(values, slideVars ?? {});
@@ -98,11 +96,7 @@ const SINGLE_RE = /^\$\{([^}]+)\}$/;
 
 // Expand ${name} in a string. If the whole string is a single reference, return the
 // value as is (stringified); if a partial reference, embed it. Undefined refs are errors.
-export function expandString(
-  s: string,
-  ctx: VarContext,
-  errors: PipelineError[],
-): string {
+export function expandString(s: string, ctx: VarContext, errors: PipelineError[]): string {
   const single = SINGLE_RE.exec(s);
   if (single) {
     const name = single[1].trim();

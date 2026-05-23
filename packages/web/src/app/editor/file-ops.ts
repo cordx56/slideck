@@ -12,11 +12,7 @@ function stem(name: string): [string, string] {
 }
 
 // Return a unique name within dir that does not collide ("x.png" -> "x copy.png" ...).
-export async function uniqueName(
-  vfs: VFS,
-  dir: string,
-  name: string,
-): Promise<string> {
+export async function uniqueName(vfs: VFS, dir: string, name: string): Promise<string> {
   if (!(await vfs.exists(normalize(join(dir, name))))) return name;
   const [base, ext] = stem(name);
   for (let i = 1; ; i++) {
@@ -39,9 +35,7 @@ export async function detectConflicts(
 }
 
 // Recursively expand the DataTransferItemList of an OS file drop (supports directories).
-export async function readDataTransferEntries(
-  items: DataTransferItemList,
-): Promise<UploadEntry[]> {
+export async function readDataTransferEntries(items: DataTransferItemList): Promise<UploadEntry[]> {
   const out: UploadEntry[] = [];
   const roots: FileSystemEntry[] = [];
   for (let i = 0; i < items.length; i++) {

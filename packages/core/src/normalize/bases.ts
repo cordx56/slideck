@@ -47,10 +47,7 @@ export function resolveAppliedBases(
 }
 
 // Stack layout elements by z-order (bases -> slide.elements).
-export function composeLayers(
-  applied: AppliedBase[],
-  slide: SlideHir,
-): HirElement[] {
+export function composeLayers(applied: AppliedBase[], slide: SlideHir): HirElement[] {
   const out: HirElement[] = [];
   for (const { base } of applied) out.push(...(base.layout ?? []));
   out.push(...(slide.elements ?? []));

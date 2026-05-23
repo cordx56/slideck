@@ -93,10 +93,7 @@ async function loadBaseFile(
   return base;
 }
 
-export async function loadDeck(
-  resolver: AssetResolver,
-  entry = "deck.yaml",
-): Promise<LoadResult> {
+export async function loadDeck(resolver: AssetResolver, entry = "deck.yaml"): Promise<LoadResult> {
   const errors: PipelineError[] = [];
 
   let deckText: string;

@@ -34,9 +34,7 @@ export function normalizePath(p: string): string {
 
 // Resolve a relative path against a file (its dir part) as the base.
 export function resolveFrom(baseFile: string, relative: string): string {
-  const baseDir = baseFile.includes("/")
-    ? baseFile.slice(0, baseFile.lastIndexOf("/"))
-    : "";
+  const baseDir = baseFile.includes("/") ? baseFile.slice(0, baseFile.lastIndexOf("/")) : "";
   if (relative.startsWith("/")) return normalizePath(relative);
   return normalizePath(baseDir ? `${baseDir}/${relative}` : relative);
 }

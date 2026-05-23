@@ -22,10 +22,7 @@ export function normalizeHex(s: string): string | null {
 
 // Resolve a color value to a concrete hex via the palette.
 // A hex literal is normalized as-is; a key is looked up in the palette.
-export function resolveColor(
-  value: string,
-  palette: Record<string, string>,
-): string | null {
+export function resolveColor(value: string, palette: Record<string, string>): string | null {
   const direct = normalizeHex(value);
   if (direct) return direct;
   const fromPalette = palette[value];

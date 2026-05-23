@@ -15,16 +15,11 @@ export interface SvgRenderOptions {
 }
 
 // Render an LIR slide to a self-contained SVG string (pure function).
-export function renderSvgString(
-  lir: SlideLir,
-  options: SvgRenderOptions = {},
-): string {
+export function renderSvgString(lir: SlideLir, options: SvgRenderOptions = {}): string {
   const { width, height } = lir;
   const defs = fontFaceStyle(options.fontFaces);
   const bg = lir.background
-    ? `<rect x="0" y="0" width="${width}" height="${height}" fill="${escapeXml(
-        lir.background,
-      )}"/>`
+    ? `<rect x="0" y="0" width="${width}" height="${height}" fill="${escapeXml(lir.background)}"/>`
     : "";
   const body = lir.primitives.map(renderPrimitive).join("");
   return (
@@ -48,10 +43,7 @@ function fontFaceStyle(faces: FontFace[] | undefined): string {
 }
 
 // For browsers: parse the SVG string into an SVGElement and return it.
-export function renderSvgElement(
-  lir: SlideLir,
-  options: SvgRenderOptions = {},
-): SVGSVGElement {
+export function renderSvgElement(lir: SlideLir, options: SvgRenderOptions = {}): SVGSVGElement {
   const str = renderSvgString(lir, options);
   const doc = new DOMParser().parseFromString(str, "image/svg+xml");
   return doc.documentElement as unknown as SVGSVGElement;

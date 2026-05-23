@@ -1,11 +1,4 @@
-import {
-  type PDFDocument,
-  type PDFPage,
-  type PDFImage,
-  rgb,
-  type Color,
-  PDFString,
-} from "pdf-lib";
+import { type PDFDocument, type PDFPage, type PDFImage, rgb, type Color, PDFString } from "pdf-lib";
 import type { Primitive } from "../../ir/lir";
 import { hexToRgb01 } from "../../lib/color";
 import { rectY, flipY } from "./coords";
@@ -58,9 +51,7 @@ export async function drawPrimitive(
           });
         } catch (e) {
           // Font missing a glyph, etc. Skip this line and continue.
-          errors.push(
-            new PipelineError(`PDF text draw failed: "${run.text}" (${String(e)})`),
-          );
+          errors.push(new PipelineError(`PDF text draw failed: "${run.text}" (${String(e)})`));
         }
       }
       break;
@@ -110,9 +101,7 @@ export async function drawPrimitive(
     case "image": {
       const img = await embedImage(pdf, prim.data, prim.mime, images);
       if (!img) {
-        errors.push(
-          new PipelineError(`PDF image embed: unsupported format: ${prim.mime}`),
-        );
+        errors.push(new PipelineError(`PDF image embed: unsupported format: ${prim.mime}`));
         break;
       }
       page.drawImage(img, {

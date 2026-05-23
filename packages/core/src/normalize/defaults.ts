@@ -23,9 +23,7 @@ export interface ResolvedTextDefaults {
 
 // Defaults with no gaps, merging theme.defaults.text and the fallback.
 // family/color may still be keys (font/color resolution is up to the caller).
-export function resolveTextDefaults(
-  td: TextDefaults | undefined,
-): ResolvedTextDefaults {
+export function resolveTextDefaults(td: TextDefaults | undefined): ResolvedTextDefaults {
   return {
     family: td?.family ?? TEXT_FALLBACK.family,
     size: td?.size ?? TEXT_FALLBACK.size,

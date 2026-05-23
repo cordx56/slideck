@@ -1,9 +1,5 @@
 // Trigger a download of a byte array as a file (browser).
-export function downloadBytes(
-  bytes: Uint8Array,
-  filename: string,
-  mime: string,
-): void {
+export function downloadBytes(bytes: Uint8Array, filename: string, mime: string): void {
   const blob = new Blob([bytes as BlobPart], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
