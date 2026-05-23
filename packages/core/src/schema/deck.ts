@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ElementSchema } from "./element";
 import type { DeckHir } from "../ir/hir";
 
-const BaseRefSchema = z
+export const BaseRefSchema = z
   .object({
     id: z.string(),
     always: z.boolean().optional(),
@@ -10,7 +10,7 @@ const BaseRefSchema = z
   })
   .strict();
 
-const SlideSchema = z
+export const SlideSchema = z
   .object({
     // id is optional. When omitted, normalize assigns an index-derived id.
     id: z.string().optional(),

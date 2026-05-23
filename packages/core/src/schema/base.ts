@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ElementSchema } from "./element";
 import type { BaseHir } from "../ir/hir";
 
-const FontDeclSchema = z
+export const FontDeclSchema = z
   .object({
     path: z.string(),
     family: z.string(),
@@ -13,7 +13,7 @@ const FontDeclSchema = z
   })
   .strict();
 
-const VarDeclSchema = z
+export const VarDeclSchema = z
   .object({
     type: z.enum(["string", "number", "boolean", "color", "image", "enum"]),
     required: z.boolean().optional(),

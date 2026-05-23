@@ -29,7 +29,7 @@ const yamlHighlight = HighlightStyle.define([
   { tag: [t.separator, t.punctuation], color: "#89ddff" }, // : , - ?
   { tag: [t.squareBracket, t.brace], color: "#89ddff" }, // [] {}
 ]);
-import { DeckSchema, BaseSchema } from "@slideck/core";
+import { DeckSchema, BaseSchema, schemaDocs } from "@slideck/core";
 import { parseAndValidate } from "@slideck/core";
 import { collectFileReferences } from "@slideck/core";
 import { extname } from "@slideck/core";
@@ -92,146 +92,71 @@ function brokenRefLinter(ctx: () => EditorContext) {
   });
 }
 
-// Field schema docs shown on hover. Keyed by YAML key; type is the value's shape
-// and desc a one-line explanation. Some keys are context-dependent (noted inline).
-const FIELD_DOCS: Record<string, { type: string; desc: string }> = {
-  // deck.yaml
-  bases: {
-    type: "BaseRef[]",
-    desc: "Base layers. Applied in declaration order; each { id, file, always? }.",
-  },
-  slides: { type: "Slide[]", desc: "The slides of the deck." },
-  use: {
-    type: "string | string[]",
-    desc: "Base id(s) to apply to this slide (besides always:true bases).",
-  },
-  elements: { type: "Element[]", desc: "Elements layered on top of the applied bases." },
-  vars: {
-    type: "Record<string, value>",
-    desc: "Values for the bases' schema.vars (referenced as ${name}).",
-  },
-  // base / base ref
-  id: {
-    type: "string",
-    desc: "Identifier. For a base: referenced by use:. For a slide/element: optional id.",
-  },
-  file: { type: "string", desc: "Path to the base YAML file (relative to this file)." },
-  always: { type: "boolean", desc: "If true, this base applies to every slide. Default false." },
-  name: { type: "string", desc: "Base name (optional)." },
-  extends: { type: "string", desc: "Parent base file to inherit from." },
-  fonts: {
-    type: "Record<string, FontDecl>",
-    desc: "Font key -> { path, family, weight?, style?, index? }.",
-  },
-  colors: {
-    type: "Record<string, string>",
-    desc: "Color name -> value, injected as variables (use as ${name}).",
-  },
-  slide: { type: "{ width, height }", desc: "Slide dimensions in px (logical coordinate system)." },
-  background: { type: "string", desc: "Background color (${var} or literal)." },
-  defaults: {
-    type: "{ text?, link?, mono? }",
-    desc: "Default text style and inline link/code styles.",
-  },
-  schema: {
-    type: "{ vars }",
-    desc: "Variables this base accepts: name -> { type, required?, default?, values? }.",
-  },
-  layout: {
-    type: "Element[] | 'row' | 'column'",
-    desc: "Base: element layout. Group: auto-layout direction.",
-  },
-  // font declaration
-  path: { type: "string", desc: "Font file path (.ttf / .ttc)." },
-  family: { type: "string", desc: "Font family name for this declaration." },
-  weight: { type: "number", desc: "Font weight (optional)." },
-  style: { type: "'normal' | 'italic'", desc: "Font style (optional)." },
-  index: { type: "number", desc: "Font index within a .ttc collection (default 0)." },
-  // schema.vars declaration
-  type: {
-    type: "string",
-    desc: "Element type (text/image/rect/line/path/group/ul/ol) or var type (string/number/boolean/color/image/enum).",
-  },
-  required: { type: "boolean", desc: "Whether this variable must be provided." },
-  default: { type: "value", desc: "Default value when the variable is omitted." },
-  values: { type: "string[]", desc: "Allowed values for an enum-typed variable." },
-  // element: common
-  position: {
-    type: "Position",
-    desc: "Box: left/right/top/bottom/width/height (%, px, or 'center' for left/top).",
-  },
-  flex: { type: "number", desc: "Grow ratio along the main axis in an auto-layout group." },
-  left: { type: "% | px | 'center'", desc: "Left edge ('center' centers horizontally)." },
-  right: { type: "% | px", desc: "Right edge." },
-  top: { type: "% | px | 'center'", desc: "Top edge ('center' centers vertically)." },
-  bottom: { type: "% | px", desc: "Bottom edge." },
-  width: { type: "% | px | number", desc: "Width (or slide width under slide:)." },
-  height: { type: "% | px | number", desc: "Height (or slide height under slide:)." },
-  // element: text
-  text: {
-    type: "string",
-    desc: "Text content. Inline markdown (**bold**, `code`, ~~del~~, [link](url)) and math $...$ supported.",
-  },
-  font: { type: "string", desc: "Font key declared in fonts:." },
-  size: { type: "number", desc: "Font size in px." },
-  color: { type: "string", desc: "Text/fill color (${var} or literal)." },
-  align: {
-    type: "'left' | 'center' | 'right'",
-    desc: "Text alignment, or auto-layout cross-axis alignment.",
-  },
-  lineHeight: { type: "number", desc: "Line height multiplier." },
-  letterSpacing: { type: "number", desc: "Letter spacing in px." },
-  // element: image
-  src: { type: "string", desc: "Image path (relative to this file)." },
-  fit: {
-    type: "'contain' | 'cover' | 'fill'",
-    desc: "How the image fits its box. Default contain.",
-  },
-  // element: rect / path / line
-  fill: { type: "string", desc: "Fill color." },
-  stroke: { type: "string", desc: "Stroke color." },
-  strokeWidth: { type: "number", desc: "Stroke width in px." },
-  rx: { type: "number", desc: "Rectangle corner radius in px." },
-  d: { type: "string", desc: "SVG path data." },
-  from: { type: "{ x, y }", desc: "Line start point (relative to the box)." },
-  to: { type: "{ x, y }", desc: "Line end point (relative to the box)." },
-  // element: group / ul / ol
-  gap: { type: "% | px", desc: "Gap between children in an auto-layout group/list." },
-  justify: {
-    type: "main-axis",
-    desc: "Auto-layout main-axis: start/center/end/space-between/space-around.",
-  },
-  padding: { type: "% | px", desc: "Inner padding of a group/list." },
-  children: { type: "Element[]", desc: "Child elements of a group." },
-  items: { type: "Element[]", desc: "List items of a ul/ol." },
-  start: { type: "number", desc: "Starting number of an ol." },
-  // defaults.link / defaults.mono
-  underline: { type: "boolean", desc: "Whether links are underlined (defaults.link)." },
-  mono: { type: "{ family?, color? }", desc: "Inline code style." },
-  link: { type: "{ color?, underline? }", desc: "Inline link style." },
+// Field types and alias expansions are generated from the zod schemas
+// (schemaDocs); only the prose descriptions are kept here, keyed by YAML key.
+// Descriptions are optional supplements; the type itself comes from the schema.
+const DESCRIPTIONS: Record<string, string> = {
+  bases:
+    "Base layers, applied in declaration order. always:true applies to all slides; others via use:.",
+  slides: "The slides of the deck.",
+  use: "Base id(s) to apply to this slide (besides always:true bases). Does not change ordering.",
+  elements: "Elements layered on top of the applied bases.",
+  vars: "Values for the bases' schema.vars (referenced as ${name}).",
+  id: "Identifier. For a base: referenced by use:. For a slide/element: optional id.",
+  file: "Path to the base YAML file (relative to this file).",
+  always: "If true, this base applies to every slide.",
+  name: "Base name.",
+  extends: "Parent base file to inherit from.",
+  fonts: "Font key -> declaration. Reference the key in font:.",
+  colors: "Color name -> value, injected as variables (use as ${name}).",
+  slide: "Slide dimensions in px (logical coordinate system).",
+  background: "Background color (${var} or literal).",
+  defaults: "Default text style and inline link/code styles.",
+  schema: "Variables this base accepts.",
+  layout: "Base: element layout. Group: auto-layout direction.",
+  path: "Font file path (.ttf / .ttc).",
+  family: "Font family name for this declaration.",
+  weight: "Font weight.",
+  style: "Font style.",
+  index: "Font index within a .ttc collection (default 0).",
+  type: "Element type, or a schema variable type.",
+  required: "Whether this variable must be provided.",
+  default: "Default value when the variable is omitted.",
+  values: "Allowed values for an enum-typed variable.",
+  position: "Placement box. % / px, or 'center' for left/top.",
+  flex: "Grow ratio along the main axis in an auto-layout group.",
+  left: "Left edge ('center' centers horizontally).",
+  right: "Right edge.",
+  top: "Top edge ('center' centers vertically).",
+  bottom: "Bottom edge.",
+  width: "Width (or slide width under slide:).",
+  height: "Height (or slide height under slide:).",
+  text: "Text content. Inline markdown (**bold**, `code`, ~~del~~, [link](url)) and math $...$ supported.",
+  font: "Font key declared in fonts:.",
+  size: "Font size in px.",
+  color: "Text/fill color (${var} or literal).",
+  align: "Text alignment, or auto-layout cross-axis alignment.",
+  lineHeight: "Line height multiplier.",
+  letterSpacing: "Letter spacing in px.",
+  src: "Image path (relative to this file).",
+  fit: "How the image fits its box. Default contain.",
+  fill: "Fill color.",
+  stroke: "Stroke color.",
+  strokeWidth: "Stroke width in px.",
+  rx: "Rectangle corner radius in px.",
+  d: "SVG path data.",
+  from: "Line start point (relative to the box).",
+  to: "Line end point (relative to the box).",
+  gap: "Gap between children in an auto-layout group/list.",
+  justify: "Auto-layout main-axis distribution.",
+  padding: "Inner padding of a group/list.",
+  children: "Child elements of a group.",
+  items: "List items of a ul/ol.",
+  start: "Starting number of an ol.",
 };
 
-// Type aliases referenced by FIELD_DOCS types. Hovering an alias name in the
-// tooltip expands its definition.
-const TYPE_ALIASES: Record<string, string> = {
-  Element: [
-    "discriminated by 'type'; common: position?: Position, id?, flex?",
-    "  text   { text, font?, size?, color?, align?, lineHeight?, letterSpacing? }",
-    "  image  { src, fit? }",
-    "  rect   { fill?, stroke?, strokeWidth?, rx? }",
-    "  line   { from, to, stroke, strokeWidth }",
-    "  path   { d, fill?, stroke?, strokeWidth? }",
-    "  group  { children: Element[], layout?, gap?, align?, justify?, padding? }",
-    "  ul/ol  { items: Element[], gap?, align?, font?, size?, color?, start? }",
-  ].join("\n"),
-  Position: "{ left?, top?: % | px | 'center';  right?, bottom?, width?, height?: % | px }",
-  BaseRef: "{ id: string; file: string; always?: boolean }",
-  Slide:
-    "{ id?: string; use?: string | string[]; vars?; background?: string; elements?: Element[] }",
-  FontDecl:
-    "{ path: string; family: string; weight?: number; style?: 'normal' | 'italic'; index?: number }",
-};
-const ALIAS_RE = new RegExp(`\\b(${Object.keys(TYPE_ALIASES).join("|")})\\b`, "g");
+// Alias names (Element, Position, ...) come from the generated schema docs.
+const ALIAS_RE = new RegExp(`\\b(${Object.keys(schemaDocs.aliases).join("|")})\\b`, "g");
 
 const KEY_CHAR = /[A-Za-z0-9_-]/;
 
@@ -251,8 +176,10 @@ function schemaHover(ctx: () => EditorContext) {
     let k = e;
     while (k < text.length && text[k] === " ") k++;
     if (text[k] !== ":") return null; // only treat the word as a key
-    const info = FIELD_DOCS[text.slice(s, e)];
-    if (!info) return null;
+    const key = text.slice(s, e);
+    const type = schemaDocs.fields[key];
+    const description = DESCRIPTIONS[key];
+    if (!type && !description) return null;
     return {
       pos: line.from + s,
       end: line.from + e,
@@ -266,18 +193,18 @@ function schemaHover(ctx: () => EditorContext) {
         expand.className = "cm-schema-expand";
         expand.style.display = "none";
         const showAlias = (nm: string) => {
-          expand.textContent = `${nm} = ${TYPE_ALIASES[nm]}`;
+          expand.textContent = `${nm} = ${schemaDocs.aliases[nm]}`;
           expand.style.display = "block";
         };
 
         // Render "key: <type>" with alias names as hoverable tokens.
         const head = document.createElement("div");
         head.className = "cm-schema-head";
-        head.append(document.createTextNode(`${text.slice(s, e)}: `));
+        head.append(document.createTextNode(`${key}: `));
         let last = 0;
-        for (const m of info.type.matchAll(ALIAS_RE)) {
+        for (const m of (type ?? "").matchAll(ALIAS_RE)) {
           const idx = m.index ?? 0;
-          if (idx > last) head.append(document.createTextNode(info.type.slice(last, idx)));
+          if (idx > last) head.append(document.createTextNode((type ?? "").slice(last, idx)));
           const ref = document.createElement("span");
           ref.className = "cm-schema-ref";
           ref.textContent = m[1];
@@ -285,13 +212,16 @@ function schemaHover(ctx: () => EditorContext) {
           head.append(ref);
           last = idx + m[1].length;
         }
-        if (last < info.type.length) head.append(document.createTextNode(info.type.slice(last)));
+        if (type && last < type.length) head.append(document.createTextNode(type.slice(last)));
 
-        const desc = document.createElement("div");
-        desc.className = "cm-schema-desc";
-        desc.textContent = info.desc;
-
-        dom.append(head, desc, expand);
+        dom.append(head);
+        if (description) {
+          const desc = document.createElement("div");
+          desc.className = "cm-schema-desc";
+          desc.textContent = description;
+          dom.append(desc);
+        }
+        dom.append(expand);
         return { dom };
       },
     };
