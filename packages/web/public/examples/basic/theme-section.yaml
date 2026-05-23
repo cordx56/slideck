@@ -13,7 +13,7 @@ layout:
   - type: text
     position: { left: 14%, top: center, width: 78% }
     font: heading
-    size: 120
+    size: 100
     color: ${fg}
     align: left
     text: ${title}

@@ -50,9 +50,8 @@ describe("examples/basic", () => {
     // page number from system variables (${slideNumber}/${slideCount} in footer base)
     expect(svgs[0]).toContain("1 / 5");
     expect(svgs[4]).toContain("5 / 5");
-    // slide with the section theme (extends). The title wraps, so assert a
-    // single token that cannot be split across lines.
-    expect(svgs[2]).toContain("Motivation");
+    // slide with the section theme (extends); title fits on one line at size 100
+    expect(svgs[2]).toContain("Background and Motivation");
     // closing: light preset (extends overriding only colors) bright background
     expect(svgs[3]).toContain('fill="#f7f7fb"');
     // feature: 3 rects in the row layout + footer line
