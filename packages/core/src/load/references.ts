@@ -68,8 +68,18 @@ export async function collectBrokenReferences(
   const files = (await vfs.list()).filter((f) => f.kind === "file" && isYamlPath(f.path));
   const refs: Reference[] = [];
   for (const f of files) {
-    const text =
-      openFile === f.path && openText !== undefined ? openText : await vfs.readText(f.path);
+    let text: string;
+    if (openFile === f.path && openText !== undefined) {
+      text = openText;
+    } else {
+      // The file may vanish between list() and readText() (e.g. a concurrent
+      // rename/delete). Skip it rather than throwing.
+      try {
+        text = await vfs.readText(f.path);
+      } catch {
+        continue;
+      }
+    }
     refs.push(...collectFileReferences(f.path, text));
   }
 

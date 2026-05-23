@@ -16,7 +16,7 @@ import {
 } from "./projects";
 import { compileDeck, recompileDeck, renderSlideSvg, type CompiledDeck } from "@slideck/core";
 import type { LowerCtx, LoadedFont } from "@slideck/core";
-import type { PipelineError } from "@slideck/core";
+import { PipelineError } from "@slideck/core";
 import { debounce } from "@slideck/core";
 import { registerFonts } from "../lib/fonts-register";
 import { isImagePath } from "@slideck/core";
@@ -68,15 +68,22 @@ function clampSlide() {
   if (currentSlide >= n) currentSlide = Math.max(0, n - 1);
 }
 
+// All update steps below are best-effort: an exception (e.g. a file removed by a
+// concurrent file operation) is surfaced as an error and never left to halt the
+// update loop. The next scheduled run recovers on its own.
 async function fullCompile() {
-  const result = await compileDeck(compileResolver(), { entry: ENTRY });
-  errors = result.errors;
-  if (result.compiled) {
-    compiled = result.compiled;
-    cachedCtx = result.compiled.ctx;
-    cachedFonts = result.compiled.fonts;
-    clampSlide();
-    await registerFonts(result.compiled.fonts);
+  try {
+    const result = await compileDeck(compileResolver(), { entry: ENTRY });
+    errors = result.errors;
+    if (result.compiled) {
+      compiled = result.compiled;
+      cachedCtx = result.compiled.ctx;
+      cachedFonts = result.compiled.fonts;
+      clampSlide();
+      await registerFonts(result.compiled.fonts);
+    }
+  } catch (e) {
+    errors = [new PipelineError(`compile failed: ${String(e)}`)];
   }
 }
 
@@ -85,17 +92,24 @@ async function liveRecompile() {
     await fullCompile();
     return;
   }
-  const result = await recompileDeck(compileResolver(), ENTRY);
-  errors = result.errors;
-  if (result.deck) {
-    compiled = { deck: result.deck, ctx: cachedCtx, fonts: cachedFonts };
-    clampSlide();
+  try {
+    const result = await recompileDeck(compileResolver(), ENTRY);
+    errors = result.errors;
+    if (result.deck) {
+      compiled = { deck: result.deck, ctx: cachedCtx, fonts: cachedFonts };
+      clampSlide();
+    }
+  } catch (e) {
+    errors = [new PipelineError(`update failed: ${String(e)}`)];
   }
 }
 
 async function recomputeRefs() {
-  if (vfs) {
+  if (!vfs) return;
+  try {
     brokenRefs = await collectBrokenReferences(vfs, openPath, dirty ? yamlText : undefined);
+  } catch {
+    // Transient (e.g. a file removed mid-scan during a rename); keep the previous refs.
   }
 }
 
@@ -109,6 +123,8 @@ async function saveCurrent() {
   try {
     await vfs.writeText(openPath, yamlText);
     dirty = false;
+  } catch {
+    // Keep dirty so a later save retries; do not break the update loop.
   } finally {
     selfSaving = false;
   }

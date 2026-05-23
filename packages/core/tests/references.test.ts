@@ -91,6 +91,22 @@ describe("collectBrokenReferences", () => {
     expect(broken2.map((b) => b.toPath)).not.toContain("/img/cover.png");
   });
 
+  it("skips files that vanish between list and read (no throw)", async () => {
+    const vfs = mockVfs({
+      "/deck.yaml": deck, // refs ./theme.yaml and ./img/cover.png (both missing)
+      "/ghost.yaml": `bases: []\nslides: []`,
+    });
+    // Simulate ghost.yaml being removed after list() but before readText() (e.g. a
+    // concurrent rename/delete). collectBrokenReferences must not throw.
+    const realRead = vfs.readText.bind(vfs);
+    vfs.readText = async (p) => {
+      if (p === "/ghost.yaml") throw new Error("no such file");
+      return realRead(p);
+    };
+    const broken = await collectBrokenReferences(vfs);
+    expect(broken.map((b) => b.toPath).sort()).toEqual(["/img/cover.png", "/theme.yaml"]);
+  });
+
   it("prefers unsaved text when evaluating", async () => {
     const vfs = mockVfs({ "/deck.yaml": `bases: []\nslides: []` });
     const edited = `bases: [{ id: b, file: ./missing.yaml }]\nslides: []`;
