@@ -107,9 +107,24 @@ async function recomputeRefs() {
   }
 }
 
+// 編集中ファイルを VFS に書き戻す。自己保存中フラグで、保存由来の VFS イベントが
+// 不要な full recompile を起こさないようにする (編集は live recompile 済み)。
+let selfSaving = false;
+async function saveCurrent() {
+  if (!vfs || !dirty || !isYaml(openPath)) return;
+  selfSaving = true;
+  try {
+    await vfs.writeText(openPath, yamlText);
+    dirty = false;
+  } finally {
+    selfSaving = false;
+  }
+}
+
 const scheduleLive = debounce(() => void liveRecompile(), 200);
 const scheduleFull = debounce(() => void fullCompile(), 200);
 const scheduleRefs = debounce(() => void recomputeRefs(), 200);
+const scheduleSave = debounce(() => void saveCurrent(), 400);
 
 async function refreshFiles() {
   if (vfs) files = await vfs.list();
@@ -120,6 +135,7 @@ function applyYaml(text: string) {
   dirty = true;
   scheduleLive();
   scheduleRefs();
+  scheduleSave(); // 変更を自動保存
 }
 
 // 名前付きプロジェクトの VFS (= 専用 IndexedDB) に切り替える。
@@ -137,6 +153,7 @@ async function loadCurrentProject() {
   if (!vfs) return;
   unsubscribe?.();
   unsubscribe = vfs.subscribe(() => {
+    if (selfSaving) return; // 自動保存由来は live recompile 済みなのでスキップ
     void refreshFiles();
     scheduleFull();
     scheduleRefs();
@@ -279,10 +296,9 @@ export const store = {
     dirty = false;
   },
 
+  // 手動保存 (Ctrl/Cmd+S)。通常は編集時に自動保存される。
   async save() {
-    if (!vfs || !dirty || !isYaml(openPath)) return;
-    await vfs.writeText(openPath, yamlText);
-    dirty = false;
+    await saveCurrent();
   },
 
   setYaml(text: string) {

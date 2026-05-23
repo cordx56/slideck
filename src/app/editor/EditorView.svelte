@@ -114,7 +114,6 @@
     <button onclick={() => store.exportZip()} title="プロジェクトを ZIP 出力">
       Export ZIP
     </button>
-    <button onclick={() => store.save()} disabled={!store.dirty}>Save</button>
 
     <span class="nav">
       <button onclick={() => store.prev()} disabled={store.currentSlide === 0}
