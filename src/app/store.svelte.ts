@@ -3,8 +3,17 @@ import { OverrideResolver } from "../load/assets";
 import { VfsResolver } from "../load/vfs-resolver";
 import { openVfs, type VFS, type FileEntry } from "../vfs";
 import { extname, dirname, basename, join, normalize, isDescendant } from "../vfs/path";
-import { installSample, createEmptyProject } from "./sample";
 import { uniqueName, type UploadEntry } from "./editor/file-ops";
+import {
+  dbNameFor,
+  registerProject,
+  unregisterProject,
+  projectExists,
+  listProjects,
+  getLastProject,
+  setLastProject,
+  type ProjectMeta,
+} from "./projects";
 import {
   compileDeck,
   recompileDeck,
@@ -22,8 +31,10 @@ const ENTRY = "deck.yaml"; // VFS では /deck.yaml
 
 // --- リアクティブ状態 ---
 // 画面遷移は URL ハッシュで決める (App 側)。store は VFS 初期化状態のみ持つ。
-let booting = $state(true); // VFS オープン完了まで true
+let booting = $state(true); // 初期化完了まで true
 let ready = $state(false); // プロジェクトがロード済み (エディタ表示可能)
+let currentProject = $state<string | null>(null);
+let projectsVersion = $state(0); // レジストリ変更時に増やして projects を再評価
 let openPath = $state("/deck.yaml");
 let yamlText = $state("");
 let dirty = $state(false);
@@ -111,7 +122,18 @@ function applyYaml(text: string) {
   scheduleRefs();
 }
 
-async function openProject() {
+// 名前付きプロジェクトの VFS (= 専用 IndexedDB) に切り替える。
+async function useVfs(name: string) {
+  unsubscribe?.();
+  unsubscribe = null;
+  vfs?.dispose();
+  vfs = await openVfs(dbNameFor(name));
+  currentProject = name;
+  setLastProject(name);
+}
+
+// 現在の vfs からプロジェクトを読み込み、コンパイルして ready にする。
+async function loadCurrentProject() {
   if (!vfs) return;
   unsubscribe?.();
   unsubscribe = vfs.subscribe(() => {
@@ -178,9 +200,16 @@ export const store = {
   get ready() {
     return ready;
   },
-  // VFS にプロジェクト (deck.yaml) が存在するか (welcome の「続きを開く」用)。
-  get hasProject() {
-    return files.length > 0;
+  get currentProject() {
+    return currentProject;
+  },
+  // 保存済みプロジェクト一覧 (選択画面用)。projectsVersion で再評価を駆動。
+  get projects(): ProjectMeta[] {
+    projectsVersion;
+    return listProjects();
+  },
+  projectExists(name: string): boolean {
+    return projectExists(name);
   },
   get slideCount() {
     return compiled ? compiled.deck.slides.length : 0;
@@ -189,31 +218,55 @@ export const store = {
     return vfs;
   },
 
-  // 起動: VFS を開き、既存プロジェクトがあればロードしておく。
+  // 起動: 最後に開いたプロジェクトがあれば復元しておく (#editor のリロード対応)。
   // どの画面を出すかは URL ハッシュで決める (App)。
   async boot() {
-    const v = await openVfs();
-    vfs = v;
     void navigator.storage?.persist?.();
-    files = await v.list();
-    if (files.length > 0) await openProject();
+    const last = getLastProject();
+    if (last && projectExists(last)) {
+      await useVfs(last);
+      await loadCurrentProject();
+    }
     booting = false;
   },
 
-  async chooseSample(baseUrl: string) {
-    if (!vfs) return;
-    await installSample(vfs, baseUrl);
-    await openProject();
+  // 既存プロジェクトを開く (選択画面から)。
+  async openProject(name: string) {
+    if (!projectExists(name)) throw new Error(`プロジェクト "${name}" がありません`);
+    ready = false;
+    await useVfs(name);
+    await loadCurrentProject();
   },
-  async chooseEmpty() {
-    if (!vfs) return;
-    await createEmptyProject(vfs);
-    await openProject();
+
+  // 新規プロジェクトを作成する。init で初期ファイルを書き込む。
+  // 名前が空 / 重複ならエラー。
+  async createProject(name: string, init: (vfs: VFS) => Promise<void>) {
+    const trimmed = name.trim();
+    if (!trimmed) throw new Error("プロジェクト名を入力してください");
+    if (projectExists(trimmed)) {
+      throw new Error(`プロジェクト "${trimmed}" は既に存在します`);
+    }
+    ready = false;
+    await useVfs(trimmed);
+    await init(vfs!);
+    registerProject(trimmed);
+    projectsVersion++;
+    await loadCurrentProject();
   },
-  async chooseImportZip(file: File) {
-    if (!vfs) return;
-    await vfs.importZip(file);
-    await openProject();
+
+  // プロジェクトを削除する (選択画面から)。
+  async deleteProject(name: string) {
+    if (currentProject === name) {
+      unsubscribe?.();
+      unsubscribe = null;
+      vfs?.dispose();
+      vfs = null;
+      currentProject = null;
+      ready = false;
+    }
+    unregisterProject(name);
+    projectsVersion++;
+    indexedDB.deleteDatabase(dbNameFor(name));
   },
 
   // --- ファイルを開く / 保存 ---
@@ -251,16 +304,6 @@ export const store = {
   async importZip(file: File, targetDir = "/") {
     if (!vfs) return;
     await vfs.importZip(file, targetDir);
-  },
-
-  async resetProject() {
-    if (!vfs) return;
-    await vfs.clear();
-    compiled = null;
-    cachedCtx = null;
-    cachedFonts = null;
-    files = [];
-    ready = false;
   },
 
   // --- ツリー状態 ---

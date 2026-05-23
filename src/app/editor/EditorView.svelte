@@ -51,7 +51,10 @@
 
 <div class="editor">
   <header class="topbar">
-    <strong>Slider</strong>
+    <button class="home" title="プロジェクト一覧" onclick={() => (location.hash = "")}>
+      Slider
+    </button>
+    <span class="proj">{store.currentProject}</span>
     <span class="file">{store.openPath}{store.dirty ? " ●" : ""}</span>
     {#if store.errors.length > 0}
       <span class="err" title={errorTitle}>⚠ {store.errors.length} エラー</span>
@@ -110,6 +113,19 @@
     padding: 0 14px;
     border-bottom: 1px solid var(--border);
     background: var(--bg-2);
+  }
+  .home {
+    font-weight: 700;
+    background: transparent;
+    border: none;
+    padding: 4px 6px;
+  }
+  .home:hover {
+    color: var(--accent);
+  }
+  .proj {
+    font-size: 0.9rem;
+    font-weight: 600;
   }
   .file {
     color: var(--fg-dim);
