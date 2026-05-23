@@ -46,15 +46,20 @@ export type Primitive =
     }
   | { kind: "path"; d: string; fill?: string; stroke?: Stroke }
   | {
-      kind: "math";
+      // インライン数式 ($...$) を含むテキスト。SVG は KaTeX を foreignObject で
+      // 描画、PDF は runs (素テキスト) を描画する。
+      kind: "richtext";
       x: number;
       y: number;
       w: number;
       h: number;
-      tex: string;
+      raw: string; // $...$ を含む元テキスト
+      runs: TextRun[]; // 素テキストをシェイプ済み (PDF/フォールバック用)
+      align: Align;
+      font: FontRef;
       size: number;
       color: string;
-      display: boolean;
+      lineHeight: number;
     }
   | {
       kind: "line";

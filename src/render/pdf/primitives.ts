@@ -44,7 +44,9 @@ export async function drawPrimitive(
 ): Promise<void> {
   const ph = page.getHeight();
   switch (prim.kind) {
-    case "text": {
+    // richtext (インライン数式入り) は PDF では素テキスト (runs) で描く。
+    case "text":
+    case "richtext": {
       for (const run of prim.runs) {
         const font = fonts.byFamily.get(run.font.family) ?? fonts.fallback;
         try {
@@ -108,21 +110,6 @@ export async function drawPrimitive(
         width: prim.w,
         height: prim.h,
       });
-      break;
-    }
-    case "math": {
-      // pdf-lib は KaTeX(HTML) を組版できないため、ソースをテキストで代替表示。
-      try {
-        page.drawText(prim.tex, {
-          x: prim.x,
-          y: ph - prim.y - prim.size,
-          size: prim.size,
-          font: fonts.fallback,
-          color: toColor(prim.color),
-        });
-      } catch (e) {
-        errors.push(new PipelineError(`PDF 数式の代替描画に失敗: ${String(e)}`));
-      }
       break;
     }
   }

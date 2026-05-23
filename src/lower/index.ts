@@ -4,6 +4,7 @@ import { type Box, resolveAxis, resolveBox, toPx } from "./position";
 import { applyPadding } from "./groups";
 import { computeAutoLayout } from "./auto-layout";
 import { shapeText } from "./text-shaping";
+import { hasInlineMath, stripInlineMath } from "../lib/inline-math";
 import type { LowerCtx } from "./context";
 
 export type { LowerCtx } from "./context";
@@ -52,8 +53,9 @@ function lowerElement(
 function textBox(el: MirText, parent: Box, ctx: LowerCtx): Box {
   const p = el.position ?? {};
   const hx = resolveAxis(p.left, p.right, p.width, parent.x, parent.w);
+  // 高さは数式区切りを外した素テキストで概算する。
   const shaped = shapeText(
-    el.text,
+    stripInlineMath(el.text),
     el.font,
     el.size,
     hx.size,
@@ -75,8 +77,9 @@ function placeElement(
 ): void {
   switch (el.type) {
     case "text": {
+      const plain = hasInlineMath(el.text) ? stripInlineMath(el.text) : el.text;
       const shaped = shapeText(
-        el.text,
+        plain,
         el.font,
         el.size,
         box.w,
@@ -93,7 +96,25 @@ function placeElement(
         x: box.x + line.x,
         y: box.y + line.baseline,
       }));
-      out.push({ kind: "text", x: box.x, y: box.y, runs, align: el.align });
+      if (hasInlineMath(el.text)) {
+        // インライン数式を含む: SVG は KaTeX、PDF は素テキスト (runs)。
+        out.push({
+          kind: "richtext",
+          x: box.x,
+          y: box.y,
+          w: box.w,
+          h: shaped.height,
+          raw: el.text,
+          runs,
+          align: el.align,
+          font: { family: el.font },
+          size: el.size,
+          color: el.color,
+          lineHeight: el.lineHeight,
+        });
+      } else {
+        out.push({ kind: "text", x: box.x, y: box.y, runs, align: el.align });
+      }
       break;
     }
     case "image": {
@@ -160,19 +181,6 @@ function placeElement(
     case "ul":
     case "ol":
       placeList(el, box, ctx, out);
-      break;
-    case "math":
-      out.push({
-        kind: "math",
-        x: box.x,
-        y: box.y,
-        w: box.w,
-        h: box.h,
-        tex: el.tex,
-        size: el.size,
-        color: el.color,
-        display: el.display,
-      });
       break;
   }
 }

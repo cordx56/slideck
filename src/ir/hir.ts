@@ -88,15 +88,6 @@ export interface ListElement extends BaseElement {
   start?: number; // ol の開始番号 (既定 1)
 }
 
-// KaTeX による TeX 数式。tex を KaTeX でレンダリングする。
-export interface MathElement extends BaseElement {
-  type: "math";
-  tex: string;
-  size?: number;
-  color?: string;
-  display?: boolean; // display スタイル (既定 true)
-}
-
 export type HirElement =
   | TextElement
   | ImageElement
@@ -104,8 +95,7 @@ export type HirElement =
   | LineElement
   | PathElement
   | GroupElement
-  | ListElement
-  | MathElement;
+  | ListElement;
 
 // テーマ -----------------------------------------------------------------
 

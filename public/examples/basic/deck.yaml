@@ -43,11 +43,11 @@ slides:
     vars:
       title: "背景と動機"
     elements:
-      - type: math
+      - type: text
         position: { left: 14%, top: 64%, width: 72% }
-        size: 52
+        size: 36
         color: ${muted}
-        tex: 'E = mc^2 \quad \sum_{i=1}^{n} i = \frac{n(n+1)}{2}'
+        text: 'インライン数式: 質量とエネルギーは $E = mc^2$、総和は $\sum_{i=1}^{n} i = \frac{n(n+1)}{2}$ で表せる。'
 
   - id: closing
     use: light

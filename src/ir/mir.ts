@@ -81,16 +81,6 @@ export interface MirList {
   start: number;
 }
 
-export interface MirMath {
-  type: "math";
-  position?: Position;
-  flex?: number;
-  tex: string;
-  size: number;
-  color: string;
-  display: boolean;
-}
-
 export type MirElement =
   | MirText
   | MirImage
@@ -98,8 +88,7 @@ export type MirElement =
   | MirLine
   | MirPath
   | MirGroup
-  | MirList
-  | MirMath;
+  | MirList;
 
 export interface MirFont {
   family: string;

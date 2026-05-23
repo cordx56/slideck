@@ -1,6 +1,7 @@
 import katex from "katex";
 import type { Primitive, Stroke } from "../../ir/lir";
 import { dataUri } from "../../lib/base64";
+import { parseInlineMath } from "../../lib/inline-math";
 
 export function escapeXml(s: string): string {
   return s
@@ -63,26 +64,30 @@ export function renderPrimitive(p: Primitive): string {
       return `<path d="${escapeXml(p.d)}" fill="${
         p.fill ? escapeXml(p.fill) : "none"
       }"${strokeAttrs(p.stroke)}/>`;
-    case "math": {
-      // KaTeX を foreignObject 内の HTML としてレンダリングする。
+    case "richtext": {
+      // インライン数式入りテキストを foreignObject 内の HTML で描画する。
       // 表示には katex の CSS/フォントがページに読み込まれている必要がある。
-      const html = renderMath(p.tex, p.display);
+      const inner = parseInlineMath(p.raw)
+        .map((seg) => (seg.math ? renderMath(seg.value) : escapeXml(seg.value)))
+        .join("");
+      const style =
+        `font-family:${escapeXml(fontFamilyWithFallback(p.font.family))};` +
+        `font-size:${num(p.size)}px;color:${escapeXml(p.color)};` +
+        `text-align:${p.align};line-height:${p.lineHeight}`;
       return (
         `<foreignObject x="${num(p.x)}" y="${num(p.y)}" width="${num(p.w)}" height="${num(p.h)}">` +
-        `<div xmlns="http://www.w3.org/1999/xhtml" style="font-size:${num(
-          p.size,
-        )}px;color:${escapeXml(p.color)};line-height:normal">${html}</div>` +
+        `<div xmlns="http://www.w3.org/1999/xhtml" style="${style}">${inner}</div>` +
         `</foreignObject>`
       );
     }
   }
 }
 
-// KaTeX レンダリング (Node/ブラウザ両対応の文字列生成)。失敗時はソースを表示。
-function renderMath(tex: string, display: boolean): string {
+// インライン KaTeX (Node/ブラウザ両対応)。失敗時はソースを表示。
+function renderMath(tex: string): string {
   try {
     return katex.renderToString(tex, {
-      displayMode: display,
+      displayMode: false,
       throwOnError: false,
       output: "html",
     });
