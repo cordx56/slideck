@@ -3,6 +3,22 @@
 
   const slides = $derived(store.compiled?.deck.slides ?? []);
   const svg = $derived(store.renderSvg(store.currentSlide));
+
+  let thumbEls = $state<HTMLButtonElement[]>([]);
+
+  // サムネイル列にフォーカスがある時、左右キーでスライドを移動する。
+  function onThumbKey(e: KeyboardEvent) {
+    let target: number;
+    if (e.key === "ArrowLeft") target = store.currentSlide - 1;
+    else if (e.key === "ArrowRight") target = store.currentSlide + 1;
+    else if (e.key === "Home") target = 0;
+    else if (e.key === "End") target = store.slideCount - 1;
+    else return;
+    e.preventDefault();
+    store.goSlide(target);
+    // フォーカスを移動先サムネイルへ追従させる (連続移動 + 可視化)。
+    thumbEls[store.currentSlide]?.focus();
+  }
 </script>
 
 <div class="center">
@@ -11,9 +27,12 @@
     {@html svg}
   </div>
 
-  <nav class="thumbs">
+  <!-- keydown は内部のフォーカス中サムネイル button から委譲で受ける -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <nav class="thumbs" onkeydown={onThumbKey}>
     {#each slides as slide, i (slide.id)}
       <button
+        bind:this={thumbEls[i]}
         class="thumb"
         class:active={i === store.currentSlide}
         onclick={() => store.goSlide(i)}
@@ -71,6 +90,10 @@
   }
   .thumb.active {
     border-color: var(--accent);
+  }
+  .thumb:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
   .thumb-svg {
     width: 100%;
