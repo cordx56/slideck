@@ -57,11 +57,11 @@ export function composeLayers(
   return out;
 }
 
-// 適用 base の colors をマージ (後勝ち)。
-export function mergePalette(applied: AppliedBase[]): Record<string, string> {
-  const palette: Record<string, string> = {};
-  for (const { base } of applied) Object.assign(palette, base.colors);
-  return palette;
+// 適用 base の colors をマージ (後勝ち)。変数として注入される。
+export function mergeColors(applied: AppliedBase[]): Record<string, string> {
+  const colors: Record<string, string> = {};
+  for (const { base } of applied) Object.assign(colors, base.colors);
+  return colors;
 }
 
 // 適用 base の fonts キー -> family をマージ (後勝ち)。

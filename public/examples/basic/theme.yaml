@@ -4,6 +4,7 @@ fonts:
   heading: { path: ./fonts/IPAexMincho.ttf, family: "IPAexMincho" }
   body: { path: ./fonts/IPAexGothic.ttf, family: "IPAexGothic" }
 
+# colors は変数として注入される (${bg} 等で参照)。slide の vars で上書き可。
 colors:
   bg: "#0e0e10"
   fg: "#f5f5f5"
@@ -15,23 +16,22 @@ slide:
   width: 1920
   height: 1080
 
-background: bg
+background: ${bg}
 
 defaults:
-  text: { family: body, size: 40, color: fg, lineHeight: 1.35 }
+  text: { family: body, size: 40, color: "${fg}", lineHeight: 1.35 }
 
 schema:
   vars:
     title: { type: string, required: true }
     subtitle: { type: string, default: "" }
-    accent: { type: color, default: "#7aa2f7" }
 
 layout:
   - type: text
     position: { left: center, top: 12%, width: 86% }
     font: heading
     size: 110
-    color: fg
+    color: ${fg}
     align: center
     text: ${title}
 

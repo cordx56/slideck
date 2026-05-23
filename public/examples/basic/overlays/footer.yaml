@@ -5,20 +5,20 @@ layout:
   - type: line
     from: { x: 4%, y: 94% }
     to: { x: 96%, y: 94% }
-    stroke: muted
+    stroke: ${muted}
     strokeWidth: 2
 
   - type: text
     position: { left: 4%, top: 95%, width: 50% }
     font: body
     size: 24
-    color: muted
+    color: ${muted}
     text: "Slider — YAML Slides"
 
   - type: text
     position: { right: 4%, top: 95%, width: 20% }
     font: body
     size: 24
-    color: muted
+    color: ${muted}
     align: right
     text: "${slideNumber} / ${slideCount}"

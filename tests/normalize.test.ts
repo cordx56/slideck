@@ -28,13 +28,13 @@ function loaded(
 
 const stdBase: BaseHir = {
   fonts: { body: { path: "x.ttf", family: "Body" } },
+  // colors は変数として注入される。
   colors: { fg: "#ffffff", accent: "#7aa2f7" },
   slide: { width: 1000, height: 500 },
-  defaults: { text: { family: "body", size: 30, color: "fg" } },
+  defaults: { text: { family: "body", size: 30, color: "${fg}" } },
   schema: {
     vars: {
       title: { type: "string", required: true },
-      accent: { type: "color", default: "#7aa2f7" },
     },
   },
   layout: [{ type: "text", text: "${title}" }],
@@ -77,14 +77,35 @@ describe("normalize", () => {
     expect(errors.some((e) => e.message.includes("nope"))).toBe(true);
   });
 
-  it("color 変数は構造化埋め込みで解決される", () => {
+  it("colors を変数として参照できる (${名前})", () => {
+    const base: BaseHir = {
+      ...stdBase,
+      layout: [{ type: "text", text: "x", color: "${fg}" }],
+    };
+    const el = normalize(single(base, [{ id: "s", vars: { title: "t" } }]))
+      .deck!.slides[0].elements[0] as MirText;
+    expect(el.color).toBe("#ffffff"); // colors.fg が注入される
+  });
+
+  it("color フィールドはリテラル文字列も受ける", () => {
+    const base: BaseHir = {
+      ...stdBase,
+      layout: [{ type: "text", text: "x", color: "#ff0000" }],
+    };
+    const el = normalize(single(base, [{ id: "s", vars: { title: "t" } }]))
+      .deck!.slides[0].elements[0] as MirText;
+    expect(el.color).toBe("#ff0000");
+  });
+
+  it("slide.vars で色変数を上書きできる", () => {
     const base: BaseHir = {
       ...stdBase,
       layout: [{ type: "text", text: "x", color: "${accent}" }],
     };
-    const el = normalize(single(base, [{ id: "s", vars: { title: "t", accent: "fg" } }]))
-      .deck!.slides[0].elements[0] as MirText;
-    expect(el.color).toBe("#ffffff");
+    const el = normalize(
+      single(base, [{ id: "s", vars: { title: "t", accent: "#00ff00" } }]),
+    ).deck!.slides[0].elements[0] as MirText;
+    expect(el.color).toBe("#00ff00");
   });
 
   it("deck-level vars が slide.vars に上書きされる", () => {

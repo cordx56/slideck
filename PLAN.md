@@ -793,6 +793,9 @@ Phase 1〜5 すべて実装済み。テスト 49 件 (vitest)、`npm run build` 
 - 適用順 (z 下->上): always 群 (宣言順) -> use 群 (指定順) -> slide.elements。
 - 複数 base の `schema.vars` を union マージ (型不一致はエラー、required は OR、
   default 後勝ち)。`defaults` は深いマージ (後勝ち)。`colors`/`fonts` も合成。
+- **色は変数**: base の `colors` は変数として変数スコープへ注入され (`${bg}` 等で参照)、
+  slide の `vars` で上書き可能。`color`/`fill`/`stroke`/`background` フィールドは
+  `${変数}` か hex/CSS のリテラル文字列を受ける (旧来のパレットキー直接指定は廃止)。
 - システム変数 `${slideNumber}` `${slideCount}` `${slideId}` `${baseIds}` を
   normalize で自動注入。予約名で schema 宣言不可、slide.vars 上書きは警告。
 - 関連ファイル: `schema/base.ts` (旧 theme.ts), `normalize/bases.ts` (旧 theme-apply.ts),

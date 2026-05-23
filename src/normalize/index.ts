@@ -7,12 +7,12 @@ import type {
   MirSlide,
 } from "../ir/mir";
 import { PipelineError } from "../lib/error";
-import { resolveColor } from "../lib/color";
+import { normalizeHex } from "../lib/color";
 import { buildVarContext, expandString, type VarContext } from "./variables";
 import {
   resolveAppliedBases,
   composeLayers,
-  mergePalette,
+  mergeColors,
   mergeFontKeys,
   pickBackground,
 } from "./bases";
@@ -35,7 +35,6 @@ export interface NormalizeResult {
 
 interface ConvertCtx {
   vars: VarContext;
-  palette: Record<string, string>;
   fontKeyToFamily: Map<string, string>;
   textDefaults: ResolvedTextDefaults;
   errors: PipelineError[];
@@ -54,7 +53,7 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
 
     const mergedVars = mergeSchemas(applied, errors);
     const mergedDefaults = mergeDefaults(applied);
-    const palette = mergePalette(applied);
+    const colors = mergeColors(applied);
     const fontKeyToFamily = mergeFontKeys(applied);
 
     const systemVars = buildSystemVars({
@@ -66,20 +65,20 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
     const vars = buildVarContext(
       mergedVars,
       systemVars,
+      colors,
       loaded.deck.vars,
       slide.vars,
-      palette,
       errors,
     );
 
     const textDefaults = resolveTextDefaultsFor(
       mergedDefaults.text,
       fontKeyToFamily,
-      palette,
+      vars,
+      errors,
     );
     const ctx: ConvertCtx = {
       vars,
-      palette,
       fontKeyToFamily,
       textDefaults,
       errors,
@@ -90,7 +89,7 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
 
     const bgRaw = slide.background ?? pickBackground(applied);
     const background = bgRaw
-      ? resolveColorLenient(expandString(bgRaw, vars, errors), palette)
+      ? resolveColorLiteral(expandString(bgRaw, vars, errors))
       : undefined;
 
     // id は任意。未指定時はインデックス由来の id を割り当てる
@@ -132,27 +131,26 @@ function pickSlideSize(loaded: LoadedDeck): { width: number; height: number } {
 function resolveTextDefaultsFor(
   text: TextDefaults,
   fontKeyToFamily: Map<string, string>,
-  palette: Record<string, string>,
+  vars: VarContext,
+  errors: PipelineError[],
 ): ResolvedTextDefaults {
   const raw = resolveTextDefaults(text);
   return {
     ...raw,
     family: fontKeyToFamily.get(raw.family) ?? raw.family,
-    color: resolveColorLenient(raw.color, palette),
+    color: resolveColorLiteral(expandString(raw.color, vars, errors)),
   };
 }
 
-// 解決不能な色はそのまま通す (CSS 名や rgb() の可能性)。SVG では描画できる。
-function resolveColorLenient(
-  value: string,
-  palette: Record<string, string>,
-): string {
-  return resolveColor(value, palette) ?? value;
+// 色フィールドの最終解決: hex は正規化、それ以外 (CSS 名等) はそのまま通す。
+// パレットキー解決は廃止。色は変数 (${...}) かリテラル文字列で指定する。
+function resolveColorLiteral(value: string): string {
+  return normalizeHex(value) ?? value;
 }
 
 function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
   const exp = (s: string) => expandString(s, ctx.vars, ctx.errors);
-  const color = (s: string) => resolveColorLenient(exp(s), ctx.palette);
+  const color = (s: string) => resolveColorLiteral(exp(s));
   const resolveFont = (raw: string) => ctx.fontKeyToFamily.get(raw) ?? raw;
 
   switch (hir.type) {

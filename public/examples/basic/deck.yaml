@@ -11,9 +11,6 @@ bases:
   - id: light
     file: ./theme-light.yaml
 
-vars:
-  accent: "#7aa2f7"
-
 slides:
   - id: intro
     use: standard
@@ -66,17 +63,17 @@ slides:
         children:
           - type: rect
             flex: 1
-            fill: panel
-            stroke: accent
+            fill: ${panel}
+            stroke: ${accent}
             strokeWidth: 2
             rx: 16
           - type: rect
             flex: 2
-            fill: panel
-            stroke: muted
+            fill: ${panel}
+            stroke: ${muted}
             strokeWidth: 2
             rx: 16
           - type: rect
             flex: 1
-            fill: accent
+            fill: ${accent}
             rx: 16

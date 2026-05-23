@@ -2,18 +2,18 @@
 name: section
 extends: ./theme.yaml
 
-background: panel
+background: ${panel}
 
 layout:
   - type: rect
     position: { left: 8%, top: center, width: 6, height: 56% }
-    fill: accent
+    fill: ${accent}
     rx: 3
 
   - type: text
     position: { left: 14%, top: center, width: 78% }
     font: heading
     size: 120
-    color: fg
+    color: ${fg}
     align: left
     text: ${title}

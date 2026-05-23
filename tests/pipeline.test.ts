@@ -13,8 +13,8 @@ const theme = `
 name: standard
 colors: { bg: "#0e0e10", fg: "#f5f5f5", accent: "#7aa2f7" }
 slide: { width: 1920, height: 1080 }
-background: bg
-defaults: { text: { size: 40, color: fg } }
+background: \${bg}
+defaults: { text: { size: 40, color: "\${fg}" } }
 schema:
   vars:
     title: { type: string, required: true }

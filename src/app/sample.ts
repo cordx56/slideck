@@ -28,13 +28,14 @@ slides:
 `;
 
 const EMPTY_BASE = `# 最小テーマ base
+# colors は変数として注入される (\${bg} 等で参照)。
 colors:
   bg: "#16161e"
   fg: "#c0caf5"
 slide: { width: 1920, height: 1080 }
-background: bg
+background: \${bg}
 defaults:
-  text: { size: 48, color: fg }
+  text: { size: 48, color: "\${fg}" }
 schema:
   vars:
     title: { type: string, required: true }

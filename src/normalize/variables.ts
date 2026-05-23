@@ -9,20 +9,23 @@ export interface VarContext {
 }
 
 // 変数スコープを解決する。優先度 (低->高):
-//   システム変数 < schema default < deck.vars < slide.vars
+//   システム変数 < base colors < schema default < deck.vars < slide.vars
+// base の colors も変数として注入する (${bg} 等で参照可能)。
 // マージ済み schema (全 base 合成済み) で型検証する。未宣言の追加変数は通す。
 export function buildVarContext(
   mergedVars: Record<string, VarDecl>,
   systemVars: Record<string, unknown>,
+  colors: Record<string, string>,
   deckVars: Record<string, unknown> | undefined,
   slideVars: Record<string, unknown> | undefined,
-  palette: Record<string, string>,
   errors: PipelineError[],
 ): VarContext {
   const values: Record<string, unknown> = {};
 
   // システム変数を土台に置く (最低優先度)。
   Object.assign(values, systemVars);
+  // base の colors を変数として注入 (上書き可能)。
+  Object.assign(values, colors);
 
   // 宣言された default を載せる。
   for (const [name, decl] of Object.entries(mergedVars)) {
@@ -54,7 +57,7 @@ export function buildVarContext(
       if (decl.required) errors.push(new PipelineError(`変数 "${name}" は必須です`));
       continue;
     }
-    validateVarType(name, value, decl, palette, errors);
+    validateVarType(name, value, decl, errors);
   }
 
   return { values };
@@ -64,7 +67,6 @@ function validateVarType(
   name: string,
   value: unknown,
   decl: VarDecl,
-  palette: Record<string, string>,
   errors: PipelineError[],
 ): boolean {
   const fail = (msg: string) => {
@@ -82,8 +84,8 @@ function validateVarType(
       return typeof value === "string" || fail("画像パス (string) が必要です");
     case "color":
       if (typeof value !== "string") return fail("color (string) が必要です");
-      if (isHexColor(value) || value in palette) return true;
-      return fail(`未知の色: ${value} (hex か theme.colors のキー)`);
+      if (isHexColor(value)) return true;
+      return fail(`未知の色: ${value} (hex 文字列が必要)`);
     case "enum":
       if (typeof value !== "string") return fail("enum (string) が必要です");
       if (decl.values?.includes(value)) return true;
