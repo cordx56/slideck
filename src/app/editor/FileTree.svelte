@@ -193,6 +193,9 @@
   onkeydown={onKey}
   oncontextmenu={(e) => {
     e.preventDefault();
+    // 開いた直後に同じイベントが window まで伝播して ContextMenu を
+    // 即閉じするのを防ぐ (TreeNode 側と同様)。
+    e.stopPropagation();
     menu = { node: null, x: e.clientX, y: e.clientY };
   }}
   ondragover={(e) => e.preventDefault()}
