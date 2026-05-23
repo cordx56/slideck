@@ -88,12 +88,13 @@
     border-radius: 4px;
     background: #000;
   }
-  .thumb.active {
+  /* キーボードフォーカスもマウス選択と同じ accent ボーダーで統一する */
+  .thumb.active,
+  .thumb:focus-visible {
     border-color: var(--accent);
   }
-  .thumb:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
+  .thumb:focus {
+    outline: none;
   }
   .thumb-svg {
     width: 100%;
