@@ -7,38 +7,38 @@ import { renderPdf } from "@slideck/core/pdf";
 import { NodeAssetResolver } from "./node-resolver";
 import { serve, type ServeOptions } from "./server";
 
-const USAGE = `slideck — YAML スライドの編集サーバ / PDF・SVG ビルド
+const USAGE = `slideck — editing server for YAML slides / PDF and SVG builds
 
-使い方:
-  slideck new [name]                  サンプルプロジェクトを name/ に作成 (既定: my-deck)
-  slideck serve [dir]                 ディレクトリを編集サーバで開く (既定: カレント)
-  slideck export <deck.yaml> [opts]   PDF/SVG にビルド
+Usage:
+  slideck new [name]                  create a sample project in name/ (default: my-deck)
+  slideck serve [dir]                 open a directory in the editing server (default: current)
+  slideck export <deck.yaml> [opts]   build to PDF/SVG
 
-serve オプション:
-  -p, --port <n>     待ち受けポート (既定: 4321、埋まっていれば繰り上げ)
-  --host <h>         待ち受けホスト (既定: localhost)
-  --no-open          ブラウザを自動で開かない
+serve options:
+  -p, --port <n>     listen port (default: 4321, bumped up if taken)
+  --host <h>         listen host (default: localhost)
+  --no-open          do not open the browser automatically
 
-export オプション:
-  -o, --out <file>   出力 PDF パス (既定: <deck>.pdf)
-  --svg <dir>        各スライドを SVG でも出力するディレクトリ
+export options:
+  -o, --out <file>   output PDF path (default: <deck>.pdf)
+  --svg <dir>        directory to also output each slide as SVG
 
-  -h, --help         このヘルプ
+  -h, --help         this help
 `;
 
-// web のビルド成果物の場所。公開パッケージでは dist/web、リポジトリ内 dev では
-// packages/web/dist を見る。
+// Location of the web build artifacts. In the published package this is dist/web,
+// in repo dev it is packages/web/dist.
 function webDir(): string {
   const here = dirname(fileURLToPath(import.meta.url));
   const candidates = [join(here, "web"), join(here, "..", "..", "web", "dist")];
   for (const c of candidates) if (existsSync(join(c, "index.html"))) return c;
   throw new Error(
-    "web のビルド成果物が見つかりません。`pnpm --filter @slideck/web build` を実行してください。",
+    "web build artifacts not found. Run `pnpm --filter @slideck/web build`.",
   );
 }
 
-// 同梱サンプル (examples/basic) の場所。公開パッケージでは dist/web、dev では
-// web の dist もしくは public を見る。
+// Location of the bundled sample (examples/basic). In the published package this is
+// dist/web, in dev it is web's dist or public.
 function sampleDir(): string {
   const here = dirname(fileURLToPath(import.meta.url));
   const candidates = [
@@ -47,20 +47,20 @@ function sampleDir(): string {
     join(here, "..", "..", "web", "public", "examples", "basic"),
   ];
   for (const c of candidates) if (existsSync(join(c, "manifest.json"))) return c;
-  throw new Error("サンプルが見つかりません。");
+  throw new Error("sample not found.");
 }
 
 async function cmdNew(args: string[]): Promise<void> {
   const name = args.find((a) => !a.startsWith("-")) ?? "my-deck";
   const target = resolve(name);
 
-  // 既存ディレクトリが空でなければ上書きしない。
+  // Do not overwrite an existing directory unless it is empty.
   if (existsSync(target) && (await readdir(target).catch(() => [])).length > 0) {
-    console.error(`既に存在し空ではありません: ${target}`);
+    console.error(`already exists and is not empty: ${target}`);
     process.exit(1);
   }
 
-  // manifest.json に列挙されたファイルだけを複製する (manifest 自体は含めない)。
+  // Copy only the files listed in manifest.json (the manifest itself is excluded).
   const src = sampleDir();
   const { files } = JSON.parse(await readFile(join(src, "manifest.json"), "utf8")) as {
     files: string[];
@@ -71,7 +71,7 @@ async function cmdNew(args: string[]): Promise<void> {
     await cp(join(src, rel), to);
   }
 
-  console.log(`作成しました: ${target} (${files.length} ファイル)`);
+  console.log(`created: ${target} (${files.length} files)`);
   console.log(`  cd ${name} && slideck serve`);
 }
 
@@ -107,16 +107,16 @@ async function cmdExport(args: string[]): Promise<void> {
   const root = dirname(deckPath);
   const entry = basename(deckPath);
 
-  // deck.yaml が読めるか確認 (分かりやすいエラーのため)。
+  // Verify deck.yaml is readable (for a clearer error).
   await readFile(deckPath, "utf8").catch(() => {
-    console.error(`deck が見つかりません: ${deckPath}`);
+    console.error(`deck not found: ${deckPath}`);
     process.exit(1);
   });
 
   const { compiled, errors } = await compileDeck(new NodeAssetResolver(root), { entry });
   for (const e of errors) console.error(`! ${e.message}`);
   if (!compiled) {
-    console.error("コンパイルに失敗しました。");
+    console.error("compilation failed.");
     process.exit(1);
   }
 
@@ -149,10 +149,10 @@ async function main(): Promise<void> {
     process.stdout.write(USAGE);
     process.exit(cmd === undefined ? 1 : 0);
   }
-  // 後方互換: 第一引数が .yaml ならビルド扱い。
+  // Backward compat: treat a first arg ending in .yaml as a build.
   if (/\.ya?ml$/i.test(cmd)) return cmdExport(argv);
 
-  console.error(`不明なコマンド: ${cmd}`);
+  console.error(`unknown command: ${cmd}`);
   process.stdout.write(USAGE);
   process.exit(1);
 }

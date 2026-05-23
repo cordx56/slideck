@@ -1,8 +1,9 @@
-// TrueType Collection (.ttc) サポート。
-// コレクションから 1 フォントを単独 SFNT (.ttf/.otf 相当) として取り出し、
-// 以降のメトリクス計算・PDF 埋め込み・FontFace 登録を通常フォントと同様に扱う。
+// TrueType Collection (.ttc) support.
+// Extract one font from the collection as a standalone SFNT (equivalent to .ttf/.otf),
+// so later metrics calculation, PDF embedding, and FontFace registration treat it
+// like a normal font.
 
-// 先頭 4 バイトが 'ttcf' なら TrueType Collection。
+// If the first 4 bytes are 'ttcf', it is a TrueType Collection.
 export function isTtc(bytes: Uint8Array): boolean {
   return (
     bytes.length >= 4 &&
@@ -20,18 +21,18 @@ interface TableRecord {
   length: number;
 }
 
-// TTC から index 番目のフォントを単独 SFNT バイト列として再構築する。
+// Rebuild the font at position index from the TTC as a standalone SFNT byte sequence.
 export function extractFontFromTtc(bytes: Uint8Array, index = 0): Uint8Array {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const numFonts = dv.getUint32(8);
   if (index < 0 || index >= numFonts) {
-    throw new Error(`TTC のフォント index ${index} は範囲外 (0..${numFonts - 1})`);
+    throw new Error(`TTC font index ${index} out of range (0..${numFonts - 1})`);
   }
 
   const dirOffset = dv.getUint32(12 + index * 4);
   const sfntVersion = dv.getUint32(dirOffset);
   const numTables = dv.getUint16(dirOffset + 4);
-  if (numTables === 0) throw new Error("TTC: テーブルがありません");
+  if (numTables === 0) throw new Error("TTC: no tables");
 
   const records: TableRecord[] = [];
   for (let i = 0; i < numTables; i++) {
@@ -51,7 +52,7 @@ export function extractFontFromTtc(bytes: Uint8Array, index = 0): Uint8Array {
   const out = new Uint8Array(totalSize);
   const odv = new DataView(out.buffer);
 
-  // SFNT オフセットテーブル (binary search パラメータを再計算)。
+  // SFNT offset table (recompute binary search parameters).
   const maxPow = Math.floor(Math.log2(numTables));
   const searchRange = 2 ** maxPow * 16;
   odv.setUint32(0, sfntVersion);
@@ -60,7 +61,7 @@ export function extractFontFromTtc(bytes: Uint8Array, index = 0): Uint8Array {
   odv.setUint16(8, maxPow);
   odv.setUint16(10, numTables * 16 - searchRange);
 
-  // 各テーブルをコピーしつつオフセットを書き直す。
+  // Copy each table while rewriting its offset.
   let dataPos = headerSize;
   for (let i = 0; i < numTables; i++) {
     const r = records[i];

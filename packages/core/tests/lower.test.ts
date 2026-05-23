@@ -18,7 +18,7 @@ function deckWith(elements: MirSlide["elements"]): MirDeck {
 }
 
 describe("lower", () => {
-  it("rect の % を絶対 px に解決する", () => {
+  it("resolves rect % to absolute px", () => {
     const deck = deckWith([
       {
         type: "rect",
@@ -40,7 +40,7 @@ describe("lower", () => {
     });
   });
 
-  it("text を行ごとの run に分解する", () => {
+  it("decomposes text into per-line runs", () => {
     const deck = deckWith([
       {
         type: "text",
@@ -64,7 +64,7 @@ describe("lower", () => {
     }
   });
 
-  it("ネストグループは座標を相対展開する", () => {
+  it("nested groups expand coordinates relatively", () => {
     const inner: MirGroup = {
       type: "group",
       position: { left: pct(50), top: pct(50), width: pct(50), height: pct(50) },
@@ -93,8 +93,8 @@ describe("lower", () => {
     };
     const deck = deckWith([outer]);
     const lir = lower(deck.slides[0], deck, ctx);
-    // outer: x200..800 (w600). inner: 左上 +50% => x200+300=500, w 300.
-    // 子 rect: inner いっぱい => x500,w300
+    // outer: x200..800 (w600). inner: top-left +50% => x200+300=500, w 300.
+    // child rect: fills inner => x500,w300
     expect(lir.primitives[0]).toMatchObject({ kind: "rect", x: 500, w: 300 });
   });
 });
@@ -111,10 +111,10 @@ describe("computeAutoLayout", () => {
     letterSpacing: 0,
   });
 
-  it("column は子を縦に gap を挟んで積む", () => {
+  it("column stacks children vertically with gaps between", () => {
     const group: MirGroup = {
       type: "group",
-      children: [text("一"), text("二")],
+      children: [text("one"), text("two")],
       layout: "column",
       gap: pct(10), // inner.h=200 -> 20px gap
       align: "stretch",
@@ -125,14 +125,14 @@ describe("computeAutoLayout", () => {
     const placed = computeAutoLayout(group, inner, ctx);
     expect(placed).toHaveLength(2);
     expect(placed[0].box.y).toBe(0);
-    // stretch なので幅は inner いっぱい
+    // stretch, so width fills inner
     expect(placed[0].box.w).toBe(400);
-    // 2番目は1番目の高さ + gap(20) ぶん下
+    // second is below the first by its height + gap(20)
     const expectedY = placed[0].box.h + 20;
     expect(placed[1].box.y).toBeCloseTo(expectedY);
   });
 
-  it("justify: center は両端に等しい余白を残す", () => {
+  it("justify: center leaves equal margins on both ends", () => {
     const r = (h: number) => ({
       type: "rect" as const,
       position: { height: pct(h) },
@@ -141,7 +141,7 @@ describe("computeAutoLayout", () => {
     });
     const group: MirGroup = {
       type: "group",
-      children: [r(20), r(20)], // inner.h=200 -> 各 40px, 計 80
+      children: [r(20), r(20)], // inner.h=200 -> 40px each, 80 total
       layout: "column",
       gap: pct(0),
       align: "stretch",
@@ -150,11 +150,11 @@ describe("computeAutoLayout", () => {
     };
     const inner = { x: 0, y: 0, w: 100, h: 200 };
     const placed = computeAutoLayout(group, inner, ctx);
-    // 余白 (200-80)/2 = 60 が先頭オフセット
+    // margin (200-80)/2 = 60 is the leading offset
     expect(placed[0].box.y).toBeCloseTo(60);
   });
 
-  it("justify: space-between は要素間に余白を分配する", () => {
+  it("justify: space-between distributes margin between elements", () => {
     const r = () => ({
       type: "rect" as const,
       position: { width: pct(10) }, // inner.w=400 -> 40px
@@ -173,10 +173,10 @@ describe("computeAutoLayout", () => {
     const inner = { x: 0, y: 0, w: 400, h: 100 };
     const placed = computeAutoLayout(group, inner, ctx);
     expect(placed[0].box.x).toBeCloseTo(0);
-    expect(placed[2].box.x).toBeCloseTo(360); // 末尾は右端
+    expect(placed[2].box.x).toBeCloseTo(360); // last is at the right edge
   });
 
-  it("padding は内側ボックスを縮める", () => {
+  it("padding shrinks the inner box", () => {
     const group: MirGroup = {
       type: "group",
       position: { left: pct(0), top: pct(0), width: pct(100), height: pct(100) },
@@ -196,11 +196,11 @@ describe("computeAutoLayout", () => {
     };
     const deck = deckWith([group]);
     const lir = lower(deck.slides[0], deck, ctx);
-    // 子 rect は inner (100,100,800,800)
+    // child rect is inner (100,100,800,800)
     expect(lir.primitives[0]).toMatchObject({ kind: "rect", x: 100, y: 100, w: 800, h: 800 });
   });
 
-  it("flex は main 軸の残余を比率配分する", () => {
+  it("flex distributes the main-axis remainder by ratio", () => {
     const rect = (flex: number) => ({
       type: "rect" as const,
       flex,
@@ -255,7 +255,7 @@ describe("lower lists (ul/ol)", () => {
       .primitives.filter((p) => p.kind === "text")
       .map((p) => (p.kind === "text" ? p.runs.map((r) => r.text).join("") : ""));
 
-  it("ol は番号マーカと item を描く", () => {
+  it("ol draws number markers and items", () => {
     const texts = runTexts(deckWith([list("ol")]));
     expect(texts).toContain("1.");
     expect(texts).toContain("2.");
@@ -263,18 +263,18 @@ describe("lower lists (ul/ol)", () => {
     expect(texts).toContain("B");
   });
 
-  it("ol の start で開始番号を変えられる", () => {
+  it("ol start can change the starting number", () => {
     const texts = runTexts(deckWith([list("ol", 3)]));
     expect(texts).toContain("3.");
     expect(texts).toContain("4.");
   });
 
-  it("ul は箇条書きマーカ (•) を描く", () => {
+  it("ul draws bullet markers (•)", () => {
     const texts = runTexts(deckWith([list("ul")]));
     expect(texts.filter((t) => t === "•")).toHaveLength(2);
   });
 
-  it("マーカは item の左 (gutter 内) に置かれる", () => {
+  it("markers are placed to the left of the item (within the gutter)", () => {
     const lir = lower(deckWith([list("ol")]).slides[0], deckWith([list("ol")]), ctx);
     const texts = lir.primitives.filter((p) => p.kind === "text");
     const marker = texts.find((p) => p.kind === "text" && p.runs[0].text === "1.");

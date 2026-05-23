@@ -1,8 +1,8 @@
 import type { AssetResolver, VFS } from "@slideck/core";
 import { normalize } from "@slideck/core";
 
-// パイプラインは相対パス ("deck.yaml", "theme.yaml", "img/x.png") を渡す。
-// VFS は絶対パスなので "/" 起点に正規化して橋渡しする。
+// The pipeline passes relative paths ("deck.yaml", "theme.yaml", "img/x.png").
+// The VFS uses absolute paths, so normalize them against "/" to bridge.
 export class VfsResolver implements AssetResolver {
   constructor(private readonly vfs: VFS) {}
 

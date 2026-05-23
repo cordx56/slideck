@@ -12,7 +12,7 @@
 
   const errorTitle = $derived(store.errors.map((e) => e.message).join("\n"));
 
-  // 左 (FileTree) / 右 (CodeMirror) ペイン幅。ボーダのドラッグで可変、localStorage 永続。
+  // Left (FileTree) / right (CodeMirror) pane widths. Resizable by dragging the border, persisted in localStorage.
   const LW = "slideck:leftW";
   const RW = "slideck:rightW";
   const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -53,7 +53,7 @@
     try {
       await store.importZip(file);
     } catch (err) {
-      alert(`ZIP を開けませんでした: ${String(err)}`);
+      alert(`Could not open ZIP: ${String(err)}`);
     }
     (e.target as HTMLInputElement).value = "";
   }
@@ -91,23 +91,23 @@
 >
   <header class="topbar">
     {#if store.serverMode}
-      <span class="home" title="ディスク連携モード">slideck</span>
+      <span class="home" title="Disk-linked mode">slideck</span>
     {:else}
-      <button class="home" title="プロジェクト一覧" onclick={() => (location.hash = "")}>
+      <button class="home" title="Project list" onclick={() => (location.hash = "")}>
         slideck
       </button>
     {/if}
     <span class="proj">{store.currentProject}</span>
     <span class="file">{store.openPath}{store.dirty ? " ●" : ""}</span>
     {#if store.errors.length > 0}
-      <span class="err" title={errorTitle}>⚠ {store.errors.length} エラー</span>
+      <span class="err" title={errorTitle}>⚠ {store.errors.length} errors</span>
     {:else}
       <span class="ok">✓ OK</span>
     {/if}
 
     <span class="spacer"></span>
 
-    <button onclick={() => zipInput.click()} title="ZIP インポート">Import ZIP</button>
+    <button onclick={() => zipInput.click()} title="Import ZIP">Import ZIP</button>
     <input
       bind:this={zipInput}
       type="file"
@@ -115,7 +115,7 @@
       hidden
       onchange={onZipPicked}
     />
-    <button onclick={() => store.exportZip()} title="プロジェクトを ZIP 出力">
+    <button onclick={() => store.exportZip()} title="Export project as ZIP">
       Export ZIP
     </button>
 
@@ -132,7 +132,7 @@
     <button onclick={present}>Present</button>
     <button class="pdf" onclick={exportPdf} disabled={exporting}>
       {#if exporting}<Spinner />{/if}
-      {exporting ? "出力中..." : "Export PDF"}
+      {exporting ? "Exporting..." : "Export PDF"}
     </button>
   </header>
 
@@ -142,7 +142,7 @@
     class="splitter"
     role="separator"
     aria-orientation="vertical"
-    title="ドラッグで幅を変更"
+    title="Drag to resize"
     onpointerdown={(e) => startResize("left", e)}
   ></div>
   <CenterPane />
@@ -151,7 +151,7 @@
     class="splitter"
     role="separator"
     aria-orientation="vertical"
-    title="ドラッグで幅を変更"
+    title="Drag to resize"
     onpointerdown={(e) => startResize("right", e)}
   ></div>
   <RightPane />
@@ -160,7 +160,7 @@
 <style>
   .editor {
     display: grid;
-    /* grid-template-columns はインライン (可変幅) で指定 */
+    /* grid-template-columns is set inline (variable width) */
     grid-template-rows: 48px 1fr;
     height: 100vh;
   }

@@ -34,7 +34,7 @@
     return store.vfs!;
   }
 
-  // --- 新規作成 (デフォルト名 -> 即インライン rename) ---
+  // --- Create new (default name -> immediate inline rename) ---
   async function newFile(dir: string) {
     const name = await uniqueName(vfs(), dir, "untitled.yaml");
     await store.createFile(dir, name);
@@ -57,9 +57,9 @@
     if (conflicts.length > 0) {
       confirm = {
         message:
-          "次のファイルが既に存在します:\n" +
+          "The following files already exist:\n" +
           conflicts.map((c) => " - " + c).join("\n"),
-        label: `上書き (${conflicts.length}件)`,
+        label: `Overwrite (${conflicts.length})`,
         onConfirm: () => void store.uploadEntries(toDir, entries, true),
       };
     } else {
@@ -70,8 +70,8 @@
   function confirmDelete(node: TNode) {
     if (node.kind === "file") {
       confirm = {
-        message: `'${node.name}' を削除しますか?`,
-        label: "削除",
+        message: `Delete '${node.name}'?`,
+        label: "Delete",
         onConfirm: () => void store.deletePath(node.path),
       };
     } else {
@@ -79,14 +79,14 @@
         (f) => f.kind === "file" && isDescendant(f.path, node.path),
       ).length;
       confirm = {
-        message: `'${node.name}/' を中身ごと削除しますか? (${count} 個のファイル)`,
-        label: "削除",
+        message: `Delete '${node.name}/' and all its contents? (${count} files)`,
+        label: "Delete",
         onConfirm: () => void store.deletePath(node.path),
       };
     }
   }
 
-  // TreeNode へ渡すコントローラ。
+  // Controller passed to TreeNode.
   const ctx: TreeCtx = {
     selected: () => selectedPath,
     select: (node) => {
@@ -111,30 +111,30 @@
   function menuItems(node: TNode | null): MenuItem[] {
     if (node === null) {
       return [
-        { label: "新規ファイル", action: () => void newFile("/") },
-        { label: "新規フォルダ", action: () => void newFolder("/") },
-        { label: "ZIP インポート", action: () => zipInput.click() },
-        { label: "ZIP エクスポート", action: () => void store.exportZip() },
+        { label: "New file", action: () => void newFile("/") },
+        { label: "New folder", action: () => void newFolder("/") },
+        { label: "Import ZIP", action: () => zipInput.click() },
+        { label: "Export ZIP", action: () => void store.exportZip() },
       ];
     }
     if (node.kind === "folder") {
       return [
-        { label: "新規ファイル", action: () => void newFile(node.path) },
-        { label: "新規フォルダ", action: () => void newFolder(node.path) },
-        { label: "リネーム", action: () => (renamingPath = node.path) },
-        { label: "削除", danger: true, action: () => confirmDelete(node) },
+        { label: "New file", action: () => void newFile(node.path) },
+        { label: "New folder", action: () => void newFolder(node.path) },
+        { label: "Rename", action: () => (renamingPath = node.path) },
+        { label: "Delete", danger: true, action: () => confirmDelete(node) },
       ];
     }
     return [
-      { label: "開く", action: () => void store.openFile(node.path) },
-      { label: "リネーム", action: () => (renamingPath = node.path) },
-      { label: "複製", action: () => void store.duplicatePath(node.path) },
-      { label: "ダウンロード", action: () => void store.downloadFile(node.path) },
-      { label: "削除", danger: true, action: () => confirmDelete(node) },
+      { label: "Open", action: () => void store.openFile(node.path) },
+      { label: "Rename", action: () => (renamingPath = node.path) },
+      { label: "Duplicate", action: () => void store.duplicatePath(node.path) },
+      { label: "Download", action: () => void store.downloadFile(node.path) },
+      { label: "Delete", danger: true, action: () => confirmDelete(node) },
     ];
   }
 
-  // --- キーボード操作 (§8.1) ---
+  // --- Keyboard operations (§8.1) ---
   function onKey(e: KeyboardEvent) {
     if (renamingPath) return;
     const list = flattenVisible(tree, store.expanded);
@@ -193,8 +193,8 @@
   onkeydown={onKey}
   oncontextmenu={(e) => {
     e.preventDefault();
-    // 開いた直後に同じイベントが window まで伝播して ContextMenu を
-    // 即閉じするのを防ぐ (TreeNode 側と同様)。
+    // Prevent the same event from propagating to window right after opening,
+    // which would immediately close the ContextMenu (same as in TreeNode).
     e.stopPropagation();
     menu = { node: null, x: e.clientX, y: e.clientY };
   }}
@@ -207,11 +207,11 @@
   }}
 >
   <header>
-    <span>ファイル</span>
+    <span>Files</span>
     <span class="actions">
-      <button title="新規ファイル" onclick={() => newFile("/")}>＋</button>
+      <button title="New file" onclick={() => newFile("/")}>+</button>
       <button
-        title="隠しファイル表示"
+        title="Show hidden files"
         class:on={store.showHidden}
         onclick={() => store.toggleHidden()}>•</button
       >

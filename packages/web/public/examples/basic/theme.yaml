@@ -4,7 +4,7 @@ fonts:
   heading: { path: ./fonts/IPAexMincho.ttf, family: "IPAexMincho" }
   body: { path: ./fonts/IPAexGothic.ttf, family: "IPAexGothic" }
 
-# colors は変数として注入される (${bg} 等で参照)。slide の vars で上書き可。
+# colors are injected as variables (referenced via ${bg} etc.). Can be overridden by a slide's vars.
 colors:
   bg: "#0e0e10"
   fg: "#f5f5f5"

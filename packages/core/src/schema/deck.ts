@@ -12,9 +12,9 @@ const BaseRefSchema = z
 
 const SlideSchema = z
   .object({
-    // id は任意。省略時は normalize がインデックス由来の id を割り当てる。
+    // id is optional. When omitted, normalize assigns an index-derived id.
     id: z.string().optional(),
-    // use は単一/配列の両方を受ける (normalize で配列化)。
+    // use accepts either a single value or an array (normalize wraps it in an array).
     use: z.union([z.string(), z.array(z.string())]).optional(),
     vars: z.record(z.unknown()).optional(),
     background: z.string().optional(),
@@ -24,20 +24,20 @@ const SlideSchema = z
 
 export const DeckSchema: z.ZodType<DeckHir, z.ZodTypeDef, unknown> = z
   .object({
-    // base 定義。always:true は全スライドに自動適用、それ以外は use: で選択。
-    bases: z.array(BaseRefSchema).min(1, "bases は1つ以上必要です"),
+    // base definitions. always:true auto-applies to all slides; others are selected via use:.
+    bases: z.array(BaseRefSchema).min(1, "at least one base is required"),
     vars: z.record(z.unknown()).optional(),
-    slides: z.array(SlideSchema).min(1, "slides は1つ以上必要です"),
+    slides: z.array(SlideSchema).min(1, "at least one slide is required"),
   })
   .strict()
   .superRefine((deck, ctx) => {
-    // base id の重複を検出。
+    // Detect duplicate base ids.
     const baseIds = new Set<string>();
     deck.bases.forEach((b, i) => {
       if (baseIds.has(b.id)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: `base id "${b.id}" が重複しています`,
+          message: `duplicate base id "${b.id}"`,
           path: ["bases", i, "id"],
         });
       } else {
@@ -45,14 +45,14 @@ export const DeckSchema: z.ZodType<DeckHir, z.ZodTypeDef, unknown> = z
       }
     });
 
-    // 明示された slide id の重複を検出 (任意なので未指定は対象外)。
+    // Detect duplicate explicit slide ids (optional, so unspecified ones are excluded).
     const slideIds = new Set<string>();
     deck.slides.forEach((slide, i) => {
       if (slide.id === undefined) return;
       if (slideIds.has(slide.id)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: `スライド id "${slide.id}" が重複しています`,
+          message: `duplicate slide id "${slide.id}"`,
           path: ["slides", i, "id"],
         });
       } else {
@@ -60,7 +60,7 @@ export const DeckSchema: z.ZodType<DeckHir, z.ZodTypeDef, unknown> = z
       }
     });
 
-    // use: が存在しない base id を参照していないか検証。
+    // Verify that use: does not reference a nonexistent base id.
     const useRefs = (u: string | string[] | undefined): string[] =>
       u === undefined ? [] : Array.isArray(u) ? u : [u];
     deck.slides.forEach((slide, i) => {
@@ -68,7 +68,7 @@ export const DeckSchema: z.ZodType<DeckHir, z.ZodTypeDef, unknown> = z
         if (!baseIds.has(id)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: `スライドが未知の base "${id}" を use しています`,
+            message: `slide uses unknown base "${id}"`,
             path: ["slides", i, "use", ...(Array.isArray(slide.use) ? [j] : [])],
           });
         }

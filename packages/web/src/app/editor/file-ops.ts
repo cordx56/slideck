@@ -2,7 +2,7 @@ import type { VFS } from "../../vfs";
 import { join, normalize, extname } from "@slideck/core";
 
 export interface UploadEntry {
-  path: string; // ターゲットからの相対パス (ディレクトリ drop で階層を含む)
+  path: string; // path relative to the target (includes hierarchy for directory drops)
   data: Uint8Array;
 }
 
@@ -11,7 +11,7 @@ function stem(name: string): [string, string] {
   return ext ? [name.slice(0, name.length - ext.length), ext] : [name, ""];
 }
 
-// dir 内で name が衝突しない一意な名前を返す ("x.png" -> "x copy.png" ...)。
+// Return a unique name within dir that does not collide ("x.png" -> "x copy.png" ...).
 export async function uniqueName(
   vfs: VFS,
   dir: string,
@@ -25,7 +25,7 @@ export async function uniqueName(
   }
 }
 
-// targetDir 配下で既に存在する相対パス (衝突) を列挙する。
+// List relative paths that already exist (collisions) under targetDir.
 export async function detectConflicts(
   vfs: VFS,
   targetDir: string,
@@ -38,7 +38,7 @@ export async function detectConflicts(
   return conflicts;
 }
 
-// OS ファイル drop の DataTransferItemList を再帰展開する (ディレクトリ対応)。
+// Recursively expand the DataTransferItemList of an OS file drop (supports directories).
 export async function readDataTransferEntries(
   items: DataTransferItemList,
 ): Promise<UploadEntry[]> {

@@ -23,7 +23,7 @@
   const broken = $derived(store.filesWithBrokenRefs.has(node.path));
   const dirty = $derived(active && store.dirty);
 
-  // キーボードで選択が移ったら表示領域内へスクロールする。
+  // Scroll into view when selection moves via the keyboard.
   $effect(() => {
     if (selected) rowEl?.scrollIntoView({ block: "nearest" });
   });
@@ -43,7 +43,7 @@
 
   function onDragStart(e: DragEvent) {
     e.dataTransfer?.setData("application/x-vfs-path", node.path);
-    // ツリー内移動(move)とエディタへのパス挿入(copy)の両方を許可。
+    // Allow both move within the tree (move) and path insertion into the editor (copy).
     e.dataTransfer!.effectAllowed = "copyMove";
   }
 
@@ -51,7 +51,7 @@
     e.preventDefault();
     e.stopPropagation();
     dragOver = false;
-    if (!isFolder) return; // ファイルへのドロップは無効
+    if (!isFolder) return; // dropping onto a file is disabled
     const from = e.dataTransfer?.getData("application/x-vfs-path");
     if (from) ctx.dropMove(from, node.path);
     else if (e.dataTransfer?.items.length) ctx.dropUpload(e.dataTransfer.items, node.path);
@@ -62,7 +62,7 @@
   }
 </script>
 
-<!-- キーボード操作は FileTree コンテナ側で集約処理する -->
+<!-- Keyboard operations are handled centrally by the FileTree container -->
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <div
   bind:this={rowEl}
@@ -111,8 +111,8 @@
     />
   {:else}
     <span class="name">{node.name}</span>
-    {#if dirty}<span class="dot dirty" title="未保存"></span>{/if}
-    {#if broken}<span class="dot broken" title="壊れた参照"></span>{/if}
+    {#if dirty}<span class="dot dirty" title="Unsaved"></span>{/if}
+    {#if broken}<span class="dot broken" title="Broken reference"></span>{/if}
   {/if}
 </div>
 
@@ -137,7 +137,7 @@
   .row:hover {
     background: rgba(255, 255, 255, 0.04);
   }
-  /* キーボード/クリックでの選択カーソル (open ファイルとは別表示) */
+  /* selection cursor from keyboard/click (shown separately from the open file) */
   .row.selected {
     background: rgba(230, 69, 83, 0.08);
     outline: 1px solid var(--accent);
@@ -165,7 +165,7 @@
     -webkit-mask: var(--svg) center / contain no-repeat;
     mask: var(--svg) center / contain no-repeat;
   }
-  /* lucide 風の単純アイコンを mask で描画 */
+  /* draw simple lucide-style icons via mask */
   .icon-folder {
     --svg: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>');
   }

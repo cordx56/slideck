@@ -1,5 +1,5 @@
-# standard を継承し、配色だけ明るくしたプリセット。
-# layout/fonts/defaults は継承されるため、色の上書きだけで成立する。
+# A preset that extends standard with only a lighter color scheme.
+# Since layout/fonts/defaults are inherited, overriding just the colors is enough.
 name: light
 extends: ./theme.yaml
 

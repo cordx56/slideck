@@ -5,7 +5,7 @@
   let jumpBuffer = $state("");
   const svg = $derived(store.renderSvg(store.currentSlide));
 
-  // 操作説明はマウス移動中 + その後 3 秒だけ表示する。
+  // Show the controls hint while the mouse moves and for 3 seconds after.
   let hintVisible = $state(false);
   let hintTimer: ReturnType<typeof setTimeout> | undefined;
   function onMouseMove() {
@@ -59,7 +59,7 @@
     <div class="jump">{jumpBuffer}</div>
   {/if}
   <div class="hint" class:visible={hintVisible}>
-    ← → 移動 / 数字+Enter ジャンプ / F 全画面 / Esc 戻る
+    ← → Move / Number+Enter Jump / F Fullscreen / Esc Back
   </div>
 </div>
 

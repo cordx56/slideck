@@ -1,5 +1,5 @@
-// アセット解決。プロジェクトルート (deck.yaml のあるディレクトリ) からの
-// 相対パスでファイルを読む。実装は fetch 版 / File System Access 版 / ZIP 版。
+// Asset resolution. Read files by path relative to the project root (the directory
+// containing deck.yaml). Implementations: fetch / File System Access / ZIP.
 
 export interface AssetResolver {
   readText(relativePath: string): Promise<string>;
@@ -7,7 +7,7 @@ export interface AssetResolver {
   exists(relativePath: string): Promise<boolean>;
 }
 
-// 書き戻しに対応する resolver (ローカルフォルダ / ZIP)。
+// Resolver that supports write-back (local folder / ZIP).
 export interface WritableResolver extends AssetResolver {
   writeText(relativePath: string, text: string): Promise<void>;
 }
@@ -16,7 +16,7 @@ export function isWritable(r: AssetResolver): r is WritableResolver {
   return typeof (r as WritableResolver).writeText === "function";
 }
 
-// "./a/../b/c" のような相対パスを "b/c" に正規化する。先頭の "./" は除去。
+// Normalize a relative path like "./a/../b/c" to "b/c". A leading "./" is stripped.
 export function normalizePath(p: string): string {
   const parts = p.split("/");
   const out: string[] = [];
@@ -32,7 +32,7 @@ export function normalizePath(p: string): string {
   return out.join("/");
 }
 
-// あるファイル (dir 部分) を基準に相対パスを解決する。
+// Resolve a relative path against a file (its dir part) as the base.
 export function resolveFrom(baseFile: string, relative: string): string {
   const baseDir = baseFile.includes("/")
     ? baseFile.slice(0, baseFile.lastIndexOf("/"))
@@ -41,9 +41,9 @@ export function resolveFrom(baseFile: string, relative: string): string {
   return normalizePath(baseDir ? `${baseDir}/${relative}` : relative);
 }
 
-// HTTP fetch ベースの resolver。public/examples などの配信パスを root にする。
+// HTTP fetch based resolver. Uses a serving path such as public/examples as root.
 export class FetchAssetResolver implements AssetResolver {
-  // root は末尾スラッシュ付きの URL ベース。
+  // root is a URL base with a trailing slash.
   constructor(private readonly root: string) {}
 
   private url(relativePath: string): string {
@@ -52,13 +52,13 @@ export class FetchAssetResolver implements AssetResolver {
 
   async readText(relativePath: string): Promise<string> {
     const res = await fetch(this.url(relativePath));
-    if (!res.ok) throw new Error(`読み込み失敗: ${relativePath} (${res.status})`);
+    if (!res.ok) throw new Error(`failed to read: ${relativePath} (${res.status})`);
     return res.text();
   }
 
   async readBytes(relativePath: string): Promise<Uint8Array> {
     const res = await fetch(this.url(relativePath));
-    if (!res.ok) throw new Error(`読み込み失敗: ${relativePath} (${res.status})`);
+    if (!res.ok) throw new Error(`failed to read: ${relativePath} (${res.status})`);
     return new Uint8Array(await res.arrayBuffer());
   }
 
@@ -72,8 +72,8 @@ export class FetchAssetResolver implements AssetResolver {
   }
 }
 
-// 別 resolver をラップし、readText/readBytes をパス単位でメモ化する。
-// エディタのライブ再コンパイルでフォント/画像の再取得を避ける。
+// Wrap another resolver and memoize readText/readBytes per path.
+// Avoids refetching fonts/images during the editor's live recompile.
 export class CachingResolver implements AssetResolver {
   private textCache = new Map<string, Promise<string>>();
   private bytesCache = new Map<string, Promise<Uint8Array>>();
@@ -116,8 +116,8 @@ export class CachingResolver implements AssetResolver {
   }
 }
 
-// 指定パスのテキストをメモリ上の値で差し替え、他は base に委譲する。
-// エディタが編集中の deck.yaml をディスクに書かずに反映するために使う。
+// Replace the text at given paths with in-memory values and delegate the rest to base.
+// Used to reflect the deck.yaml being edited without writing it to disk.
 export class OverrideResolver implements AssetResolver {
   constructor(
     private readonly base: AssetResolver,
@@ -141,14 +141,14 @@ export class OverrideResolver implements AssetResolver {
   }
 }
 
-// メモリ上のファイルマップを使う resolver。テストや ZIP 展開後に使う。
+// Resolver using an in-memory file map. Used in tests or after ZIP extraction.
 export class MemoryAssetResolver implements AssetResolver {
   constructor(private readonly files: Map<string, Uint8Array>) {}
 
   private get(relativePath: string): Uint8Array {
     const key = normalizePath(relativePath);
     const data = this.files.get(key);
-    if (!data) throw new Error(`ファイルがありません: ${key}`);
+    if (!data) throw new Error(`no such file: ${key}`);
     return data;
   }
 

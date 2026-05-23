@@ -5,7 +5,7 @@
   let { size = 14 }: Props = $props();
 </script>
 
-<span class="spinner" style="--sp-size:{size}px" aria-label="読み込み中"></span>
+<span class="spinner" style="--sp-size:{size}px" aria-label="Loading"></span>
 
 <style>
   .spinner {

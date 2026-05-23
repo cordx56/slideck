@@ -1,5 +1,5 @@
-// normalize 時に自動注入するシステム変数。base の layout でもスライドの
-// elements でも参照できる。予約名であり schema.vars での再宣言は不可。
+// System variables auto-injected during normalize. Referable both in a base layout
+// and in slide elements. They are reserved names and cannot be redeclared in schema.vars.
 
 export const SYSTEM_VAR_NAMES = [
   "slideNumber",
@@ -14,7 +14,7 @@ export function isReservedVar(name: string): boolean {
 
 export interface SystemVarInput {
   slideId: string;
-  slideNumber: number; // 1 始まり
+  slideNumber: number; // 1-based
   slideCount: number;
   baseIds: string[];
 }

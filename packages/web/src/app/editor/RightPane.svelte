@@ -6,7 +6,7 @@
 
   let host: HTMLDivElement;
   let handle: EditorHandle | undefined;
-  // ファイル切替等のプログラム更新中は onChange を無視してループを防ぐ。
+  // Ignore onChange during programmatic updates (e.g. file switch) to avoid loops.
   let applying = false;
 
   onMount(() => {
@@ -21,7 +21,7 @@
   });
   onDestroy(() => handle?.destroy());
 
-  // store.yamlText が外部 (ファイル切替・インスペクタ) で変わったら反映。
+  // Reflect when store.yamlText changes externally (file switch / inspector).
   $effect(() => {
     const text = store.yamlText;
     if (!handle) return;
@@ -35,7 +35,7 @@
 </script>
 
 <div class="right">
-  <!-- CodeMirror は常に 1 インスタンス。非 YAML 時は隠してプレビューを出す。 -->
+  <!-- Always a single CodeMirror instance. Hidden for non-YAML, showing the preview instead. -->
   <div class="cm" class:hidden={!store.isYamlOpen} bind:this={host}></div>
   {#if !store.isYamlOpen}
     <FilePreview path={store.openPath} />

@@ -1,6 +1,6 @@
-# footer base — deck.yaml で always:true 指定。全スライドに乗る。
-# layout は base ファイルの標準フィールド。${slideNumber}/${slideCount} は
-# システム変数 (normalize が自動注入)。
+# footer base — declared with always:true in deck.yaml. Appears on every slide.
+# layout is a standard field of base files. ${slideNumber}/${slideCount} are
+# system variables (injected automatically by normalize).
 layout:
   - type: line
     from: { x: 4%, y: 94% }

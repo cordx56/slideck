@@ -27,15 +27,15 @@ import { registerFonts } from "../lib/fonts-register";
 import { isImagePath } from "@slideck/core";
 import { collectBrokenReferences, type Reference } from "@slideck/core";
 
-const ENTRY = "deck.yaml"; // VFS では /deck.yaml
+const ENTRY = "deck.yaml"; // /deck.yaml in the VFS
 
-// --- リアクティブ状態 ---
-// 画面遷移は URL ハッシュで決める (App 側)。store は VFS 初期化状態のみ持つ。
-let booting = $state(true); // 初期化完了まで true
-let ready = $state(false); // プロジェクトがロード済み (エディタ表示可能)
-let serverMode = $state(false); // slideck serve 配下 (ディスク連携) か
+// --- Reactive state ---
+// Navigation is decided by the URL hash (in App). The store only holds VFS init state.
+let booting = $state(true); // true until initialization completes
+let ready = $state(false); // project is loaded (editor can be shown)
+let serverMode = $state(false); // running under slideck serve (disk-linked)
 let currentProject = $state<string | null>(null);
-let projectsVersion = $state(0); // レジストリ変更時に増やして projects を再評価
+let projectsVersion = $state(0); // bumped on registry change to re-evaluate projects
 let openPath = $state("/deck.yaml");
 let yamlText = $state("");
 let dirty = $state(false);
@@ -47,7 +47,7 @@ let brokenRefs = $state.raw<Reference[]>([]);
 let expanded = $state.raw<Set<string>>(new Set());
 let showHidden = $state(false);
 
-// --- 非リアクティブ ---
+// --- Non-reactive ---
 let vfs: VFS | null = null;
 let cachedCtx: LowerCtx | null = null;
 let cachedFonts: Map<string, LoadedFont> | null = null;
@@ -59,7 +59,7 @@ function isYaml(path: string): boolean {
 }
 
 function compileResolver(): AssetResolver {
-  if (!vfs) throw new Error("VFS 未初期化");
+  if (!vfs) throw new Error("VFS not initialized");
   const base = new VfsResolver(vfs);
   if (dirty && isYaml(openPath)) {
     const key = openPath.replace(/^\//, "");
@@ -108,8 +108,9 @@ async function recomputeRefs() {
   }
 }
 
-// 編集中ファイルを VFS に書き戻す。自己保存中フラグで、保存由来の VFS イベントが
-// 不要な full recompile を起こさないようにする (編集は live recompile 済み)。
+// Write the file being edited back to the VFS. The self-saving flag keeps
+// save-triggered VFS events from causing an unneeded full recompile (edits
+// already did a live recompile).
 let selfSaving = false;
 async function saveCurrent() {
   if (!vfs || !dirty || !isYaml(openPath)) return;
@@ -136,10 +137,10 @@ function applyYaml(text: string) {
   dirty = true;
   scheduleLive();
   scheduleRefs();
-  scheduleSave(); // 変更を自動保存
+  scheduleSave(); // auto-save the change
 }
 
-// 名前付きプロジェクトの VFS (= 専用 IndexedDB) に切り替える。
+// Switch to a named project's VFS (= dedicated IndexedDB).
 async function useVfs(name: string) {
   unsubscribe?.();
   unsubscribe = null;
@@ -149,12 +150,12 @@ async function useVfs(name: string) {
   setLastProject(name);
 }
 
-// 現在の vfs からプロジェクトを読み込み、コンパイルして ready にする。
+// Load the project from the current vfs, compile it, and become ready.
 async function loadCurrentProject() {
   if (!vfs) return;
   unsubscribe?.();
   unsubscribe = vfs.subscribe(() => {
-    if (selfSaving) return; // 自動保存由来は live recompile 済みなのでスキップ
+    if (selfSaving) return; // skip auto-save events; already live-recompiled
     void refreshFiles();
     scheduleFull();
     scheduleRefs();
@@ -210,18 +211,18 @@ export const store = {
   get brokenRefs() {
     return brokenRefs;
   },
-  // 壊れた参照を持つ YAML ファイルパスの集合 (ツリーの赤ドット用)。
+  // Set of YAML file paths with broken references (for the tree's red dot).
   get filesWithBrokenRefs(): Set<string> {
     return new Set(brokenRefs.map((r) => r.fromFile));
   },
-  // プロジェクトがロード済みでエディタ表示可能か。
+  // Whether a project is loaded and the editor can be shown.
   get ready() {
     return ready;
   },
   get currentProject() {
     return currentProject;
   },
-  // 保存済みプロジェクト一覧 (選択画面用)。projectsVersion で再評価を駆動。
+  // Saved project list (for the selection screen). projectsVersion drives re-evaluation.
   get projects(): ProjectMeta[] {
     projectsVersion;
     return listProjects();
@@ -240,9 +241,9 @@ export const store = {
     return serverMode;
   },
 
-  // 起動: slideck serve 配下ならディスク連携モードで即エディタを開く。
-  // そうでなければ、最後に開いたプロジェクトがあれば復元しておく
-  // (#editor のリロード対応)。どの画面を出すかは URL ハッシュで決める (App)。
+  // Boot: under slideck serve, open the editor immediately in disk-linked mode.
+  // Otherwise, restore the last opened project if there is one
+  // (to handle reloading #editor). Which screen to show is decided by the URL hash (App).
   async boot() {
     const info = await probeServer();
     if (info) {
@@ -262,21 +263,21 @@ export const store = {
     booting = false;
   },
 
-  // 既存プロジェクトを開く (選択画面から)。
+  // Open an existing project (from the selection screen).
   async openProject(name: string) {
-    if (!projectExists(name)) throw new Error(`プロジェクト "${name}" がありません`);
+    if (!projectExists(name)) throw new Error(`Project "${name}" does not exist`);
     ready = false;
     await useVfs(name);
     await loadCurrentProject();
   },
 
-  // 新規プロジェクトを作成する。init で初期ファイルを書き込む。
-  // 名前が空 / 重複ならエラー。
+  // Create a new project. init writes the initial files.
+  // Error if the name is empty or duplicate.
   async createProject(name: string, init: (vfs: VFS) => Promise<void>) {
     const trimmed = name.trim();
-    if (!trimmed) throw new Error("プロジェクト名を入力してください");
+    if (!trimmed) throw new Error("Please enter a project name");
     if (projectExists(trimmed)) {
-      throw new Error(`プロジェクト "${trimmed}" は既に存在します`);
+      throw new Error(`Project "${trimmed}" already exists`);
     }
     ready = false;
     await useVfs(trimmed);
@@ -286,7 +287,7 @@ export const store = {
     await loadCurrentProject();
   },
 
-  // プロジェクトを削除する (選択画面から)。
+  // Delete a project (from the selection screen).
   async deleteProject(name: string) {
     if (currentProject === name) {
       unsubscribe?.();
@@ -301,7 +302,7 @@ export const store = {
     indexedDB.deleteDatabase(dbNameFor(name));
   },
 
-  // --- ファイルを開く / 保存 ---
+  // --- Open / save files ---
   async openFile(path: string) {
     const v = vfs;
     if (!v) return;
@@ -311,7 +312,7 @@ export const store = {
     dirty = false;
   },
 
-  // 手動保存 (Ctrl/Cmd+S)。通常は編集時に自動保存される。
+  // Manual save (Ctrl/Cmd+S). Normally edits are auto-saved.
   async save() {
     await saveCurrent();
   },
@@ -337,7 +338,7 @@ export const store = {
     await vfs.importZip(file, targetDir);
   },
 
-  // --- ツリー状態 ---
+  // --- Tree state ---
   get expanded() {
     return expanded;
   },
@@ -366,7 +367,7 @@ export const store = {
     void vfs?.setMeta("showHidden", showHidden);
   },
 
-  // --- ファイル操作 ---
+  // --- File operations ---
   async createFile(dir: string, name: string) {
     const v = vfs;
     if (!v) return;
@@ -394,7 +395,7 @@ export const store = {
     await v.move(from, to);
     await this.followMove(from, to);
   },
-  // 移動後、開いているファイルのパスを追従させる。
+  // After a move, keep the open file's path in sync.
   async followMove(from: string, to: string) {
     if (openPath === from) await this.openFile(to);
     else if (isDescendant(openPath, from)) {
@@ -427,7 +428,7 @@ export const store = {
     const { mimeFromPath } = await import("@slideck/core");
     downloadBytes(bytes, basename(path), mimeFromPath(path));
   },
-  // OS からのアップロード。overwrite=false なら衝突分はスキップ。
+  // Upload from the OS. With overwrite=false, conflicts are skipped.
   async uploadEntries(targetDir: string, entries: UploadEntry[], overwrite: boolean) {
     if (!vfs) return;
     for (const e of entries) {
@@ -438,7 +439,7 @@ export const store = {
     this.setExpanded(targetDir, true);
   },
 
-  // --- スライド操作 ---
+  // --- Slide operations ---
   goSlide(i: number) {
     currentSlide = Math.max(0, Math.min(this.slideCount - 1, i));
   },

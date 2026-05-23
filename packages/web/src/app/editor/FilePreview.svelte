@@ -17,7 +17,7 @@
   let fontFamily = $state<string | null>(null);
   let info = $state("");
 
-  // path が変わるたびにプレビュー用リソースを用意する。
+  // Prepare preview resources whenever path changes.
   $effect(() => {
     const p = path;
     imageUrl = null;
@@ -34,19 +34,19 @@
       const family = `preview-${basename(p)}`;
       void vfs.readBytes(p).then(async (bytes) => {
         try {
-          // .ttc はブラウザの FontFace が扱えないため先頭フォントを展開。
+          // Browsers' FontFace can't handle .ttc, so extract the first font.
           const data = isTtc(bytes) ? extractFontFromTtc(bytes, 0) : bytes;
           const face = new FontFace(family, data as BufferSource);
           await face.load();
           document.fonts.add(face);
           if (path === p) fontFamily = family;
         } catch {
-          if (path === p) info = "フォントを読み込めませんでした";
+          if (path === p) info = "Could not load font";
         }
       });
     } else {
       void vfs.stat(p).then((s) => {
-        if (path === p) info = `バイナリファイル、編集不可 (${s?.size ?? 0} bytes)`;
+        if (path === p) info = `Binary file, not editable (${s?.size ?? 0} bytes)`;
       });
     }
   });
@@ -63,11 +63,11 @@
     {#if fontFamily}
       <div class="samples" style="font-family:'{fontFamily}'">
         <p style="font-size:32px">The quick brown fox jumps over the lazy dog</p>
-        <p style="font-size:32px">いろはにほへと ちりぬるを 0123456789</p>
+        <p style="font-size:32px">Pack my box with five dozen liquor jugs 0123456789</p>
         <p style="font-size:20px">{basename(path)}</p>
       </div>
     {:else}
-      <p class="info">{info || "読み込み中..."}</p>
+      <p class="info">{info || "Loading..."}</p>
     {/if}
   {:else}
     <p class="info">{info}</p>

@@ -4,7 +4,7 @@ import { readZip, writeZip } from "../src/vfs/zip";
 import { openVfs } from "../src/vfs";
 
 describe("vfs/zip helpers", () => {
-  it("writeZip -> readZip ラウンドトリップ", async () => {
+  it("writeZip -> readZip round trip", async () => {
     const blob = writeZip([
       { path: "deck.yaml", data: new TextEncoder().encode("hello") },
       { path: "img/a.png", data: new Uint8Array([1, 2, 3]) },
@@ -17,7 +17,7 @@ describe("vfs/zip helpers", () => {
 });
 
 describe("VFS importZip / exportZip", () => {
-  it("import 後にファイルが展開され、export でラウンドトリップする", async () => {
+  it("unpacks files after import and round trips on export", async () => {
     const vfs = await openVfs(`zip-${Date.now()}`);
     const blob = writeZip([
       { path: "deck.yaml", data: new TextEncoder().encode("bases: []\nslides: []") },

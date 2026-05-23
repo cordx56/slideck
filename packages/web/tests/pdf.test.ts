@@ -27,7 +27,7 @@ class DiskResolver implements AssetResolver {
 }
 
 describe("renderPdf", () => {
-  it("実フォントを subset 埋め込みした PDF を生成する", async () => {
+  it("generates a PDF with real fonts subset-embedded", async () => {
     const resolver = new DiskResolver(
       resolve(__dirname, "../public/examples/basic"),
     );
@@ -37,7 +37,7 @@ describe("renderPdf", () => {
     const { bytes, errors: pdfErrors } = await renderPdf(compiled!);
     expect(pdfErrors).toHaveLength(0);
 
-    // 妥当な PDF で、スライド数ぶんのページがある。
+    // A valid PDF with one page per slide.
     const header = new TextDecoder().decode(bytes.slice(0, 5));
     expect(header).toBe("%PDF-");
     const doc = await PDFDocument.load(bytes);
@@ -45,11 +45,11 @@ describe("renderPdf", () => {
     expect(doc.getPage(0).getWidth()).toBe(1920);
     expect(doc.getPage(0).getHeight()).toBe(1080);
 
-    // TrueType フォントが埋め込まれている (FontFile2) ことを確認。
-    // 既定の save は object stream で圧縮されるため、検査用に展開して再保存。
+    // Verify that a TrueType font is embedded (FontFile2).
+    // The default save compresses into object streams, so re-save expanded for inspection.
     const inspectable = await doc.save({ useObjectStreams: false });
     const raw = new TextDecoder("latin1").decode(inspectable);
     expect(raw).toContain("FontFile2");
-    expect(raw).toContain("Type0"); // CJK 用 composite font
+    expect(raw).toContain("Type0"); // composite font for CJK
   });
 });

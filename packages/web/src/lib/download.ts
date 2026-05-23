@@ -1,4 +1,4 @@
-// バイト列をファイルとしてダウンロードさせる (ブラウザ)。
+// Trigger a download of a byte array as a file (browser).
 export function downloadBytes(
   bytes: Uint8Array,
   filename: string,

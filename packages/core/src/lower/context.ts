@@ -1,8 +1,8 @@
 import type { FontMetrics } from "./metrics";
 
-// lower 時に必要な、事前ロード済みリソース。
-// 画像バイトとフォントメトリクスは prepare フェーズで非同期に揃え、
-// lower 自体は同期・純粋関数に保つ (テスト容易性のため)。
+// Preloaded resources needed during lower.
+// Image bytes and font metrics are gathered asynchronously in the prepare phase,
+// keeping lower itself a sync, pure function (for testability).
 export interface LoadedImage {
   data: Uint8Array;
   mime: string;
@@ -15,7 +15,7 @@ export interface LowerCtx {
   images: Map<string, LoadedImage>;
 }
 
-// PDF 埋め込み・SVG プレビュー登録に使う、ロード済みフォントバイト列。
+// Loaded font bytes used for PDF embedding and SVG preview registration.
 export interface LoadedFont {
   family: string;
   bytes: Uint8Array;

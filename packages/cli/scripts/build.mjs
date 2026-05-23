@@ -1,6 +1,6 @@
-// @slideck/cli を公開可能な単一ファイルにビルドする。
-// 1) cli + @slideck/core を 1 つの ESM にバンドル (dist/cli.js)
-// 2) web のビルド成果物を dist/web へコピー (serve で静的配信)
+// Build @slideck/cli into a single publishable file.
+// 1) Bundle cli + @slideck/core into one ESM (dist/cli.js)
+// 2) Copy web build artifacts to dist/web (served statically by serve)
 import { build } from "esbuild";
 import { cp, rm, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -15,14 +15,14 @@ const webDist = resolve(root, "..", "web", "dist");
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
 
-// web 成果物が無ければ先にビルド (単独 publish でも完結させる)。
+// Build web first if its artifacts are missing (so a standalone publish is self-contained).
 if (!existsSync(join(webDist, "index.html"))) {
-  console.log("web の成果物が無いのでビルドします...");
+  console.log("web artifacts missing, building them...");
   execSync("pnpm --filter @slideck/web build", { stdio: "inherit", cwd: resolve(root, "..", "..") });
 }
 
-// ESM 出力。import.meta.url を保ちつつ、バンドルした CJS 依存が使う
-// require/__dirname/__filename を shim で補う。
+// ESM output. Keep import.meta.url, and shim in require/__dirname/__filename
+// used by the bundled CJS dependencies.
 const banner = `#!/usr/bin/env node
 import { createRequire as __slideckRequire } from 'node:module';
 import { fileURLToPath as __slideckFileURL } from 'node:url';

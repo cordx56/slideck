@@ -1,7 +1,7 @@
 import type { VFSEvent, VFSListener } from "../vfs";
 
-// VFS 実装が変更通知を配るための最小イベントバス。web (IndexedDB) と
-// cli (disk) の双方が利用する。
+// Minimal event bus for VFS implementations to broadcast change notifications.
+// Used by both web (IndexedDB) and cli (disk).
 export class EventBus {
   private listeners = new Set<VFSListener>();
 

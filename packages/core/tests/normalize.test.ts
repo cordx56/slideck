@@ -28,7 +28,7 @@ function loaded(
 
 const stdBase: BaseHir = {
   fonts: { body: { path: "x.ttf", family: "Body" } },
-  // colors は変数として注入される。
+  // colors are injected as variables.
   colors: { fg: "#ffffff", accent: "#7aa2f7" },
   slide: { width: 1000, height: 500 },
   defaults: { text: { family: "body", size: 30, color: "${fg}" } },
@@ -40,13 +40,13 @@ const stdBase: BaseHir = {
   layout: [{ type: "text", text: "${title}" }],
 };
 
-// 単一 base を always で全スライドに適用する簡易ヘルパ。
+// Simple helper applying a single base to all slides via always.
 function single(base: BaseHir, slides: SlideHir[], deckVars?: Record<string, unknown>) {
   return loaded([{ id: "std", always: true, base }], slides, deckVars);
 }
 
 describe("normalize", () => {
-  it("変数を展開しデフォルトを適用する", () => {
+  it("expands variables and applies defaults", () => {
     const { deck, errors } = normalize(
       single(stdBase, [{ id: "s1", vars: { title: "Hello" } }]),
     );
@@ -59,35 +59,35 @@ describe("normalize", () => {
     expect(el.color).toBe("#ffffff");
   });
 
-  it("文字列内の部分展開", () => {
+  it("partial expansion within a string", () => {
     const base: BaseHir = { ...stdBase, layout: [{ type: "text", text: "Hi ${title}!" }] };
     const el = normalize(single(base, [{ id: "s", vars: { title: "Bob" } }])).deck!
       .slides[0].elements[0] as MirText;
     expect(el.text).toBe("Hi Bob!");
   });
 
-  it("required 変数の欠落はエラー", () => {
+  it("missing required variable is an error", () => {
     const { errors } = normalize(single(stdBase, [{ id: "s", vars: {} }]));
     expect(errors.some((e) => e.message.includes("title"))).toBe(true);
   });
 
-  it("未定義変数の参照はエラー", () => {
+  it("referencing an undefined variable is an error", () => {
     const base: BaseHir = { ...stdBase, layout: [{ type: "text", text: "${nope}" }] };
     const { errors } = normalize(single(base, [{ id: "s", vars: { title: "x" } }]));
     expect(errors.some((e) => e.message.includes("nope"))).toBe(true);
   });
 
-  it("colors を変数として参照できる (${名前})", () => {
+  it("colors can be referenced as variables (${name})", () => {
     const base: BaseHir = {
       ...stdBase,
       layout: [{ type: "text", text: "x", color: "${fg}" }],
     };
     const el = normalize(single(base, [{ id: "s", vars: { title: "t" } }]))
       .deck!.slides[0].elements[0] as MirText;
-    expect(el.color).toBe("#ffffff"); // colors.fg が注入される
+    expect(el.color).toBe("#ffffff"); // colors.fg is injected
   });
 
-  it("color フィールドはリテラル文字列も受ける", () => {
+  it("the color field also accepts a literal string", () => {
     const base: BaseHir = {
       ...stdBase,
       layout: [{ type: "text", text: "x", color: "#ff0000" }],
@@ -97,7 +97,7 @@ describe("normalize", () => {
     expect(el.color).toBe("#ff0000");
   });
 
-  it("slide.vars で色変数を上書きできる", () => {
+  it("color variables can be overridden via slide.vars", () => {
     const base: BaseHir = {
       ...stdBase,
       layout: [{ type: "text", text: "x", color: "${accent}" }],
@@ -108,7 +108,7 @@ describe("normalize", () => {
     expect(el.color).toBe("#00ff00");
   });
 
-  it("defaults.link / defaults.mono が MirText.rich に解決される", () => {
+  it("defaults.link / defaults.mono resolve into MirText.rich", () => {
     const base: BaseHir = {
       ...stdBase,
       colors: { fg: "#ffffff", accent: "#7aa2f7", muted: "#999999" },
@@ -129,7 +129,7 @@ describe("normalize", () => {
     });
   });
 
-  it("deck-level vars が slide.vars に上書きされる", () => {
+  it("deck-level vars are overridden by slide.vars", () => {
     const base: BaseHir = { ...stdBase, layout: [{ type: "text", text: "${title}" }] };
     const { deck } = normalize(
       single(

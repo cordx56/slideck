@@ -18,15 +18,15 @@ import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import { linter, lintGutter, type Diagnostic } from "@codemirror/lint";
 
-// YAML 構文ハイライト (@lezer/yaml のタグに対応)。ダークテーマ配色。
+// YAML syntax highlighting (maps to @lezer/yaml tags). Dark theme colors.
 const yamlHighlight = HighlightStyle.define([
   { tag: t.lineComment, color: "#565f89", fontStyle: "italic" },
-  { tag: t.definition(t.propertyName), color: "#7dcfff" }, // キー
-  { tag: t.string, color: "#9ece6a" }, // クォート文字列
-  { tag: t.special(t.string), color: "#9ece6a" }, // ブロックリテラル
-  { tag: t.content, color: "#c0caf5" }, // プレーンな値
+  { tag: t.definition(t.propertyName), color: "#7dcfff" }, // key
+  { tag: t.string, color: "#9ece6a" }, // quoted string
+  { tag: t.special(t.string), color: "#9ece6a" }, // block literal
+  { tag: t.content, color: "#c0caf5" }, // plain value
   { tag: t.attributeValue, color: "#9ece6a" },
-  { tag: t.keyword, color: "#bb9af7" }, // ディレクティブ
+  { tag: t.keyword, color: "#bb9af7" }, // directive
   { tag: t.labelName, color: "#e0af68" }, // anchor / alias
   { tag: t.typeName, color: "#2ac3de" }, // tag
   { tag: t.meta, color: "#ff9e64" }, // --- / ...
@@ -39,7 +39,7 @@ import { collectFileReferences } from "@slideck/core";
 import { extname } from "@slideck/core";
 import type { VFS } from "../../vfs";
 
-// 開いているファイルの種別 (deck.yaml / base / 非 YAML) を判定するコンテキスト。
+// Context that determines the open file's kind (deck.yaml / base / non-YAML).
 export interface EditorContext {
   vfs: VFS | null;
   openPath: string;
@@ -50,8 +50,8 @@ function isYamlPath(path: string): boolean {
   return e === ".yaml" || e === ".yml";
 }
 
-// 開いているファイルに応じたスキーマ検証 (deck.yaml -> DeckSchema, それ以外の
-// YAML -> BaseSchema)。構文/型エラーを CodeMirror 診断にする。
+// Schema validation based on the open file (deck.yaml -> DeckSchema, other
+// YAML -> BaseSchema). Turns syntax/type errors into CodeMirror diagnostics.
 function schemaLinter(ctx: () => EditorContext) {
   return linter((view): Diagnostic[] => {
     const { openPath } = ctx();
@@ -75,7 +75,7 @@ function schemaLinter(ctx: () => EditorContext) {
   });
 }
 
-// パス参照が VFS 上に存在しない場合に該当範囲へ警告を出す (§7)。
+// Warn on the relevant range when a path reference does not exist in the VFS (§7).
 function brokenRefLinter(ctx: () => EditorContext) {
   return linter(async (view): Promise<Diagnostic[]> => {
     const { vfs, openPath } = ctx();
@@ -88,7 +88,7 @@ function brokenRefLinter(ctx: () => EditorContext) {
           from: r.range[0],
           to: r.range[1],
           severity: "warning",
-          message: `参照先が見つかりません: ${r.toPath}`,
+          message: `Reference not found: ${r.toPath}`,
         });
       }
     }
@@ -118,11 +118,11 @@ const darkTheme = EditorView.theme(
 
 const VFS_PATH_MIME = "application/x-vfs-path";
 
-// ファイルツリーからの D&D を受け、離した位置に絶対パスを挿入する。
+// Handle D&D from the file tree: insert the absolute path at the drop position.
 const vfsPathDropHandler = EditorView.domEventHandlers({
   dragover(event) {
     if (!event.dataTransfer?.types.includes(VFS_PATH_MIME)) return false;
-    event.preventDefault(); // ドロップを許可
+    event.preventDefault(); // allow drop
     event.dataTransfer.dropEffect = "copy";
     return true;
   },

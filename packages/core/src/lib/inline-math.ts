@@ -1,9 +1,9 @@
-// テキスト中のインライン数式 ($...$) を扱う。
-// 変数展開は ${...} なので $x$ とは衝突しない。
+// Handles inline math ($...$) within text.
+// Variable expansion uses ${...}, so it does not collide with $x$.
 
 export interface MathSegment {
   math: boolean;
-  value: string; // text 部はそのまま、math 部は中身の TeX
+  value: string; // text part as-is, math part is the inner TeX
 }
 
 const INLINE_RE = /\$([^$]+)\$/g;
@@ -12,7 +12,7 @@ export function hasInlineMath(text: string): boolean {
   return /\$[^$]+\$/.test(text);
 }
 
-// テキストを text / math セグメントに分割する。
+// Split text into text / math segments.
 export function parseInlineMath(text: string): MathSegment[] {
   const segments: MathSegment[] = [];
   let last = 0;
@@ -27,7 +27,7 @@ export function parseInlineMath(text: string): MathSegment[] {
   return segments;
 }
 
-// $ 区切りを外した素のテキスト (PDF フォールバック・高さ計算用)。
+// Plain text with the $ delimiters removed (for PDF fallback / height calc).
 export function stripInlineMath(text: string): string {
   return parseInlineMath(text)
     .map((s) => s.value)

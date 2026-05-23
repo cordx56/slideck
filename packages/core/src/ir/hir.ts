@@ -1,6 +1,6 @@
-// HIR: ユーザ宣言をそのまま型付けしたもの。
-// 変数 (${...}) 未展開、テーマ未適用、色/フォントはキーまたはリテラルのまま、
-// position は % / px / center の Dimension のまま。
+// HIR: the user declarations typed as-is.
+// Variables (${...}) not expanded, theme not applied, colors/fonts left as keys or literals,
+// position left as a % / px / center Dimension.
 import type { Dimension, Position, Point } from "../schema/position";
 
 export type Align = "left" | "center" | "right";
@@ -17,7 +17,7 @@ export type Justify =
 export interface BaseElement {
   id?: string;
   position?: Position;
-  // auto-layout の子要素における main-axis 比率配分
+  // main-axis ratio distribution among auto-layout children
   flex?: number;
 }
 
@@ -73,19 +73,19 @@ export interface GroupElement extends BaseElement {
   vars?: Record<string, unknown>;
 }
 
-// ul (箇条書き) / ol (番号付き) リスト。group と同様の縦並びコンテナで、
-// 子は items。各 item の前にマーカ (• / 1.) を描く。
+// ul (bulleted) / ol (numbered) list. A vertical-stack container like group,
+// whose children are items. A marker (• / 1.) is drawn before each item.
 export interface ListElement extends BaseElement {
   type: "ul" | "ol";
   items: HirElement[];
   gap?: Dimension;
   align?: CrossAlign;
   padding?: Dimension;
-  // マーカのスタイル (省略時はテキストデフォルト)。
+  // marker style (defaults to the text defaults when omitted).
   font?: string;
   size?: number;
   color?: string;
-  start?: number; // ol の開始番号 (既定 1)
+  start?: number; // ol start number (default 1)
 }
 
 export type HirElement =
@@ -97,14 +97,14 @@ export type HirElement =
   | GroupElement
   | ListElement;
 
-// テーマ -----------------------------------------------------------------
+// Theme ------------------------------------------------------------------
 
 export interface FontDecl {
   path: string;
   family: string;
   weight?: number;
   style?: "normal" | "italic";
-  index?: number; // .ttc 内のフォント番号
+  index?: number; // font index within a .ttc
 }
 
 export type VarType =
@@ -119,7 +119,7 @@ export interface VarDecl {
   type: VarType;
   required?: boolean;
   default?: unknown;
-  values?: string[]; // enum 用
+  values?: string[]; // for enum
 }
 
 export interface TextDefaults {
@@ -131,7 +131,7 @@ export interface TextDefaults {
   letterSpacing?: number;
 }
 
-// インライン Markdown のリンク/コード(mono)のスタイル。
+// inline Markdown link/code(mono) styles.
 export interface LinkDefaults {
   color?: string;
   underline?: boolean;
@@ -141,7 +141,7 @@ export interface MonoDefaults {
   color?: string;
 }
 
-// richtext (リンク/コード) 解決済みスタイル。
+// resolved richtext (link/code) styles.
 export interface RichStyle {
   linkColor: string;
   linkUnderline: boolean;
@@ -149,8 +149,8 @@ export interface RichStyle {
   monoColor: string;
 }
 
-// Base: theme と overlay を統合した合成可能レイヤー。
-// 旧 theme.yaml と同じ構造。id は deck.bases 側で付与するため name は任意。
+// Base: a composable layer merging theme and overlay.
+// Same structure as the old theme.yaml. id is assigned on the deck.bases side, so name is optional.
 export interface BaseHir {
   name?: string;
   extends?: string;
@@ -163,12 +163,12 @@ export interface BaseHir {
   layout?: HirElement[];
 }
 
-// デッキ -----------------------------------------------------------------
+// Deck -------------------------------------------------------------------
 
-// deck.yaml における base の宣言。
+// base declaration in deck.yaml.
 export interface BaseRef {
   id: string;
-  always?: boolean; // true なら全スライドに自動適用 (旧 overlay 相当)
+  always?: boolean; // if true, auto-applied to all slides (equivalent to the old overlay)
   file: string;
 }
 

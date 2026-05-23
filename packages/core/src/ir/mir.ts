@@ -1,6 +1,6 @@
-// MIR: 正規化済みスライドモデル。
-// テーマ適用済み、変数展開済み、デフォルト適用済み、色は hex、フォントは family 名。
-// position は依然 Dimension (% / px / center)、グループ階層は保持。
+// MIR: the normalized slide model.
+// Theme applied, variables expanded, defaults applied; colors are hex, fonts are family names.
+// position is still a Dimension (% / px / center), group hierarchy is preserved.
 import type { Position, Point, Dimension } from "../schema/position";
 import type { Align, Fit, LayoutDir, CrossAlign, Justify, RichStyle } from "./hir";
 
@@ -15,7 +15,7 @@ export interface MirText {
   align: Align;
   lineHeight: number;
   letterSpacing: number;
-  // インライン Markdown のリンク/コード スタイル (richtext 用)。
+  // inline Markdown link/code styles (for richtext).
   rich?: RichStyle;
 }
 
@@ -76,7 +76,7 @@ export interface MirList {
   gap: Dimension;
   align: CrossAlign;
   padding: Dimension;
-  // マーカ (• / 番号) の描画スタイル。
+  // marker (• / number) render style.
   font: string;
   size: number;
   color: string;
@@ -97,7 +97,7 @@ export interface MirFont {
   path?: string;
   weight?: number;
   style?: "normal" | "italic";
-  index?: number; // .ttc 内のフォント番号
+  index?: number; // font index within a .ttc
 }
 
 export interface MirSlide {
@@ -108,7 +108,7 @@ export interface MirSlide {
 
 export interface MirDeck {
   slide: { width: number; height: number };
-  // family 名 -> フォント宣言
+  // family name -> font declaration
   fonts: Map<string, MirFont>;
   slides: MirSlide[];
 }

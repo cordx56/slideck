@@ -6,15 +6,15 @@ export interface FontFace {
   dataUrl: string;
   weight?: number;
   style?: "normal" | "italic";
-  format?: string; // 例: "truetype"
+  format?: string; // e.g. "truetype"
 }
 
 export interface SvgRenderOptions {
-  // 埋め込む @font-face 群 (未指定ならシステムフォント)。
+  // @font-face entries to embed (system fonts if unspecified).
   fontFaces?: FontFace[];
 }
 
-// LIR スライドを自己完結した SVG 文字列にレンダリングする (純粋関数)。
+// Render an LIR slide to a self-contained SVG string (pure function).
 export function renderSvgString(
   lir: SlideLir,
   options: SvgRenderOptions = {},
@@ -47,7 +47,7 @@ function fontFaceStyle(faces: FontFace[] | undefined): string {
   return `<defs><style>${rules}</style></defs>`;
 }
 
-// ブラウザ向け: SVG 文字列を SVGElement にパースして返す。
+// For browsers: parse the SVG string into an SVGElement and return it.
 export function renderSvgElement(
   lir: SlideLir,
   options: SvgRenderOptions = {},

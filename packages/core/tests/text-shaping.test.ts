@@ -7,41 +7,41 @@ const shape = (text: string, maxWidth: number, align: "left" | "center" | "right
   shapeText(text, "body", 40, maxWidth, align, 1.2, 0, m);
 
 describe("shapeText", () => {
-  it("十分な幅では 1 行", () => {
+  it("a single line when width is enough", () => {
     const r = shape("Hello", 10000);
     expect(r.lines).toHaveLength(1);
     expect(r.lines[0].text).toBe("Hello");
   });
 
-  it("明示改行を尊重する", () => {
+  it("respects explicit line breaks", () => {
     const r = shape("a\nb\nc", 10000);
     expect(r.lines.map((l) => l.text)).toEqual(["a", "b", "c"]);
   });
 
-  it("英単語はスペース境界で折り返す", () => {
+  it("English words wrap at space boundaries", () => {
     const r = shape("word word word word word word", 200);
     expect(r.lines.length).toBeGreaterThan(1);
-    // 各行に行末スペースが残らない
+    // no trailing space remains on each line
     for (const l of r.lines) expect(l.text).not.toMatch(/\s$/);
   });
 
-  it("CJK は文字単位で折り返す", () => {
-    const r = shape("あいうえおかきくけこ", 120); // 40px/字 -> 3字/行程度
+  it("CJK wraps per character", () => {
+    const r = shape("あいうえおかきくけこ", 120); // 40px/char -> ~3 chars/line
     expect(r.lines.length).toBeGreaterThan(1);
     expect(r.lines.map((l) => l.text).join("")).toBe("あいうえおかきくけこ");
   });
 
-  it("center 揃えは行を中央に寄せる", () => {
+  it("center alignment centers the line", () => {
     const r = shape("Hi", 1000, "center");
     expect(r.lines[0].x).toBeGreaterThan(0);
   });
 
-  it("高さは行数 x lineHeight x size", () => {
+  it("height is lineCount x lineHeight x size", () => {
     const r = shape("a\nb", 1000);
     expect(r.height).toBeCloseTo(2 * 40 * 1.2);
   });
 
-  it("ベースラインは ascent ぶん下がる", () => {
+  it("the baseline drops by the ascent", () => {
     const r = shape("a", 1000);
     expect(r.lines[0].baseline).toBeCloseTo(40 * 0.8);
   });

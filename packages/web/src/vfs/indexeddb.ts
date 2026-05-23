@@ -8,7 +8,7 @@ import { readZip, writeZip, type ZipEntry } from "./zip";
 interface FileRecord {
   path: string;
   kind: "file" | "folder";
-  data?: Uint8Array; // file のみ。Blob ではなくバイト列で保存 (環境非依存)
+  data?: Uint8Array; // file only. Stored as bytes rather than Blob (environment-agnostic)
   mimeType?: string;
   size?: number;
   modifiedAt: number;
@@ -54,8 +54,8 @@ class IndexedDbVfs implements VFS {
 
   private async record(path: string): Promise<FileRecord> {
     const r = await this.db.get("files", normalize(path));
-    if (!r) throw new Error(`ファイルがありません: ${path}`);
-    if (r.kind !== "file" || !r.data) throw new Error(`ファイルではありません: ${path}`);
+    if (!r) throw new Error(`File not found: ${path}`);
+    if (r.kind !== "file" || !r.data) throw new Error(`Not a file: ${path}`);
     return r;
   }
 
@@ -139,14 +139,14 @@ class IndexedDbVfs implements VFS {
     const f = normalize(from);
     const t = normalize(to);
     if (f === t) return;
-    if (t.startsWith(f + "/")) throw new Error("自身の子孫へは移動できません");
+    if (t.startsWith(f + "/")) throw new Error("Cannot move into its own descendant");
 
     const tx = this.db.transaction("files", "readwrite");
     const all = await tx.store.getAll();
     const affected = all.filter((r) => r.path === f || r.path.startsWith(f + "/"));
     if (affected.length === 0) {
       await tx.done;
-      throw new Error(`移動元が存在しません: ${f}`);
+      throw new Error(`Move source does not exist: ${f}`);
     }
     for (const r of affected) {
       const np = t + r.path.slice(f.length);
@@ -164,7 +164,7 @@ class IndexedDbVfs implements VFS {
     const t = normalize(to);
     const all = await this.db.getAll("files");
     const affected = all.filter((r) => r.path === f || r.path.startsWith(f + "/"));
-    if (affected.length === 0) throw new Error(`コピー元が存在しません: ${f}`);
+    if (affected.length === 0) throw new Error(`Copy source does not exist: ${f}`);
     for (const r of affected) {
       const np = t + r.path.slice(f.length);
       await this.ensureParents(np);

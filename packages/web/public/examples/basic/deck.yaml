@@ -1,9 +1,9 @@
 bases:
-  # always:true は全スライドに自動適用される (旧 overlay 相当)。宣言順=z下から。
+  # always:true applies automatically to every slide (formerly "overlay"). Declaration order = z from bottom up.
   - id: footer
     always: true
     file: ./overlays/footer.yaml
-  # 以下は use: で選択する base。
+  # The bases below are selected via use:.
   - id: standard
     file: ./theme.yaml
   - id: section
@@ -15,8 +15,8 @@ slides:
   - id: intro
     use: standard
     vars:
-      title: "YAML スライドの世界"
-      subtitle: "宣言的記述で SVG と PDF を同時に"
+      title: "The World of YAML Slides"
+      subtitle: "SVG and PDF together, declaratively"
     elements:
       - type: image
         src: ./img/cover.png
@@ -25,7 +25,7 @@ slides:
   - id: agenda
     use: standard
     vars:
-      title: "目次"
+      title: "Contents"
     elements:
       - type: ol
         position: { left: 12%, right: 12%, top: 40%, bottom: 14% }
@@ -33,33 +33,33 @@ slides:
         size: 56
         color: ${accent}
         items:
-          - { type: text, text: "背景と動機", size: 56 }
-          - { type: text, text: "三層 IR アーキテクチャ", size: 56 }
-          - { type: text, text: "レンダラの一貫性", size: 56 }
-          - { type: text, text: "これからの拡張", size: 56 }
+          - { type: text, text: "Background and Motivation", size: 56 }
+          - { type: text, text: "Three-Layer IR Architecture", size: 56 }
+          - { type: text, text: "Renderer Consistency", size: 56 }
+          - { type: text, text: "Future Extensions", size: 56 }
 
   - id: section-1
     use: section
     vars:
-      title: "背景と動機"
+      title: "Background and Motivation"
     elements:
       - type: text
         position: { left: 14%, top: 60%, width: 74% }
         size: 34
         color: ${muted}
-        text: '**Markdown** と `inline code`、~~打ち消し~~、[リンク](https://example.com)、そして数式 $E = mc^2$ をテキスト中に書ける。'
+        text: 'You can write **Markdown**, `inline code`, ~~strikethrough~~, [links](https://example.com), and math like $E = mc^2$ right in the text.'
 
   - id: closing
     use: light
     vars:
-      title: "ありがとうございました"
-      subtitle: "light base プリセットの例"
+      title: "Thank You"
+      subtitle: "An example of the light base preset"
 
   - id: feature
     use: standard
     vars:
-      title: "配置システム"
-      subtitle: "CSS absolute と同じセマンティクス"
+      title: "Positioning System"
+      subtitle: "Same semantics as CSS absolute"
     elements:
       - type: group
         position: { left: 10%, right: 10%, top: 42%, height: 40% }

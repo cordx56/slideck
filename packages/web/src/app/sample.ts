@@ -5,12 +5,12 @@ interface Manifest {
   files: string[];
 }
 
-// public/examples/basic 以下を fetch して VFS に書き込む (サンプル投入)。
+// Fetch files under public/examples/basic and write them to the VFS (install sample).
 export async function installSample(vfs: VFS, baseUrl: string): Promise<void> {
   const manifest: Manifest = await (await fetch(`${baseUrl}manifest.json`)).json();
   for (const rel of manifest.files) {
     const res = await fetch(`${baseUrl}${rel}`);
-    if (!res.ok) throw new Error(`サンプル取得失敗: ${rel} (${res.status})`);
+    if (!res.ok) throw new Error(`Failed to fetch sample: ${rel} (${res.status})`);
     const blob = await res.blob();
     await vfs.writeBlob("/" + rel, blob, mimeFromPath(rel));
   }
@@ -24,11 +24,11 @@ const EMPTY_DECK = `bases:
 slides:
   - id: slide-1
     vars:
-      title: タイトル
+      title: Title
 `;
 
-const EMPTY_BASE = `# 最小テーマ base
-# colors は変数として注入される (\${bg} 等で参照)。
+const EMPTY_BASE = `# Minimal theme base
+# colors are injected as variables (referenced via \${bg} etc.).
 colors:
   bg: "#16161e"
   fg: "#c0caf5"
@@ -47,7 +47,7 @@ layout:
     text: \${title}
 `;
 
-// 最小限の deck.yaml と theme-base.yaml だけ書き込む。
+// Write only a minimal deck.yaml and theme-base.yaml.
 export async function createEmptyProject(vfs: VFS): Promise<void> {
   await vfs.writeText("/deck.yaml", EMPTY_DECK);
   await vfs.writeText("/theme-base.yaml", EMPTY_BASE);

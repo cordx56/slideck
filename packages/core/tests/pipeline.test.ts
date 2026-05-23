@@ -31,11 +31,11 @@ bases:
 slides:
   - id: one
     use: standard
-    vars: { title: "こんにちは" }
+    vars: { title: "Hello" }
 `;
 
 describe("compileDeck (end-to-end)", () => {
-  it("YAML プロジェクトを読み込みレンダリングできる", async () => {
+  it("loads and renders a YAML project", async () => {
     const resolver = resolverFrom({ "deck.yaml": deck, "theme.yaml": theme });
     const { compiled, errors } = await compileDeck(resolver);
     expect(errors).toHaveLength(0);
@@ -45,12 +45,12 @@ describe("compileDeck (end-to-end)", () => {
     const svg = renderSlideSvg(compiled!, 0)!;
     expect(svg).toContain("<svg");
     expect(svg).toContain('viewBox="0 0 1920 1080"');
-    expect(svg).toContain("こんにちは");
-    // 背景 bg -> #0e0e10
+    expect(svg).toContain("Hello");
+    // background bg -> #0e0e10
     expect(svg).toContain('fill="#0e0e10"');
   });
 
-  it("bases 未指定はエラー", async () => {
+  it("missing bases is an error", async () => {
     const resolver = resolverFrom({ "deck.yaml": "slides: [{ id: x }]" });
     const { compiled, errors } = await compileDeck(resolver);
     expect(compiled).toBeFalsy();

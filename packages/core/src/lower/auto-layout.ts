@@ -16,8 +16,8 @@ interface Measured {
   cross: number;
 }
 
-// row/column の auto-layout を解決し、各子要素の絶対 Box を返す。
-// inner はグループの padding 適用後ボックス。
+// Resolve row/column auto-layout and return each child's absolute Box.
+// inner is the group's box after padding is applied.
 export function computeAutoLayout(
   group: MirGroup,
   inner: Box,
@@ -36,7 +36,7 @@ export function computeAutoLayout(
     return { el, flex, main: intr.main, cross: intr.cross };
   });
 
-  // flex 配分: 固定要素の main 合計と gap を引いた残りを比率で分ける。
+  // flex distribution: split the remainder (after fixed mains and gaps) by ratio.
   const totalGap = gapPx * Math.max(0, n - 1);
   const fixedMain = items
     .filter((i) => i.flex === 0)
@@ -49,7 +49,7 @@ export function computeAutoLayout(
 
   const usedMain = items.reduce((s, i) => s + i.main, 0) + totalGap;
 
-  // justify: main 軸の開始位置と要素間隔を決める。
+  // justify: decide the main-axis start position and spacing between items.
   let cursor = 0;
   let between = gapPx;
   const slack = mainExtent - usedMain;
@@ -100,7 +100,7 @@ export function computeAutoLayout(
   return placed;
 }
 
-// 子要素の main/cross 方向の自然サイズを概算する。
+// Estimate a child's natural size along the main/cross directions.
 function childIntrinsic(
   el: MirElement,
   ctx: LowerCtx,

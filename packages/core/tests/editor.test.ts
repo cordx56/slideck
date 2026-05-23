@@ -27,7 +27,7 @@ function base(deckText: string) {
 }
 
 describe("OverrideResolver + recompileDeck (live edit)", () => {
-  it("メモリ上の deck テキストでディスクを差し替える", async () => {
+  it("replaces disk with in-memory deck text", async () => {
     const mkDeck = (t: string) =>
       `bases: [{ id: standard, file: ./theme.yaml }]\nslides: [{ id: s, use: standard, vars: { title: ${t} } }]`;
     const onDisk = base(mkDeck("disk"));
@@ -42,7 +42,7 @@ describe("OverrideResolver + recompileDeck (live edit)", () => {
     expect((deck!.slides[0].elements[0] as MirText).text).toBe("edited");
   });
 
-  it("無効な YAML 編集ではエラーを返す (deck は undefined)", async () => {
+  it("returns errors on invalid YAML edits (deck is undefined)", async () => {
     const resolver = new OverrideResolver(
       base("x"),
       new Map([["deck.yaml", "slides: [}"]]),
@@ -54,7 +54,7 @@ describe("OverrideResolver + recompileDeck (live edit)", () => {
 });
 
 describe("CachingResolver", () => {
-  it("同一パスのバイト列を 1 度だけ読み同じ参照を返す", async () => {
+  it("reads bytes for the same path once and returns the same reference", async () => {
     let reads = 0;
     const inner: MemoryAssetResolver = new MemoryAssetResolver(
       new Map([["a.bin", new Uint8Array([1, 2, 3])]]),
@@ -71,6 +71,6 @@ describe("CachingResolver", () => {
     const a = await caching.readBytes("a.bin");
     const b = await caching.readBytes("a.bin");
     expect(reads).toBe(1);
-    expect(a).toBe(b); // 同一参照 (fontkit メモ化が効く前提)
+    expect(a).toBe(b); // same reference (assumes fontkit memoization works)
   });
 });

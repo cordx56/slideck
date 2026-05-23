@@ -2,7 +2,7 @@ import type { Align, TextDefaults } from "../ir/hir";
 
 export const DEFAULT_SLIDE = { width: 1920, height: 1080 };
 
-// テキスト系の最終フォールバック。theme.defaults.text が無い項目に適用する。
+// Final fallback for text. Applied to items missing from theme.defaults.text.
 export const TEXT_FALLBACK = {
   family: "sans-serif",
   size: 36,
@@ -21,8 +21,8 @@ export interface ResolvedTextDefaults {
   letterSpacing: number;
 }
 
-// theme.defaults.text とフォールバックをマージした、欠落のないデフォルト。
-// family/color はまだキーの可能性がある (font/color 解決は呼び出し側)。
+// Defaults with no gaps, merging theme.defaults.text and the fallback.
+// family/color may still be keys (font/color resolution is up to the caller).
 export function resolveTextDefaults(
   td: TextDefaults | undefined,
 ): ResolvedTextDefaults {
@@ -36,7 +36,7 @@ export function resolveTextDefaults(
   };
 }
 
-// auto-layout / 図形のフォールバック。
+// Fallback for auto-layout / shapes.
 export const GROUP_FALLBACK = {
   align: "stretch" as const,
   justify: "start" as const,

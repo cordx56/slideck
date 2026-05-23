@@ -4,24 +4,24 @@ import { type FontMetrics, isCJK } from "./metrics";
 import { parseRich, type RichSegment } from "../lib/richtext";
 import { renderMath, type MathGlyph } from "../lib/math";
 
-// rich テキスト (inline markdown + 数式) を、配置済みの run / math 列に落とす。
-// shapeText の混在版。座標は box 左上原点 (x=左, baseline=上端からの y)。
+// Lower rich text (inline markdown + math) into placed run / math sequences.
+// A mixed variant of shapeText. Coords use box top-left origin (x=left, baseline=y from top).
 
 export interface RichRun {
   text: string;
-  x: number; // run 左端
-  baseline: number; // ベースライン y
+  x: number; // run left edge
+  baseline: number; // baseline y
   width: number;
   font: FontRef;
   size: number;
   color: string;
   underline: boolean;
   strike: boolean;
-  href?: string; // link 時のリンク先 (PDF/SVG のクリック領域用)
+  href?: string; // link target (for PDF/SVG click region)
 }
 
 export interface RichMathPlaced {
-  glyphs: MathGlyph[]; // baseline 原点 (translate して使う)
+  glyphs: MathGlyph[]; // baseline origin (used after translate)
   x: number;
   baseline: number;
 }
@@ -122,7 +122,7 @@ function buildAtoms(
     if (seg.kind === "math") {
       const m = renderMath(seg.tex, size);
       if (m) atoms.push({ kind: "math", glyphs: m.glyphs, w: m.width });
-      else pushText(atoms, seg.tex, PLAIN, baseFont, size, ls, metrics, rich); // 失敗時は生テキスト
+      else pushText(atoms, seg.tex, PLAIN, baseFont, size, ls, metrics, rich); // raw text on failure
       continue;
     }
     pushText(
@@ -164,7 +164,7 @@ function wrap(atoms: Atom[], maxWidth: number): Atom[][] {
       line = [];
       w = 0;
     }
-    if (line.length === 0 && isSpace) continue; // 行頭スペースは捨てる
+    if (line.length === 0 && isSpace) continue; // drop leading space
     line.push(a);
     w += a.w;
   }
@@ -172,7 +172,7 @@ function wrap(atoms: Atom[], maxWidth: number): Atom[][] {
   return lines;
 }
 
-// 末尾スペースを除いた行 (align 計算と run 幅を正確にする)。
+// Line with trailing spaces removed (for accurate align calc and run width).
 function trimTrailing(line: Atom[]): Atom[] {
   let end = line.length;
   while (end > 0) {

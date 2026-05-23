@@ -39,7 +39,7 @@
   >
     <p>{message}</p>
     <div class="buttons">
-      <button onclick={onCancel}>キャンセル</button>
+      <button onclick={onCancel}>Cancel</button>
       <button class:danger onclick={onConfirm}>{confirmLabel}</button>
     </div>
   </div>

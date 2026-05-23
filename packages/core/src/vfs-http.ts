@@ -1,12 +1,12 @@
-// VFS を HTTP 越しに公開するときの取り決め。web (クライアント) と
-// cli (サーバ) が同じ定義を共有するため core に置く (型と文字列のみ、環境非依存)。
+// Conventions for exposing the VFS over HTTP. web (client) and
+// cli (server) share the same definitions, so they live in core (types and strings only, environment-independent).
 
 import type { FileEntry, VFSEvent } from "./vfs";
 
-// API のパスプレフィックス。web の静的ファイルと衝突しない名前にする。
+// API path prefix. Named so it does not collide with web's static files.
 export const VFS_API_BASE = "/__slideck";
 
-// エンドポイント。バイナリ read/write は file、それ以外は JSON。
+// Endpoints. Binary read/write use file, everything else is JSON.
 export const VfsApi = {
   info: `${VFS_API_BASE}/info`,
   files: `${VFS_API_BASE}/files`,
@@ -19,30 +19,30 @@ export const VfsApi = {
   copy: `${VFS_API_BASE}/copy`,
 } as const;
 
-// 変更を起こしたクライアントを示すヘッダ。自分の書き込みに由来する SSE
-// エコーを無視するために使う。
+// Header identifying the client that made the change. Used to ignore SSE
+// echoes originating from one's own writes.
 export const CLIENT_HEADER = "x-slideck-client";
-// writeBlob 等で MIME を明示するためのヘッダ。
+// Header to make the MIME explicit for writeBlob etc.
 export const MIME_HEADER = "x-slideck-mime";
 
-// /info の応答。web はこれが取れたらサーバ連携モードで起動する。
+// /info response. If web can fetch this, it starts in server-linked mode.
 export interface ServerInfo {
   server: true;
-  name: string; // プロジェクト表示名 (= ルートディレクトリ名)
-  root: string; // サーバ側の絶対パス (表示用)
+  name: string; // project display name (= root directory name)
+  root: string; // absolute path on the server (for display)
 }
 
-// SSE で配るペイロード。origin は変更を起こしたクライアント ID。
-// 受信側は origin が自分なら無視する (ローカルで反映済みのため)。
+// Payload delivered over SSE. origin is the ID of the client that made the change.
+// The receiver ignores it if origin is itself (already applied locally).
 export interface VfsEventMessage {
   event: VFSEvent;
   origin?: string;
 }
 
-// /stat の応答 (存在しなければ null)。
+// /stat response (null if it does not exist).
 export type StatResponse = FileEntry | null;
 
-// move / copy のリクエストボディ。
+// Request body for move / copy.
 export interface PathPairBody {
   from: string;
   to: string;

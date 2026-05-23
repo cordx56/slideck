@@ -1,2 +1,2 @@
-// EventBus は core が提供する (web/cli 共通)。互換のため再エクスポート。
+// EventBus is provided by core (shared by web/cli). Re-exported for compatibility.
 export { EventBus } from "@slideck/core";

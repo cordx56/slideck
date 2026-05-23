@@ -1,4 +1,4 @@
-// CodeMirror 内かどうかに関わらず効くグローバルショートカット (§8.3)。
+// Global shortcuts that work whether or not focus is inside CodeMirror (§8.3).
 export interface GlobalActions {
   save(): void;
   present(): void;

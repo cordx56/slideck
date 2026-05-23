@@ -1,12 +1,12 @@
-// deck.yaml の AST (yaml Document) を直接編集することで、コメントや
-// フォーマットを保ったまま in-place 更新する。インスペクタ書き戻しの基盤。
+// Edit the deck.yaml AST (yaml Document) directly to update in place while
+// preserving comments and formatting. The basis for inspector write-back.
 import { parseDocument, isSeq, YAMLSeq, type Document } from "yaml";
 
 export type Path = (string | number)[];
 
 export interface ElementRef {
   index: number;
-  path: Path; // doc 上のパス
+  path: Path; // path in the doc
   type: string;
   summary: string;
 }
@@ -19,7 +19,7 @@ export function serialize(doc: Document): string {
   return doc.toString();
 }
 
-// 指定スライドの elements を AST から列挙する (ソース要素のみ)。
+// Enumerate the given slide's elements from the AST (source elements only).
 export function listSlideElements(doc: Document, slideIndex: number): ElementRef[] {
   const node = doc.getIn(["slides", slideIndex, "elements"], true);
   if (!isSeq(node)) return [];
@@ -40,14 +40,14 @@ function summarize(doc: Document, path: Path, type: string): string {
   return "";
 }
 
-// フィールド (ネスト可、例 ["position","left"]) を取得して文字列化する。
+// Get a field (nestable, e.g. ["position","left"]) and stringify it.
 export function getField(doc: Document, elPath: Path, field: Path): string {
   const v = doc.getIn([...elPath, ...field]);
   return v === undefined || v === null ? "" : String(v);
 }
 
-// フィールドを設定する。空文字は削除を意味する。
-// value は number/boolean に見えるものは適切な型に変換する。
+// Set a field. An empty string means delete.
+// Values that look like a number/boolean are converted to the appropriate type.
 export function setField(
   doc: Document,
   elPath: Path,
@@ -74,7 +74,7 @@ const TEMPLATES: Record<string, () => Record<string, unknown>> = {
   text: () => ({
     type: "text",
     position: { left: "10%", top: "10%", width: "80%" },
-    text: "新規テキスト",
+    text: "New text",
   }),
   image: () => ({
     type: "image",
@@ -96,7 +96,7 @@ const TEMPLATES: Record<string, () => Record<string, unknown>> = {
   }),
 };
 
-// 指定スライドの elements 末尾に要素テンプレートを追加し、index を返す。
+// Append an element template to the end of the given slide's elements and return the index.
 export function addElement(
   doc: Document,
   slideIndex: number,
@@ -107,7 +107,7 @@ export function addElement(
   const seq: YAMLSeq = isSeq(existing) ? existing : new YAMLSeq();
   if (!isSeq(existing)) doc.setIn(elsPath, seq);
   const make = TEMPLATES[type] ?? TEMPLATES.text;
-  // 平の JS オブジェクトは Node に変換しないと getIn できないため createNode する。
+  // A plain JS object must be converted to a Node for getIn, so createNode it.
   seq.add(doc.createNode(make()));
   return seq.items.length - 1;
 }

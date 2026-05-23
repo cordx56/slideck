@@ -5,13 +5,14 @@ import { DeckSchema, BaseSchema } from "../schema";
 import type { DeckHir, BaseHir, HirElement } from "../ir/hir";
 import { PipelineError } from "../lib/error";
 
-// アセット参照 (image.src / font.path) を「宣言したファイルからの相対」で
-// 絶対パス (root 相対) に解決する。${...} を含むものは変数展開後に委ねる。
+// Resolve asset references (image.src / font.path) to an absolute path (root-relative),
+// treating them as relative to the declaring file. Those with ${...} are deferred to
+// after variable expansion.
 function resolveRef(ref: string, fromFile: string): string {
   return ref.includes("${") ? ref : resolveFrom(fromFile, ref);
 }
 
-// 要素ツリーを走査して image.src を fromFile 基準に解決する (group 再帰)。
+// Walk the element tree and resolve image.src relative to fromFile (recurses into group).
 function resolveElementPaths(elements: HirElement[], fromFile: string): void {
   for (const el of elements) {
     if (el.type === "image") el.src = resolveRef(el.src, fromFile);
@@ -22,7 +23,7 @@ function resolveElementPaths(elements: HirElement[], fromFile: string): void {
 
 export interface LoadedDeck {
   deck: DeckHir;
-  // base id -> 解決済み base (extends 適用後)。順序/always は deck.bases を参照。
+  // base id -> resolved base (after applying extends). Order/always refer to deck.bases.
   basesById: Map<string, BaseHir>;
   resolver: AssetResolver;
 }
@@ -32,7 +33,7 @@ export interface LoadResult {
   errors: PipelineError[];
 }
 
-// base の extends マージ。derived が base を上書きする。
+// Merge base extends. derived overrides base.
 function mergeBase(base: BaseHir, derived: BaseHir): BaseHir {
   return {
     name: derived.name ?? base.name,
@@ -57,7 +58,7 @@ async function loadBaseFile(
   errors: PipelineError[],
 ): Promise<BaseHir | undefined> {
   if (seen.has(path)) {
-    errors.push(new PipelineError(`base の循環 extends を検出: ${path}`));
+    errors.push(new PipelineError(`detected circular base extends: ${path}`));
     return undefined;
   }
   seen.add(path);
@@ -66,7 +67,7 @@ async function loadBaseFile(
   try {
     text = await resolver.readText(path);
   } catch (e) {
-    errors.push(new PipelineError(`base 読込失敗: ${path} (${String(e)})`));
+    errors.push(new PipelineError(`failed to load base: ${path} (${String(e)})`));
     return undefined;
   }
 
@@ -77,7 +78,7 @@ async function loadBaseFile(
   }
   const base = parsed.value;
 
-  // フォントパス・レイアウト内画像をこの base ファイル基準で解決する。
+  // Resolve font paths and images in the layout relative to this base file.
   for (const decl of Object.values(base.fonts ?? {})) {
     decl.path = resolveRef(decl.path, path);
   }
@@ -103,7 +104,7 @@ export async function loadDeck(
     deckText = await resolver.readText(entry);
   } catch (e) {
     return {
-      errors: [new PipelineError(`deck 読込失敗: ${entry} (${String(e)})`)],
+      errors: [new PipelineError(`failed to load deck: ${entry} (${String(e)})`)],
     };
   }
 
@@ -111,12 +112,12 @@ export async function loadDeck(
   if (!parsedDeck.value) return { errors: parsedDeck.errors };
   const deck = parsedDeck.value;
 
-  // スライド要素内の画像を deck.yaml 基準で解決する。
+  // Resolve images in slide elements relative to deck.yaml.
   for (const slide of deck.slides) {
     if (slide.elements) resolveElementPaths(slide.elements, entry);
   }
 
-  // 各 base ファイルを読み込み id でマップ化する。
+  // Load each base file and map them by id.
   const basesById = new Map<string, BaseHir>();
   for (const ref of deck.bases) {
     const path = resolveFrom(entry, ref.file);

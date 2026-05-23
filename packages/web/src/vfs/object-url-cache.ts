@@ -1,4 +1,4 @@
-// path -> Object URL のキャッシュ。VFS イベントで invalidate して revoke する。
+// Cache of path -> Object URL. Invalidated and revoked on VFS events.
 export class ObjectURLCache {
   private cache = new Map<string, string>();
 
@@ -13,7 +13,7 @@ export class ObjectURLCache {
     return url;
   }
 
-  // path 省略時は全 URL を revoke (アプリ終了時など)。
+  // When path is omitted, revoke all URLs (e.g. on app teardown).
   invalidate(path?: string): void {
     if (path === undefined) {
       for (const url of this.cache.values()) URL.revokeObjectURL(url);

@@ -13,7 +13,7 @@ export interface PdfResult {
   errors: PipelineError[];
 }
 
-// コンパイル済みデッキ全体を PDF にレンダリングする。SVG と同じ LIR を消費。
+// Render an entire compiled deck to PDF. Consumes the same LIR as SVG.
 export async function renderPdf(compiled: CompiledDeck): Promise<PdfResult> {
   const errors: PipelineError[] = [];
   const pdf = await PDFDocument.create();

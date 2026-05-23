@@ -20,19 +20,19 @@ describe("buildTree", () => {
     f("/.hidden", "file"),
   ];
 
-  it("ネストし、フォルダ先 -> ファイルで自然順ソートする", () => {
+  it("nests and sorts naturally with folders before files", () => {
     const tree = buildTree(files, false);
     expect(tree.map((n) => n.name)).toEqual(["img", "deck.yaml"]); // folder first
     const img = tree[0];
     expect(img.children.map((n) => n.name)).toEqual(["a.png", "b.png"]); // natural
   });
 
-  it("隠しファイルは showHidden=false で除外", () => {
+  it("excludes hidden files when showHidden=false", () => {
     expect(buildTree(files, false).some((n) => n.name === ".hidden")).toBe(false);
     expect(buildTree(files, true).some((n) => n.name === ".hidden")).toBe(true);
   });
 
-  it("欠落した祖先フォルダも合成する", () => {
+  it("synthesizes missing ancestor folders", () => {
     const tree = buildTree([f("/a/b/c.txt", "file")], false);
     expect(tree[0].name).toBe("a");
     expect(tree[0].children[0].name).toBe("b");
@@ -41,7 +41,7 @@ describe("buildTree", () => {
 });
 
 describe("flattenVisible", () => {
-  it("展開フォルダの子だけを表示順に並べる", () => {
+  it("lists only expanded folders' children in display order", () => {
     const tree = buildTree(
       [f("/img", "folder"), f("/img/a.png", "file"), f("/deck.yaml", "file")],
       false,
@@ -59,7 +59,7 @@ describe("flattenVisible", () => {
 });
 
 describe("file-ops", () => {
-  it("uniqueName は衝突を避ける", async () => {
+  it("uniqueName avoids collisions", async () => {
     const vfs = await openVfs(`tree-${Date.now()}`);
     await vfs.writeText("/img/a.png", "x");
     expect(await uniqueName(vfs, "/img", "a.png")).toBe("a copy.png");
@@ -68,7 +68,7 @@ describe("file-ops", () => {
     expect(await uniqueName(vfs, "/img", "new.png")).toBe("new.png");
   });
 
-  it("detectConflicts は既存パスを返す", async () => {
+  it("detectConflicts returns existing paths", async () => {
     const vfs = await openVfs(`tree2-${Date.now()}`);
     await vfs.writeText("/img/a.png", "x");
     expect(await detectConflicts(vfs, "/img", ["a.png", "b.png"])).toEqual(["a.png"]);

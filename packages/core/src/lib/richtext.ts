@@ -1,12 +1,12 @@
 import MarkdownIt from "markdown-it";
 import { parseInlineMath, hasInlineMath } from "./inline-math";
 
-// インライン Markdown (強調/太字/コード/打ち消し/リンク) + インライン数式を
-// スタイル付きセグメント列に分解する。HTML や foreignObject は使わず、
-// 下流の shapeRich がネイティブな text/line/path プリミティブに落とす。
+// Break inline Markdown (emphasis/bold/code/strikethrough/link) + inline math
+// into a list of styled segments. No HTML or foreignObject is used;
+// downstream shapeRich turns them into native text/line/path primitives.
 const md = new MarkdownIt({ html: false, linkify: false, breaks: false });
 
-// ペアになったマーカのみ検出して、通常テキストを誤って rich 化しないようにする。
+// Only detect paired markers, to avoid wrongly treating plain text as rich.
 const MARKDOWN_RE =
   /`[^`]+`|~~[^~]+~~|\*\*[^*]+\*\*|\*[^*]+\*|__[^_]+__|_[^_]+_|\[[^\]]+\]\([^)]+\)/;
 
@@ -14,7 +14,7 @@ export function hasMarkdown(text: string): boolean {
   return MARKDOWN_RE.test(text);
 }
 
-// 数式または Markdown を含むか (含めば rich として扱う)。
+// Whether it contains math or Markdown (if so, treat as rich).
 export function hasRichMarkup(text: string): boolean {
   return hasInlineMath(text) || hasMarkdown(text);
 }
@@ -27,7 +27,7 @@ interface TextSegment {
   code: boolean;
   strike: boolean;
   link: boolean;
-  href?: string; // link 時のリンク先 URL
+  href?: string; // target URL when it is a link
 }
 
 interface MathSegment {
@@ -37,8 +37,8 @@ interface MathSegment {
 
 export type RichSegment = TextSegment | MathSegment;
 
-// テキストを「数式」と「スタイル付きテキスト」のセグメント列に分解する。
-// 改行は "\n" のテキストとして残す (shapeRich が段落区切りに使う)。
+// Break text into a list of "math" and "styled text" segments.
+// Newlines are kept as "\n" text (shapeRich uses them as paragraph breaks).
 export function parseRich(text: string): RichSegment[] {
   const out: RichSegment[] = [];
   for (const seg of parseInlineMath(text)) {
@@ -52,7 +52,7 @@ export function parseRich(text: string): RichSegment[] {
     let code = 0;
     let strike = 0;
     let link = 0;
-    const hrefs: string[] = []; // ネスト対応のリンク先スタック
+    const hrefs: string[] = []; // link-target stack for nesting support
     const push = (t: string, isCode = false): void => {
       if (t === "") return;
       out.push({

@@ -1,27 +1,27 @@
-// 画像バイト列のヘッダから自然サイズ (px) を読む。ブラウザ非依存なので
-// web と cli で同一の結果になり、アスペクト比計算が一致する。
-// 判別できない形式は {0,0} (= box に合わせる) を返す。
+// Read the natural size (px) from an image's header bytes. Being browser-independent,
+// web and cli produce identical results, so aspect-ratio calculations match.
+// Unrecognized formats return {0,0} (= fit to box).
 
 export function imageSize(data: Uint8Array): { width: number; height: number } {
   const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
   const len = data.length;
 
-  // PNG: \x89PNG, IHDR の width/height は offset 16/20 (big-endian)。
+  // PNG: \x89PNG, IHDR width/height are at offset 16/20 (big-endian).
   if (len >= 24 && dv.getUint32(0) === 0x89504e47) {
     return { width: dv.getUint32(16), height: dv.getUint32(20) };
   }
 
-  // GIF: "GIF", logical screen の width/height は offset 6/8 (little-endian)。
+  // GIF: "GIF", logical screen width/height are at offset 6/8 (little-endian).
   if (len >= 10 && data[0] === 0x47 && data[1] === 0x49 && data[2] === 0x46) {
     return { width: dv.getUint16(6, true), height: dv.getUint16(8, true) };
   }
 
-  // BMP: "BM", BITMAPINFOHEADER の width/height は offset 18/22 (little-endian)。
+  // BMP: "BM", BITMAPINFOHEADER width/height are at offset 18/22 (little-endian).
   if (len >= 26 && data[0] === 0x42 && data[1] === 0x4d) {
     return { width: dv.getInt32(18, true), height: Math.abs(dv.getInt32(22, true)) };
   }
 
-  // JPEG: FFD8 から SOF マーカを探し、その offset+5 に height,width (big-endian)。
+  // JPEG: scan from FFD8 for an SOF marker; height,width are at its offset+5 (big-endian).
   if (len >= 4 && data[0] === 0xff && data[1] === 0xd8) {
     let off = 2;
     while (off + 9 < len) {
@@ -33,11 +33,11 @@ export function imageSize(data: Uint8Array): { width: number; height: number } {
       const isSof =
         marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
       if (isSof) return { height: dv.getUint16(off + 5), width: dv.getUint16(off + 7) };
-      off += 2 + dv.getUint16(off + 2); // セグメント長で次へ
+      off += 2 + dv.getUint16(off + 2); // skip ahead by the segment length
     }
   }
 
-  // WebP: RIFF....WEBP。VP8 (lossy) / VP8L (lossless) / VP8X (extended)。
+  // WebP: RIFF....WEBP. VP8 (lossy) / VP8L (lossless) / VP8X (extended).
   if (
     len >= 30 &&
     data[0] === 0x52 && data[1] === 0x49 && data[2] === 0x46 && data[3] === 0x46 &&

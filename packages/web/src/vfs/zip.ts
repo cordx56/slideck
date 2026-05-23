@@ -1,11 +1,11 @@
 import { unzipSync, zipSync } from "fflate";
 
 export interface ZipEntry {
-  path: string; // ZIP 内の相対パス (先頭スラッシュなし)
+  path: string; // Relative path inside the ZIP (no leading slash)
   data: Uint8Array;
 }
 
-// ZIP Blob を展開してファイルエントリ列を返す (ディレクトリエントリは除外)。
+// Unpack a ZIP Blob and return its file entries (directory entries excluded).
 export async function readZip(blob: Blob): Promise<ZipEntry[]> {
   const buf = new Uint8Array(await blob.arrayBuffer());
   const files = unzipSync(buf);
@@ -17,7 +17,7 @@ export async function readZip(blob: Blob): Promise<ZipEntry[]> {
   return entries;
 }
 
-// ファイルエントリ列を ZIP Blob にまとめる。
+// Bundle file entries into a ZIP Blob.
 export function writeZip(entries: ZipEntry[]): Blob {
   const obj: Record<string, Uint8Array> = {};
   for (const e of entries) obj[e.path] = e.data;

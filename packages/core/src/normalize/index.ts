@@ -101,8 +101,8 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
       ? resolveColorLiteral(expandString(bgRaw, vars, errors))
       : undefined;
 
-    // id は任意。未指定時はインデックス由来の id を割り当てる
-    // (重複の検証は DeckSchema で済んでいる)。
+    // id is optional. When unspecified, assign an index-derived id
+    // (duplicate validation is already done in DeckSchema).
     return { id: slideId, background, elements };
   });
 
@@ -112,7 +112,7 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
   };
 }
 
-// 全 base のフォント宣言を family 名で集約 (デッキ全体のフォントレジストリ)。
+// Aggregate font declarations from all bases by family name (deck-wide font registry).
 function buildFontRegistry(loaded: LoadedDeck): Map<string, MirFont> {
   const registry = new Map<string, MirFont>();
   for (const base of loaded.basesById.values()) {
@@ -129,7 +129,7 @@ function buildFontRegistry(loaded: LoadedDeck): Map<string, MirFont> {
   return registry;
 }
 
-// スライドサイズは deck.bases の宣言順で最初に slide を持つ base から採る。
+// Take the slide size from the first base with a slide, in deck.bases declaration order.
 function pickSlideSize(loaded: LoadedDeck): { width: number; height: number } {
   for (const ref of loaded.deck.bases) {
     const base = loaded.basesById.get(ref.id);
@@ -152,13 +152,13 @@ function resolveTextDefaultsFor(
   };
 }
 
-// 色フィールドの最終解決: hex は正規化、それ以外 (CSS 名等) はそのまま通す。
-// パレットキー解決は廃止。色は変数 (${...}) かリテラル文字列で指定する。
+// Final resolution of color fields: normalize hex, pass others (CSS names etc.) through.
+// Palette key resolution is removed. Colors are specified by variable (${...}) or literal string.
 function resolveColorLiteral(value: string): string {
   return normalizeHex(value) ?? value;
 }
 
-// defaults.link / defaults.mono からリンク・コードの描画スタイルを解決する。
+// Resolve the render style for links and code from defaults.link / defaults.mono.
 function resolveRichStyle(
   d: MergedDefaults,
   td: ResolvedTextDefaults,

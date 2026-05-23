@@ -8,7 +8,7 @@ const FontDeclSchema = z
     family: z.string(),
     weight: z.number().optional(),
     style: z.enum(["normal", "italic"]).optional(),
-    // .ttc (TrueType Collection) のときに使うフォント番号 (既定 0)。
+    // Font index used for a .ttc (TrueType Collection) (default 0).
     index: z.number().int().nonnegative().optional(),
   })
   .strict();
@@ -41,7 +41,7 @@ const MonoDefaultsSchema = z
   .object({ family: z.string().optional(), color: z.string().optional() })
   .strict();
 
-// base ファイル本体のスキーマ (旧 theme.yaml 構造)。id は deck.bases 側。
+// Schema for the base file body (old theme.yaml structure). id is on the deck.bases side.
 export const BaseSchema: z.ZodType<BaseHir, z.ZodTypeDef, unknown> = z
   .object({
     name: z.string().optional(),

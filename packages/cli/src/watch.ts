@@ -2,10 +2,10 @@ import { watch, readdirSync, statSync, type FSWatcher, type Stats } from "node:f
 import { join, relative, sep } from "node:path";
 import type { VFSEvent } from "@slideck/core";
 
-// ディスク上のプロジェクトを監視し、変更を VFSEvent 列で通知する。
-// Linux では fs.watch の recursive が使えないため、ディレクトリ毎に watch を張り、
-// 変更検知のたびに再走査してスナップショット差分でイベントを生成する。
-// (典型的なスライドプロジェクトは小規模なので全走査で十分。)
+// Watch the project on disk and report changes as a list of VFSEvent.
+// On Linux fs.watch recursive is unavailable, so we set a watch per directory,
+// rescan on each detected change, and generate events from the snapshot diff.
+// (A typical slide project is small, so a full scan is sufficient.)
 
 interface Snap {
   kind: "file" | "folder";
@@ -81,7 +81,7 @@ export function createWatcher(
         w.on("error", () => {});
         watchers.set(dir, w);
       } catch {
-        // ディレクトリが消えた直後など。次の再走査で整合する。
+        // E.g. right after a directory is removed; the next rescan reconciles it.
       }
     }
   }
@@ -114,7 +114,7 @@ export function createWatcher(
     timer = setTimeout(rescan, DEBOUNCE_MS);
   }
 
-  // 初期スナップショットとウォッチャ設定 (イベントは出さない)。
+  // Initial snapshot and watcher setup (no events emitted).
   const init = scan();
   snapshot = init.snap;
   syncWatchers(init.dirs);

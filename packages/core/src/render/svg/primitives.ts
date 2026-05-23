@@ -11,11 +11,11 @@ export function escapeXml(s: string): string {
 }
 
 function num(n: number): string {
-  // 不要な桁を落として SVG を読みやすく。
+  // Drop unneeded digits to keep the SVG readable.
   return Number.isInteger(n) ? String(n) : n.toFixed(3).replace(/\.?0+$/, "");
 }
 
-// 宣言フォントが未ロードでもプレビューが読めるよう sans-serif を後置する。
+// Append sans-serif so previews stay readable even if the declared font is unloaded.
 function fontFamilyWithFallback(family: string): string {
   return `'${family.replace(/'/g, "")}', sans-serif`;
 }
@@ -25,7 +25,7 @@ function strokeAttrs(stroke: Stroke | undefined): string {
   return ` stroke="${escapeXml(stroke.color)}" stroke-width="${num(stroke.width)}"`;
 }
 
-// 1 つの LIR プリミティブを SVG マークアップ文字列にする。
+// Turn a single LIR primitive into an SVG markup string.
 export function renderPrimitive(p: Primitive): string {
   switch (p.kind) {
     case "text":
@@ -63,7 +63,7 @@ export function renderPrimitive(p: Primitive): string {
         p.fill ? escapeXml(p.fill) : "none"
       }"${strokeAttrs(p.stroke)}/>`;
     case "link":
-      // 透明な矩形を <a> で包んだクリック領域 (ブラウザで開いた SVG 用)。
+      // Click region: a transparent rect wrapped in <a> (for SVG opened in a browser).
       return (
         `<a href="${escapeXml(p.href)}" target="_blank" rel="noopener">` +
         `<rect x="${num(p.x)}" y="${num(p.y)}" width="${num(p.w)}" height="${num(

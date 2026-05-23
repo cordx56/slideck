@@ -1,13 +1,13 @@
-// バイト列を base64 化する。ブラウザ (btoa) と Node の両方で動く。
+// Encode a byte array to base64. Works in both the browser (btoa) and Node.
 export function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
-  const chunk = 0x8000; // 大きい配列での call stack 溢れを防ぐ
+  const chunk = 0x8000; // avoid call stack overflow on large arrays
   for (let i = 0; i < bytes.length; i += chunk) {
     const slice = bytes.subarray(i, i + chunk);
     binary += String.fromCharCode(...slice);
   }
   if (typeof btoa === "function") return btoa(binary);
-  // Node フォールバック
+  // Node fallback
   return Buffer.from(binary, "binary").toString("base64");
 }
 

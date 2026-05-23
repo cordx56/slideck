@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { describe, it, expect, beforeEach } from "vitest";
 
-// localStorage シム (Node 環境用)。projects.ts は呼び出し時に参照する。
+// localStorage shim (for Node). projects.ts references it at call time.
 class MemStorage {
   private m = new Map<string, string>();
   getItem(k: string) {
@@ -35,7 +35,7 @@ describe("project registry", () => {
     expect(projectExists("a")).toBe(false);
     registerProject("a");
     registerProject("b");
-    registerProject("a"); // 重複は no-op
+    registerProject("a"); // duplicate is a no-op
     expect(projectExists("a")).toBe(true);
     expect(listProjects().map((p) => p.name).sort()).toEqual(["a", "b"]);
   });
@@ -48,13 +48,13 @@ describe("project registry", () => {
     expect(getLastProject()).toBeNull();
   });
 
-  it("dbNameFor は名前ごとに異なる", () => {
+  it("dbNameFor differs per name", () => {
     expect(dbNameFor("a")).not.toBe(dbNameFor("b"));
   });
 });
 
-describe("プロジェクトごとの VFS 分離", () => {
-  it("別名 DB の内容は混ざらない", async () => {
+describe("per-project VFS isolation", () => {
+  it("contents of differently named DBs do not mix", async () => {
     const a = await openVfs(dbNameFor("proj-a"));
     const b = await openVfs(dbNameFor("proj-b"));
     await a.writeText("/deck.yaml", "A");

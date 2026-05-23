@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-// 長さの値。% / px / center(left,topのみ) を表す。
-// 数値のみの指定は px として解釈する。
+// A length value. Represents % / px / center (left,top only).
+// A bare number is interpreted as px.
 export type Dimension =
   | { kind: "percent"; value: number }
   | { kind: "px"; value: number }
@@ -9,8 +9,8 @@ export type Dimension =
 
 const NUM_UNIT_RE = /^\s*(-?\d+(?:\.\d+)?)\s*(%|px)?\s*$/;
 
-// 生の YAML 値 (string | number) を Dimension に変換する。
-// 解析できない場合は null。
+// Convert a raw YAML value (string | number) to a Dimension.
+// Returns null if it cannot be parsed.
 export function parseDimension(raw: unknown, allowCenter: boolean): Dimension | null {
   if (typeof raw === "number") {
     if (!Number.isFinite(raw)) return null;
@@ -36,8 +36,8 @@ function dimensionSchema(allowCenter: boolean) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: allowCenter
-          ? `不正な長さ指定: ${JSON.stringify(raw)} (例: "10%", "20px", 30, "center")`
-          : `不正な長さ指定: ${JSON.stringify(raw)} (例: "10%", "20px", 30)`,
+          ? `invalid length: ${JSON.stringify(raw)} (e.g. "10%", "20px", 30, "center")`
+          : `invalid length: ${JSON.stringify(raw)} (e.g. "10%", "20px", 30)`,
       });
       return z.NEVER;
     }
@@ -45,11 +45,11 @@ function dimensionSchema(allowCenter: boolean) {
   });
 }
 
-const edgeDim = dimensionSchema(true); // left/top: center 許可
-const sizeDim = dimensionSchema(false); // width/height/right/bottom: center 不可
+const edgeDim = dimensionSchema(true); // left/top: center allowed
+const sizeDim = dimensionSchema(false); // width/height/right/bottom: center not allowed
 
-// position 指定。各軸の組み合わせ妥当性は normalize/lower で検証する
-// (center は親サイズが必要なため)。ここでは個々の値の形式のみ検証。
+// position spec. The validity of per-axis combinations is checked in normalize/lower
+// (center needs the parent size). Here only each value's format is checked.
 export const PositionSchema = z
   .object({
     left: edgeDim.optional(),
@@ -63,7 +63,7 @@ export const PositionSchema = z
 
 export type Position = z.infer<typeof PositionSchema>;
 
-// line の端点。親ボックスに対する相対座標。
+// Endpoint of a line. Coordinates relative to the parent box.
 export const PointSchema = z
   .object({
     x: sizeDim,

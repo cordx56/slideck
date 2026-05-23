@@ -1,8 +1,8 @@
 import type { Dimension } from "../schema/position";
 import { type Box, toPx } from "./position";
 
-// グループの padding を適用した内側ボックスを返す。
-// padding は左右に box.w 基準、上下に box.h 基準の % として展開する。
+// Return the inner box after applying the group padding.
+// Padding expands as a % of box.w left/right and box.h top/bottom.
 export function applyPadding(box: Box, padding: Dimension): Box {
   const padX = toPx(padding, box.w);
   const padY = toPx(padding, box.h);

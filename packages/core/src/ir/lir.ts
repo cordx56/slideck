@@ -1,6 +1,6 @@
-// LIR: レンダリングプリミティブの平坦リスト。
-// グループ展開済み、絶対座標 (px, スライド左上原点)、テキストはシェイプ済み。
-// inline markdown/数式は lower で text/line/path に展開済み (専用 primitive は持たない)。
+// LIR: a flat list of render primitives.
+// Groups expanded, absolute coordinates (px, origin at slide top-left), text shaped.
+// inline markdown/math are expanded to text/line/path in lower (no dedicated primitive).
 import type { Align } from "./hir";
 
 export interface FontRef {
@@ -9,7 +9,7 @@ export interface FontRef {
   style?: "normal" | "italic";
 }
 
-// シェイピング済みテキスト断片。x,y はベースライン基準の絶対座標。
+// A shaped text fragment. x,y are absolute coordinates relative to the baseline.
 export interface TextRun {
   text: string;
   font: FontRef;
@@ -54,8 +54,8 @@ export type Primitive =
       y2: number;
       stroke: Stroke;
     }
-  // クリック可能なリンク領域 (PDF はリンク注釈、SVG は <a>)。見た目は
-  // text(色) + line(下線) 側が担うため、これは透明なホットスポット。
+  // Clickable link area (PDF link annotation, SVG <a>). The appearance is
+  // handled by text(color) + line(underline), so this is a transparent hotspot.
   | { kind: "link"; x: number; y: number; w: number; h: number; href: string };
 
 export interface SlideLir {

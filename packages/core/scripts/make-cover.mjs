@@ -1,11 +1,11 @@
-// サンプル用のカバー画像 (PNG) を生成する。外部依存なしの最小 PNG エンコーダ。
+// Generate a sample cover image (PNG). Minimal PNG encoder with no external deps.
 import { deflateSync } from "node:zlib";
 import { writeFileSync, mkdirSync } from "node:fs";
 
 const W = 480;
 const H = 360;
 
-// RGBA ピクセルを作る (斜めグラデ + 円)。
+// Build RGBA pixels (diagonal gradient + circle).
 const raw = Buffer.alloc(H * (1 + W * 4));
 for (let y = 0; y < H; y++) {
   raw[y * (1 + W * 4)] = 0; // filter type 0

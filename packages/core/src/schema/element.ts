@@ -15,14 +15,14 @@ const justifySchema = z.enum([
   "space-around",
 ]);
 
-// gap / padding は % または px の長さ (center 不可)。
+// gap / padding are % or px lengths (center not allowed).
 const lengthSchema = z.union([z.string(), z.number()]).transform(
   (raw, ctx): Dimension => {
     const dim = parseDimension(raw, false);
     if (!dim) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `不正な長さ指定: ${JSON.stringify(raw)}`,
+        message: `invalid length: ${JSON.stringify(raw)}`,
       });
       return z.NEVER;
     }
@@ -106,7 +106,7 @@ const GroupSchema = z
   })
   .strict();
 
-// ul/ol 共通フィールド。group に近いが children ではなく items。
+// Fields shared by ul/ol. Similar to group, but items instead of children.
 const listFields = {
   ...baseFields,
   items: z.array(z.lazy(() => ElementSchema)),
@@ -121,8 +121,8 @@ const listFields = {
 const UlSchema = z.object({ type: z.literal("ul"), ...listFields }).strict();
 const OlSchema = z.object({ type: z.literal("ol"), ...listFields }).strict();
 
-// 再帰的な要素 union。children が ElementSchema を参照するため lazy。
-// 入力は生の YAML (Dimension へ transform するため) なので input 型は unknown。
+// Recursive element union. lazy because children references ElementSchema.
+// Input is raw YAML (to transform into Dimension), so the input type is unknown.
 export const ElementSchema: z.ZodType<HirElement, z.ZodTypeDef, unknown> = z.lazy(() =>
   z.discriminatedUnion("type", [
     TextSchema,

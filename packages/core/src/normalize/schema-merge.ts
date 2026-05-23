@@ -2,14 +2,14 @@ import type { VarDecl } from "../ir/hir";
 import { PipelineError } from "../lib/error";
 import type { AppliedBase } from "./bases";
 
-// 適用される全 base の schema.vars を union マージする。
-// - 型一致: OK / 型不一致: エラー / required は OR / default は後勝ち
+// Union-merge the schema.vars of all applied bases.
+// - same type: OK / type mismatch: error / required is OR / default is last wins
 export function mergeSchemas(
   applied: AppliedBase[],
   errors: PipelineError[],
 ): Record<string, VarDecl> {
   const merged: Record<string, VarDecl> = {};
-  const owner: Record<string, string> = {}; // 変数名 -> 最初の宣言元 base id
+  const owner: Record<string, string> = {}; // variable name -> base id that first declared it
 
   for (const { id, base } of applied) {
     const vars = base.schema?.vars ?? {};
@@ -23,10 +23,10 @@ export function mergeSchemas(
       if (existing.type !== decl.type) {
         errors.push(
           new PipelineError(
-            `変数 "${name}" の型が base 間で競合: "${owner[name]}" は ${existing.type}, "${id}" は ${decl.type}`,
+            `type of variable "${name}" conflicts between bases: "${owner[name]}" is ${existing.type}, "${id}" is ${decl.type}`,
           ),
         );
-        continue; // 既存の宣言を保持
+        continue; // keep the existing declaration
       }
       merged[name] = {
         type: existing.type,

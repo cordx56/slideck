@@ -6,7 +6,7 @@
 
   let thumbEls = $state<HTMLButtonElement[]>([]);
 
-  // サムネイル列にフォーカスがある時、左右キーでスライドを移動する。
+  // When the thumbnail strip has focus, arrow keys move between slides.
   function onThumbKey(e: KeyboardEvent) {
     let target: number;
     if (e.key === "ArrowLeft") target = store.currentSlide - 1;
@@ -16,7 +16,7 @@
     else return;
     e.preventDefault();
     store.goSlide(target);
-    // フォーカスを移動先サムネイルへ追従させる (連続移動 + 可視化)。
+    // Move focus to the destination thumbnail (continuous nav + visibility).
     thumbEls[store.currentSlide]?.focus();
   }
 </script>
@@ -27,7 +27,7 @@
     {@html svg}
   </div>
 
-  <!-- keydown は内部のフォーカス中サムネイル button から委譲で受ける -->
+  <!-- keydown is delegated from the focused thumbnail button inside -->
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <nav class="thumbs" onkeydown={onThumbKey}>
     {#each slides as slide, i (slide.id)}
@@ -88,7 +88,7 @@
     border-radius: 4px;
     background: #000;
   }
-  /* キーボードフォーカスもマウス選択と同じ accent ボーダーで統一する */
+  /* unify keyboard focus with the same accent border as mouse selection */
   .thumb.active,
   .thumb:focus-visible {
     border-color: var(--accent);

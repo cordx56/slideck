@@ -1,10 +1,10 @@
-// @slideck/core — ブラウザ非依存のスライドコンパイル/レンダリングパイプライン。
-// (PDF レンダラは重い pdf-lib を含むため "@slideck/core/pdf" に分離している)
+// @slideck/core — browser-independent slide compile/render pipeline.
+// (PDF renderer pulls in the heavy pdf-lib, so it lives in "@slideck/core/pdf")
 
-// パイプライン
+// Pipeline
 export * from "./pipeline";
 
-// ロード/解決
+// Load/resolve
 export * from "./load/assets";
 export * from "./load/parse";
 export * from "./load/references";
@@ -12,20 +12,20 @@ export * from "./load/resolve-refs";
 export * from "./load/prepare";
 export * from "./load/ttc";
 
-// スキーマ / IR 型
+// Schema / IR types
 export * from "./schema";
 export type * from "./ir";
 
-// lower (位置解決/レイアウト/シェイピング) とメトリクス
+// lower (position resolution/layout/shaping) and metrics
 export { lower } from "./lower";
 export * from "./lower/metrics";
 export * from "./lower/fontkit-metrics";
 export type * from "./lower/context";
 
-// SVG レンダラ
+// SVG renderer
 export * from "./render/svg";
 
-// ユーティリティ
+// Utilities
 export * from "./lib/color";
 export * from "./lib/error";
 export * from "./lib/debounce";
@@ -37,10 +37,10 @@ export * from "./lib/inline-math";
 export * from "./lib/richtext";
 export * from "./lib/math";
 
-// YAML AST 編集
+// YAML AST editing
 export * from "./edit/ast";
 
-// パス / VFS 抽象
+// Path / VFS abstraction
 export * from "./path";
 export type * from "./vfs";
 export * from "./vfs-http";

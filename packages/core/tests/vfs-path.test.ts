@@ -17,7 +17,7 @@ describe("vfs/path normalize", () => {
     expect(normalize("/a/")).toBe("/a");
   });
 
-  it("ルート脱出はエラー", () => {
+  it("escaping the root is an error", () => {
     expect(() => normalize("/../foo")).toThrow();
     expect(() => normalize("/a/../../b")).toThrow();
   });
@@ -38,20 +38,20 @@ describe("vfs/path dirname & basename", () => {
   });
 });
 
-describe("vfs/path resolvePath (YAML 参照の3形式)", () => {
-  it("絶対参照", () => {
+describe("vfs/path resolvePath (3 forms of YAML reference)", () => {
+  it("absolute reference", () => {
     expect(resolvePath("/img/x.png", "/sub/theme.yaml")).toBe("/img/x.png");
   });
-  it("同ディレクトリ参照 name.ext", () => {
+  it("same-directory reference name.ext", () => {
     expect(resolvePath("x.png", "/sub/theme.yaml")).toBe("/sub/x.png");
   });
-  it("./ 相対参照", () => {
+  it("./ relative reference", () => {
     expect(resolvePath("./img/x.png", "/sub/theme.yaml")).toBe("/sub/img/x.png");
   });
-  it("../ 相対参照", () => {
+  it("../ relative reference", () => {
     expect(resolvePath("../img/x.png", "/sub/theme.yaml")).toBe("/img/x.png");
   });
-  it("ルート脱出はエラー", () => {
+  it("escaping the root is an error", () => {
     expect(() => resolvePath("../../x", "/sub/theme.yaml")).toThrow();
   });
 });

@@ -8,7 +8,7 @@ export interface TreeNode {
   children: TreeNode[];
 }
 
-// FileTree -> TreeNode 間で共有するコントローラ (Svelte context 経由)。
+// Controller shared between FileTree and TreeNode (via Svelte context).
 export interface TreeCtx {
   selected(): string | null;
   select(node: TreeNode): void;
@@ -27,7 +27,7 @@ function isHidden(path: string): boolean {
   return basename(path).startsWith(".");
 }
 
-// 同じ親内: フォルダ先 -> ファイル、それぞれ名前の自然順 (ロケール考慮)。
+// Within the same parent: folders first -> files, each in natural name order (locale-aware).
 function sortNodes(nodes: TreeNode[]): void {
   nodes.sort((a, b) => {
     if (a.kind !== b.kind) return a.kind === "folder" ? -1 : 1;
@@ -36,7 +36,7 @@ function sortNodes(nodes: TreeNode[]): void {
   for (const n of nodes) if (n.children.length) sortNodes(n.children);
 }
 
-// フラットな FileEntry[] をネストしたツリーに変換する。
+// Convert a flat FileEntry[] into a nested tree.
 export function buildTree(files: FileEntry[], showHidden: boolean): TreeNode[] {
   const root: TreeNode = { path: "/", name: "", kind: "folder", children: [] };
   const folders = new Map<string, TreeNode>([["/", root]]);
@@ -56,7 +56,7 @@ export function buildTree(files: FileEntry[], showHidden: boolean): TreeNode[] {
   };
 
   const visible = files.filter((f) => showHidden || !isHidden(f.path));
-  // パスが浅い順に処理して親フォルダを先に確定させる。
+  // Process shallower paths first so parent folders are established first.
   const sorted = [...visible].sort((a, b) => a.path.length - b.path.length);
   for (const f of sorted) {
     if (f.kind === "folder") {
@@ -75,7 +75,7 @@ export function buildTree(files: FileEntry[], showHidden: boolean): TreeNode[] {
   return root.children;
 }
 
-// ツリーを表示順 (展開済みのみ) にフラット化する。キーボード移動用。
+// Flatten the tree in display order (expanded only). For keyboard navigation.
 export function flattenVisible(
   nodes: TreeNode[],
   expanded: Set<string>,

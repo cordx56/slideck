@@ -7,7 +7,7 @@ export interface MergedDefaults {
   mono: MonoDefaults;
 }
 
-// 適用 base の defaults を順に深いマージする (後勝ち)。
+// Deep-merge the defaults of the applied bases in order (last wins).
 export function mergeDefaults(applied: AppliedBase[]): MergedDefaults {
   let text: TextDefaults = {};
   let link: LinkDefaults = {};

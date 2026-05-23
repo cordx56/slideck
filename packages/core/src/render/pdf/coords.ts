@@ -1,12 +1,12 @@
-// 座標系変換。LIR は左上原点・Y下向き、PDF は左下原点・Y上向き。
+// Coordinate transforms. LIR origin is top-left, Y down; PDF origin is bottom-left, Y up.
 
-// 上端 y (LIR) を持つ高さ h の矩形 -> PDF の下端 y。
+// Rect with top y (LIR) and height h -> PDF bottom y.
 export function rectY(yTop: number, h: number, pageHeight: number): number {
   return pageHeight - yTop - h;
 }
 
-// LIR の y (上から) を PDF の y (下から) に反転。
-// テキストはベースライン基準なのでこの変換のみで合う。
+// Flip LIR y (from top) to PDF y (from bottom).
+// Text is baseline-based, so this transform alone is enough.
 export function flipY(y: number, pageHeight: number): number {
   return pageHeight - y;
 }

@@ -7,11 +7,11 @@ export interface Box {
   h: number;
 }
 
-// Dimension を親 extent に対する px 長に解決する (center は別扱い)。
+// Resolve a Dimension to a px length relative to the parent extent (center handled separately).
 export function toPx(dim: Dimension, parentExtent: number): number {
   if (dim.kind === "percent") return (parentExtent * dim.value) / 100;
   if (dim.kind === "px") return dim.value;
-  return 0; // center は長さとしては 0 扱い (配置側で別途処理)
+  return 0; // center counts as length 0 (handled separately by placement)
 }
 
 interface AxisResult {
@@ -19,9 +19,9 @@ interface AxisResult {
   size: number;
 }
 
-// 1軸の配置を解決する。
-// start: left/top (center 可), end: right/bottom, size: width/height。
-// 指定不足時はゆるくフォールバック (start=0 / 親いっぱい / intrinsic)。
+// Resolve placement along one axis.
+// start: left/top (center allowed), end: right/bottom, size: width/height.
+// Falls back loosely when underspecified (start=0 / full parent / intrinsic).
 export function resolveAxis(
   start: Dimension | undefined,
   end: Dimension | undefined,
@@ -36,15 +36,15 @@ export function resolveAxis(
   const endPx = end ? toPx(end, parentExtent) : undefined;
   const sizePx = size ? toPx(size, parentExtent) : undefined;
 
-  // サイズ確定済み
+  // size known
   if (sizePx !== undefined) {
     return { pos: parentOrigin + place(startPx, endPx, isCenter, sizePx, parentExtent), size: sizePx };
   }
-  // start + end → サイズが決まる
+  // start + end -> size is determined
   if (startPx !== undefined && endPx !== undefined) {
     return { pos: parentOrigin + startPx, size: parentExtent - startPx - endPx };
   }
-  // サイズ不明: intrinsic または親いっぱい
+  // size unknown: intrinsic or full parent
   const resolved =
     intrinsic ?? parentExtent - (startPx ?? 0) - (endPx ?? 0);
   return {
@@ -53,7 +53,7 @@ export function resolveAxis(
   };
 }
 
-// サイズ確定後の開始位置を決める。
+// Decide the start position once the size is known.
 function place(
   startPx: number | undefined,
   endPx: number | undefined,
@@ -72,7 +72,7 @@ export interface Intrinsic {
   h?: number;
 }
 
-// position 全体を親 Box に対する絶対 Box に解決する。
+// Resolve a full position into an absolute Box relative to the parent Box.
 export function resolveBox(
   position: Position | undefined,
   parent: Box,

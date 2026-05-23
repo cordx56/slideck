@@ -17,7 +17,7 @@ function toColor(hex: string): Color {
   return rgb(r, g, b);
 }
 
-// data 参照ごとに 1 回だけ画像を埋め込む。
+// Embed each image only once per data reference.
 async function embedImage(
   pdf: PDFDocument,
   data: Uint8Array,
@@ -34,7 +34,7 @@ async function embedImage(
   return img;
 }
 
-// 1 つの LIR プリミティブを PDF ページに描画する。
+// Draw a single LIR primitive onto a PDF page.
 export async function drawPrimitive(
   pdf: PDFDocument,
   page: PDFPage,
@@ -57,9 +57,9 @@ export async function drawPrimitive(
             color: toColor(run.color),
           });
         } catch (e) {
-          // フォントにグリフが無い等。1 行スキップして継続。
+          // Font missing a glyph, etc. Skip this line and continue.
           errors.push(
-            new PipelineError(`PDF テキスト描画失敗: "${run.text}" (${String(e)})`),
+            new PipelineError(`PDF text draw failed: "${run.text}" (${String(e)})`),
           );
         }
       }
@@ -85,8 +85,8 @@ export async function drawPrimitive(
       });
       break;
     case "path":
-      // drawSvgPath は SVG 座標 (y 下向き) を (x,y) 起点に描く。
-      // ページ上端 (y=ph) を起点にすればスライド絶対座標に一致。
+      // drawSvgPath draws SVG coords (y down) from (x,y) as origin.
+      // Using the page top (y=ph) as origin matches slide absolute coords.
       page.drawSvgPath(prim.d, {
         x: 0,
         y: ph,
@@ -96,7 +96,7 @@ export async function drawPrimitive(
       });
       break;
     case "link": {
-      // クリック可能なリンク注釈。Rect は PDF 座標 (y 上向き) に変換する。
+      // Clickable link annotation. Rect is converted to PDF coords (y up).
       const annot = pdf.context.obj({
         Type: "Annot",
         Subtype: "Link",
@@ -111,7 +111,7 @@ export async function drawPrimitive(
       const img = await embedImage(pdf, prim.data, prim.mime, images);
       if (!img) {
         errors.push(
-          new PipelineError(`PDF 画像埋め込み非対応の形式: ${prim.mime}`),
+          new PipelineError(`PDF image embed: unsupported format: ${prim.mime}`),
         );
         break;
       }

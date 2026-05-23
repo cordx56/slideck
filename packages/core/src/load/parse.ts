@@ -4,14 +4,14 @@ import { PipelineError, joinPath } from "../lib/error";
 
 export interface ParseOutput<T> {
   value?: T;
-  // 検証/構文エラー。空なら value が有効。
+  // Validation/syntax errors. If empty, value is valid.
   errors: PipelineError[];
-  // 位置情報マッピング用に元 Document を保持。
+  // Keep the original Document for position mapping.
   doc: Document;
 }
 
-// YAML テキストをパースし、与えた zod スキーマで検証する。
-// YAML 構文エラー・zod エラーともに、可能なら元テキスト上のオフセットを付与する。
+// Parse YAML text and validate it against the given zod schema.
+// For both YAML syntax errors and zod errors, attach the source text offset when possible.
 export function parseAndValidate<T>(
   text: string,
   schema: z.ZodType<T, z.ZodTypeDef, unknown>,
@@ -24,7 +24,7 @@ export function parseAndValidate<T>(
       doc,
       errors: doc.errors.map(
         (e) =>
-          new PipelineError(`YAML 構文エラー (${label}): ${e.message}`, {
+          new PipelineError(`YAML syntax error (${label}): ${e.message}`, {
             offset: [e.pos[0], e.pos[1]],
           }),
       ),
@@ -48,12 +48,12 @@ export function parseAndValidate<T>(
   return { doc, errors };
 }
 
-// zod のパスから YAML ノードの range (テキストオフセット) を引く。
+// Look up the YAML node range (text offset) from a zod path.
 export function offsetForPath(
   doc: Document,
   path: (string | number)[],
 ): [number, number] | undefined {
-  // ノードが見つからない場合は親方向にフォールバックする。
+  // If the node is not found, fall back toward the parent.
   for (let i = path.length; i >= 0; i--) {
     const sub = path.slice(0, i);
     const node = sub.length === 0 ? doc.contents : doc.getIn(sub, true);

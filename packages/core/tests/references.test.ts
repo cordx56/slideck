@@ -17,7 +17,7 @@ layout:
   - { type: image, src: /img/logo.png }
 `;
 
-// テキストファイルだけ持つ最小の VFS モック (core テストは実装に依存しない)。
+// Minimal VFS mock holding only text files (core tests do not depend on impl).
 function mockVfs(files: Record<string, string>): VFS {
   const enc = new TextEncoder();
   const has = (p: string) => Object.prototype.hasOwnProperty.call(files, p);
@@ -36,7 +36,7 @@ function mockVfs(files: Record<string, string>): VFS {
     async readBytes(p) {
       return enc.encode(files[p]);
     },
-    // 未使用メソッドはダミー。
+    // Unused methods are dummies.
     stat: async () => null,
     readBlob: async () => new Blob(),
     getObjectURL: async () => "",
@@ -59,14 +59,14 @@ function mockVfs(files: Record<string, string>): VFS {
 }
 
 describe("collectFileReferences", () => {
-  it("deck.yaml の bases[].file と image.src を解決する", () => {
+  it("resolves bases[].file and image.src in deck.yaml", () => {
     const refs = collectFileReferences("/deck.yaml", deck);
     const toPaths = refs.map((r) => r.toPath).sort();
     expect(toPaths).toEqual(["/img/cover.png", "/theme.yaml"]);
     for (const r of refs) expect(r.range[1]).toBeGreaterThan(r.range[0]);
   });
 
-  it("base ファイルの extends / fonts.path / 絶対 image.src", () => {
+  it("base file extends / fonts.path / absolute image.src", () => {
     const refs = collectFileReferences("/theme.yaml", theme);
     const toPaths = refs.map((r) => r.toPath).sort();
     expect(toPaths).toEqual(["/base.yaml", "/fonts/x.ttf", "/img/logo.png"]);
@@ -74,7 +74,7 @@ describe("collectFileReferences", () => {
 });
 
 describe("collectBrokenReferences", () => {
-  it("存在しない参照先を壊れた参照として返す", async () => {
+  it("returns nonexistent targets as broken references", async () => {
     const vfs = mockVfs({
       "/deck.yaml": deck,
       "/theme.yaml": theme.replace("extends: ./base.yaml\n", ""),
@@ -91,7 +91,7 @@ describe("collectBrokenReferences", () => {
     expect(broken2.map((b) => b.toPath)).not.toContain("/img/cover.png");
   });
 
-  it("未保存テキストを優先評価する", async () => {
+  it("prefers unsaved text when evaluating", async () => {
     const vfs = mockVfs({ "/deck.yaml": `bases: []\nslides: []` });
     const edited = `bases: [{ id: b, file: ./missing.yaml }]\nslides: []`;
     const broken = await collectBrokenReferences(vfs, "/deck.yaml", edited);

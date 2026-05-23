@@ -11,7 +11,7 @@
   let pending = $state<{ kind: PendingKind; file?: File } | null>(null);
   let nameValue = $state("");
   let error = $state("");
-  // 進行中の処理: "create" / `open:<name>` / null。押されたボタンにのみ spinner。
+  // In-progress action: "create" / `open:<name>` / null. Spinner only on the pressed button.
   let loading = $state<string | null>(null);
   const busy = $derived(loading !== null);
   let zipInput: HTMLInputElement;
@@ -76,7 +76,7 @@
   }
 
   async function remove(name: string) {
-    if (!confirm(`プロジェクト "${name}" を削除しますか?`)) return;
+    if (!confirm(`Delete project "${name}"?`)) return;
     await store.deleteProject(name);
     if (store.projects.length === 0) step = "menu";
   }
@@ -87,11 +87,11 @@
     <h1>slideck</h1>
 
     {#if step === "menu"}
-      <p>YAML で書くスライドエディタ</p>
+      <p>A slide editor you write in YAML</p>
       <div class="actions">
         {#if store.ready && store.currentProject}
           <button class="primary" onclick={toEditor}>
-            エディタを開く ({store.currentProject})
+            Open editor ({store.currentProject})
           </button>
         {/if}
         <button
@@ -99,14 +99,14 @@
           disabled={projects.length === 0}
           onclick={() => (step = "projects")}
         >
-          プロジェクトを開く
+          Open project
         </button>
-        <button onclick={() => startCreate("empty")}>空のプロジェクトを作成</button>
-        <button onclick={() => startCreate("sample")}>サンプルから作成</button>
-        <button onclick={() => zipInput.click()}>ZIP からインポート</button>
+        <button onclick={() => startCreate("empty")}>Create empty project</button>
+        <button onclick={() => startCreate("sample")}>Create from sample</button>
+        <button onclick={() => zipInput.click()}>Import from ZIP</button>
       </div>
     {:else if step === "projects"}
-      <p>プロジェクトを選択</p>
+      <p>Select a project</p>
       <ul class="projects">
         {#each projects as p (p.name)}
           <li>
@@ -118,15 +118,15 @@
                 <span class="pdate">{new Date(p.createdAt).toLocaleDateString()}</span>
               {/if}
             </button>
-            <button class="del" title="削除" onclick={() => remove(p.name)}>✕</button>
+            <button class="del" title="Delete" onclick={() => remove(p.name)}>✕</button>
           </li>
         {/each}
       </ul>
       <div class="actions">
-        <button onclick={() => (step = "menu")}>戻る</button>
+        <button onclick={() => (step = "menu")}>Back</button>
       </div>
     {:else}
-      <p>プロジェクト名を入力</p>
+      <p>Enter a project name</p>
       <form
         onsubmit={(e) => {
           e.preventDefault();
@@ -144,10 +144,10 @@
         <div class="actions">
           <button type="submit" class="primary" disabled={busy}>
             {#if loading === "create"}<Spinner />{/if}
-            作成
+            Create
           </button>
           <button type="button" onclick={() => (step = "menu")} disabled={busy}>
-            戻る
+            Back
           </button>
         </div>
       </form>

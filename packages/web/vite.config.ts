@@ -2,7 +2,7 @@
 import { defineConfig } from "vitest/config";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 
-// base はGitHub Pages配下のサブパス配信を想定して環境変数で切り替える。
+// base is switched via an env var to support subpath hosting under GitHub Pages.
 export default defineConfig({
   base: process.env.VITE_BASE ?? "/",
   plugins: [svelte()],

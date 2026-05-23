@@ -1,7 +1,7 @@
 import fontkit from "@pdf-lib/fontkit";
 import { ApproximateMetrics, type FontMetrics } from "./metrics";
 
-// fontkit が返す Font の必要部分のみ型付け。
+// Type only the parts of fontkit's Font that we need.
 interface FkFont {
   unitsPerEm: number;
   ascent: number;
@@ -9,11 +9,11 @@ interface FkFont {
   layout(s: string): { advanceWidth: number };
 }
 
-// バイト列から fontkit Font を生成する。失敗時 (CFF/破損等) は undefined。
+// Create a fontkit Font from bytes. Returns undefined on failure (CFF/corrupt/etc).
 export function createFkFont(bytes: Uint8Array): FkFont | undefined {
   try {
     const f = fontkit.create(bytes as unknown as Buffer);
-    // FontCollection (.ttc) は対象外。layout を持つ単一 Font のみ。
+    // FontCollection (.ttc) is out of scope. Only a single Font with layout.
     if (f && typeof (f as unknown as FkFont).layout === "function") {
       return f as unknown as FkFont;
     }
@@ -23,8 +23,8 @@ export function createFkFont(bytes: Uint8Array): FkFont | undefined {
   }
 }
 
-// 実フォントの glyph advance で計測するメトリクス。SVG と PDF の
-// 折り返し結果を一致させるための要。未ロードの family は近似にフォールバック。
+// Metrics that measure with real font glyph advances. Key to making SVG and PDF
+// wrapping results match. Unloaded families fall back to approximation.
 export class FontkitMetrics implements FontMetrics {
   private approx = new ApproximateMetrics();
 

@@ -1,4 +1,4 @@
-# standard を継承し、レイアウトだけ差し替えたセクション扉テーマ。
+# A section-divider theme that extends standard with only the layout replaced.
 name: section
 extends: ./theme.yaml
 

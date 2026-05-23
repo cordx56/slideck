@@ -3,15 +3,15 @@ import { type FontMetrics, isCJK } from "./metrics";
 
 export interface ShapedLine {
   text: string;
-  x: number; // ボックス左端からの x オフセット (align 適用後)
-  baseline: number; // ボックス上端からのベースライン y
+  x: number; // x offset from box left edge (after align)
+  baseline: number; // baseline y from box top edge
   width: number;
 }
 
 export interface ShapedText {
   lines: ShapedLine[];
-  width: number; // 最大行幅
-  height: number; // 総高さ
+  width: number; // max line width
+  height: number; // total height
 }
 
 type TokenKind = "word" | "space" | "cjk";
@@ -20,9 +20,9 @@ interface Token {
   kind: TokenKind;
 }
 
-// 1段落をトークン列に分解する。
-// 英数字の連続は word (スペース境界で改行)、CJK は1文字ごと (どこでも改行可)、
-// 連続する空白は1つの space トークンにまとめる。
+// Break a paragraph into a token sequence.
+// Runs of alphanumerics are words (break at space boundaries), CJK is per-character
+// (break anywhere), and consecutive whitespace is merged into one space token.
 function tokenize(paragraph: string): Token[] {
   const tokens: Token[] = [];
   let word = "";
@@ -60,7 +60,7 @@ function tokenize(paragraph: string): Token[] {
   return tokens;
 }
 
-// 段落を maxWidth に収まる視覚行へ greedy に分割する。
+// Greedily split a paragraph into visual lines that fit within maxWidth.
 function wrapParagraph(
   paragraph: string,
   font: string,
@@ -86,7 +86,7 @@ function wrapParagraph(
       line = "";
       lineW = 0;
     }
-    if (line === "" && t.kind === "space") continue; // 行頭スペースは捨てる
+    if (line === "" && t.kind === "space") continue; // drop leading space
     line += t.text;
     lineW += w;
   }
@@ -94,7 +94,7 @@ function wrapParagraph(
   return lines;
 }
 
-// テキストを行単位にシェイプする。SVG/PDF で共有される唯一の折り返し処理。
+// Shape text into lines. The single wrapping routine shared by SVG/PDF.
 export function shapeText(
   text: string,
   font: string,

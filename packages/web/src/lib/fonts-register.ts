@@ -1,11 +1,11 @@
 import type { LoadedFont } from "@slideck/core";
 
-// 同じ family を二重登録しないための記録 (バイト長で簡易識別)。
+// Record to avoid registering the same family twice (rough id by byte length).
 const registered = new Set<string>();
 
-// ロード済みフォントを FontFace API でブラウザに登録する。
-// これによりプレビュー SVG が PDF と同じ実フォントで描画され、
-// メトリクス (折り返し) と見た目が一致する。
+// Register loaded fonts with the browser via the FontFace API.
+// This makes the preview SVG render with the same real fonts as the PDF,
+// keeping metrics (line wrapping) and appearance consistent.
 export async function registerFonts(
   fonts: Map<string, LoadedFont>,
 ): Promise<void> {
@@ -22,7 +22,7 @@ export async function registerFonts(
       document.fonts.add(face);
       registered.add(key);
     } catch {
-      // 登録失敗時はシステムフォールバックに任せる。
+      // On registration failure, defer to the system fallback.
     }
   }
 }

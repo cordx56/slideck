@@ -1,25 +1,25 @@
-// フォント計測の抽象。SVG と PDF で同じシェイピング結果を得るため、
-// lower は具体的なフォントバックエンドに依存せずこの interface を使う。
-// Phase 1 は近似メトリクス、Phase 2 で実フォント (fontkit) 版に差し替え可能。
+// Font measurement abstraction. To get the same shaping result in SVG and PDF,
+// lower uses this interface without depending on a concrete font backend.
+// Phase 1 uses approximate metrics; Phase 2 can swap in a real-font (fontkit) version.
 
 export interface FontMetrics {
-  // text を font/size で描画したときの advance 幅 (px)。
+  // advance width (px) when text is drawn at font/size.
   measure(text: string, font: string, size: number): number;
-  // ベースラインがテキスト行ボックス上端から下がる比率 (size 倍で px)。
+  // ratio by which the baseline drops from the text line box top (px = ratio * size).
   ascentRatio(font: string): number;
 }
 
 function isCJK(code: number): boolean {
   return (
-    (code >= 0x3000 && code <= 0x30ff) || // 句読点・ひらがな・カタカナ
-    (code >= 0x3400 && code <= 0x9fff) || // CJK 統合漢字 (拡張A含む)
-    (code >= 0xf900 && code <= 0xfaff) || // 互換漢字
-    (code >= 0xff00 && code <= 0xffef) // 全角英数・記号
+    (code >= 0x3000 && code <= 0x30ff) || // punctuation, hiragana, katakana
+    (code >= 0x3400 && code <= 0x9fff) || // CJK unified ideographs (incl. ext A)
+    (code >= 0xf900 && code <= 0xfaff) || // compatibility ideographs
+    (code >= 0xff00 && code <= 0xffef) // fullwidth alphanumerics and symbols
   );
 }
 
-// フォントファイルを使わない近似メトリクス。全角=1em、ASCII は文字種別の
-// 概算幅。実フォントが無い環境 (テスト/初期プレビュー) で wrapping を成立させる。
+// Approximate metrics without a font file. fullwidth=1em, ASCII uses per-class
+// estimated widths. Makes wrapping work where no real font exists (tests/initial preview).
 export class ApproximateMetrics implements FontMetrics {
   measure(text: string, _font: string, size: number): number {
     let w = 0;

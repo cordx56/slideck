@@ -1,10 +1,10 @@
-// パイプライン全体で使う構造化エラー。YAML 上の位置情報を保持し、
-// エディタのリンター表示や CLI 風出力に使う。
+// Structured error used throughout the pipeline. Holds position info in the YAML,
+// for the editor's linter display and CLI-style output.
 
 export interface SourcePos {
-  // YAML ドキュメント上の論理パス (例: ["slides", 0, "vars", "title"])
+  // logical path in the YAML document (e.g. ["slides", 0, "vars", "title"])
   path?: (string | number)[];
-  // テキストオフセット [from, to]
+  // text offset [from, to]
   offset?: [number, number];
 }
 

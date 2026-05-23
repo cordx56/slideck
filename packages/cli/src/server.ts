@@ -17,8 +17,8 @@ import {
 } from "@slideck/core";
 import { DiskVfs } from "./disk-vfs";
 
-// web ビルド成果物 (静的ファイル) の content-type。core の mimeFromPath は
-// スライド素材向けで js/css/html を持たないため、ここで補う。
+// Content-type for web build artifacts (static files). core's mimeFromPath is
+// for slide assets and lacks js/css/html, so we fill those in here.
 const STATIC_MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -40,8 +40,8 @@ const STATIC_MIME: Record<string, string> = {
   ".wasm": "application/wasm",
 };
 
-// 自分の書き込みに由来するディスク監視イベントを、発生元クライアントへ
-// 送り返さないための短命な記録。
+// Short-lived record used to avoid echoing disk-watch events caused by our own
+// writes back to the originating client.
 const PENDING_TTL = 3000;
 interface Pending {
   path: string;
@@ -80,7 +80,7 @@ function notFound(res: ServerResponse): void {
   res.end("Not Found");
 }
 
-// 内部に DiskVfs + SSE + 静的配信を抱える HTTP サーバを構築する。
+// Build an HTTP server that holds a DiskVfs + SSE + static file serving inside.
 function build(root: string, webDir: string, name: string): Server {
   const vfs = new DiskVfs(root);
   const sse = new Set<ServerResponse>();
@@ -89,7 +89,7 @@ function build(root: string, webDir: string, name: string): Server {
   const markPending = (path: string, origin: string | undefined): void => {
     if (origin) pending.push({ path, origin, at: Date.now() });
   };
-  // イベントパスに対応する保留中の書き込みがあれば発生元を返す (サブツリー含む)。
+  // Return the origin if a pending write matches the event path (subtree included).
   const originOf = (eventPath: string): string | undefined => {
     const now = Date.now();
     pending = pending.filter((p) => now - p.at < PENDING_TTL);
@@ -99,8 +99,8 @@ function build(root: string, webDir: string, name: string): Server {
     return hit?.origin;
   };
 
-  // ディスク監視イベントを SSE で全クライアントへ配る (発生元タグ付き)。
-  // watcher は create/update/delete のみ出すが、型の網羅のため move も拾う。
+  // Broadcast disk-watch events to all clients over SSE (tagged with origin).
+  // The watcher only emits create/update/delete, but we handle move too for type completeness.
   vfs.subscribe((event) => {
     const path = "path" in event ? event.path : event.to;
     const msg: VfsEventMessage = { event, origin: originOf(path) };
@@ -203,8 +203,8 @@ function build(root: string, webDir: string, name: string): Server {
     notFound(res);
   }
 
-  // 静的ファイル配信。見つからず拡張子なしのパスは index.html を返す
-  // (web は #ハッシュルーティングなので実体は常に "/")。
+  // Static file serving. A path with no extension that is not found returns index.html
+  // (web uses # hash routing, so the actual entry is always "/").
   async function handleStatic(res: ServerResponse, pathname: string): Promise<void> {
     const clean = decodeURIComponent(pathname).replace(/\.\.(\/|\\|$)/g, "");
     const rel = clean === "/" ? "index.html" : clean.replace(/^\/+/, "");
@@ -239,7 +239,7 @@ function build(root: string, webDir: string, name: string): Server {
     });
   });
 
-  // SSE のアイドル切断を防ぐハートビート。
+  // Heartbeat to prevent idle SSE disconnects.
   const heartbeat = setInterval(() => {
     for (const res of sse) res.write(": ping\n\n");
   }, 25000);
@@ -250,7 +250,7 @@ function build(root: string, webDir: string, name: string): Server {
   return server;
 }
 
-// 指定ポートから空きが見つかるまで listen する。
+// Listen starting from the given port, incrementing until a free one is found.
 function listen(server: Server, port: number, host: string): Promise<number> {
   return new Promise((res, rej) => {
     const onError = (err: NodeJS.ErrnoException) => {
@@ -276,11 +276,11 @@ function openBrowser(url: string): void {
     child.on("error", () => {});
     child.unref();
   } catch {
-    // ブラウザを開けなくても URL は出力済みなので無視。
+    // The URL is already printed, so ignore failures to open the browser.
   }
 }
 
-// プロジェクトディレクトリを編集サーバとして起動する。
+// Start a project directory as an editing server.
 export async function serve(root: string, webDir: string, opts: ServeOptions = {}): Promise<void> {
   const abs = resolve(root);
   const name = pbasename(abs) || "project";

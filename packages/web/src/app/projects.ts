@@ -1,6 +1,6 @@
-// プロジェクトのレジストリ。各プロジェクトのファイル実体は
-// 名前別の IndexedDB データベース (dbNameFor) に保存する。ここでは名前一覧
-// (と最後に開いた名前) を localStorage で管理する軽量インデックス。
+// Project registry. Each project's actual files are stored in a per-name
+// IndexedDB database (dbNameFor). Here we keep a lightweight index of the
+// name list (and the last opened name) in localStorage.
 
 export interface ProjectMeta {
   name: string;
@@ -26,7 +26,7 @@ function write(list: ProjectMeta[]): void {
   ls()?.setItem(LIST_KEY, JSON.stringify(list));
 }
 
-// 新しい順に並べて返す。
+// Return sorted newest first.
 export function listProjects(): ProjectMeta[] {
   return read().sort((a, b) => b.createdAt - a.createdAt);
 }
@@ -48,7 +48,7 @@ export function unregisterProject(name: string): void {
   if (getLastProject() === name) ls()?.removeItem(LAST_KEY);
 }
 
-// プロジェクト名 -> IndexedDB データベース名。
+// Project name -> IndexedDB database name.
 export function dbNameFor(name: string): string {
   return `slideck-proj:${name}`;
 }

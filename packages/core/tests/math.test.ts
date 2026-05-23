@@ -36,8 +36,8 @@ const prims = (text: string): Primitive[] => lower(deckWithText(text).slides[0],
 const allRuns = (ps: Primitive[]): TextRun[] =>
   ps.flatMap((p) => (p.kind === "text" ? p.runs : []));
 
-describe("inline-math パーサ", () => {
-  it("$...$ を text/math に分割する", () => {
+describe("inline-math parser", () => {
+  it("splits $...$ into text/math", () => {
     expect(parseInlineMath("a $x^2$ b")).toEqual([
       { math: false, value: "a " },
       { math: true, value: "x^2" },
@@ -49,18 +49,18 @@ describe("inline-math パーサ", () => {
     expect(hasInlineMath("a $x$ b")).toBe(true);
     expect(stripInlineMath("a $x^2$ b")).toBe("a x^2 b");
   });
-  it("${var} とは衝突しない", () => {
-    expect(hasInlineMath("${title} だけ")).toBe(false);
+  it("does not collide with ${var}", () => {
+    expect(hasInlineMath("${title} only")).toBe(false);
   });
 });
 
-describe("parseRich (セグメント分解)", () => {
-  it("数式を math セグメントに分ける", () => {
+describe("parseRich (segment decomposition)", () => {
+  it("splits formulas into math segments", () => {
     const segs = parseRich("a $x^2$ b");
     expect(segs[0]).toMatchObject({ kind: "text", text: "a " });
     expect(segs[1]).toEqual({ kind: "math", tex: "x^2" });
   });
-  it("markdown のスタイルフラグを付ける", () => {
+  it("attaches markdown style flags", () => {
     const find = (segs: ReturnType<typeof parseRich>, t: string) =>
       segs.find((s) => s.kind === "text" && s.text === t);
     const segs = parseRich("**b** `c` ~~s~~ [l](https://e.com)");
@@ -71,8 +71,8 @@ describe("parseRich (セグメント分解)", () => {
   });
 });
 
-describe("renderMath (MathJax -> パス)", () => {
-  it("数式をパス列に変換する (px サイズに比例)", () => {
+describe("renderMath (MathJax -> paths)", () => {
+  it("converts formulas to path lists (proportional to px size)", () => {
     const r = renderMath("E=mc^2", 40);
     expect(r).not.toBeNull();
     expect(r!.width).toBeGreaterThan(0);
@@ -80,47 +80,47 @@ describe("renderMath (MathJax -> パス)", () => {
     expect(r!.glyphs.length).toBeGreaterThan(0);
     expect(r!.glyphs[0].d).toMatch(/^M/);
   });
-  it("サイズを倍にすると幅も倍になる", () => {
+  it("doubling the size doubles the width", () => {
     const a = renderMath("x+1", 20)!;
     const b = renderMath("x+1", 40)!;
     expect(b.width / a.width).toBeCloseTo(2, 1);
   });
 });
 
-describe("rich テキストの lower (ネイティブ展開)", () => {
-  it("数式テキストは path(数式) + text(周囲) になり foreignObject は出ない", () => {
-    const ps = prims("面積は $x^2$ です");
+describe("lower of rich text (native expansion)", () => {
+  it("math text becomes path(formula) + text(surrounding) with no foreignObject", () => {
+    const ps = prims("area is $x^2$");
     expect(ps.some((p) => p.kind === "path")).toBe(true);
     expect(ps.some((p) => p.kind === "text")).toBe(true);
     const svg = renderSvgString({ id: "s", width: 1000, height: 1000, primitives: ps });
     expect(svg).toContain("<path");
     expect(svg).not.toContain("foreignObject");
     expect(svg).not.toContain("katex");
-    expect(svg).toContain("面積は");
+    expect(svg).toContain("area is");
   });
 
-  it("数式なしテキストは通常の text プリミティブ", () => {
-    const ps = prims("ただのテキスト");
+  it("text without math is a normal text primitive", () => {
+    const ps = prims("just text");
     expect(ps).toHaveLength(1);
     expect(ps[0].kind).toBe("text");
   });
 
-  it("太字は run の font-weight になる", () => {
-    const run = allRuns(prims("これは **太字** です")).find((r) => r.text === "太字");
+  it("bold becomes the run font-weight", () => {
+    const run = allRuns(prims("this is **bold** text")).find((r) => r.text === "bold");
     expect(run?.font.weight).toBe(700);
   });
 
-  it("コードは monospace ファミリの run になる", () => {
-    const run = allRuns(prims("値は `x` です")).find((r) => r.text === "x");
+  it("code becomes a monospace-family run", () => {
+    const run = allRuns(prims("value is `x`")).find((r) => r.text === "x");
     expect(run?.font.family).toBe("monospace");
   });
 
-  it("打ち消しは line プリミティブを生む", () => {
-    expect(prims("これは ~~消し~~ ます").some((p) => p.kind === "line")).toBe(true);
+  it("strikethrough produces a line primitive", () => {
+    expect(prims("this is ~~struck~~ out").some((p) => p.kind === "line")).toBe(true);
   });
 
-  it("リンクは下線 (line) とクリック領域 (link) を生む", () => {
-    const ps = prims("[L](https://e.com) を見て");
+  it("links produce an underline (line) and a click area (link)", () => {
+    const ps = prims("[L](https://e.com) see");
     expect(ps.some((p) => p.kind === "line")).toBe(true);
     const link = ps.find((p) => p.kind === "link");
     expect(link).toBeDefined();
@@ -130,24 +130,24 @@ describe("rich テキストの lower (ネイティブ展開)", () => {
     }
   });
 
-  it("SVG はリンクを <a> で出す", () => {
-    const ps = prims("[L](https://e.com) を見て");
+  it("SVG emits links as <a>", () => {
+    const ps = prims("[L](https://e.com) see");
     const svg = renderSvgString({ id: "s", width: 1000, height: 1000, primitives: ps });
     expect(svg).toContain('<a href="https://e.com"');
   });
 
-  it("不正な TeX でも例外を投げない", () => {
+  it("does not throw even on invalid TeX", () => {
     expect(() => prims("x $\\frac{$ y")).not.toThrow();
   });
 });
 
-describe("inline Markdown 検出", () => {
+describe("inline Markdown detection", () => {
   it("hasMarkdown / hasRichMarkup", () => {
     expect(hasMarkdown("**bold**")).toBe(true);
     expect(hasMarkdown("`code`")).toBe(true);
     expect(hasMarkdown("~~del~~")).toBe(true);
     expect(hasMarkdown("[t](u)")).toBe(true);
-    expect(hasMarkdown("ただの文")).toBe(false);
-    expect(hasRichMarkup("和は $x$")).toBe(true);
+    expect(hasMarkdown("plain sentence")).toBe(false);
+    expect(hasRichMarkup("sum is $x$")).toBe(true);
   });
 });

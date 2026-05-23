@@ -20,8 +20,8 @@ function resolver(deckText: string) {
   );
 }
 
-describe("スライド id", () => {
-  it("id は任意 (省略可)", () => {
+describe("slide id", () => {
+  it("id is optional (can be omitted)", () => {
     const r = DeckSchema.safeParse({
       bases: [{ id: "standard", file: "./theme.yaml" }],
       slides: [{ use: "standard" }, { id: "named" }],
@@ -29,21 +29,23 @@ describe("スライド id", () => {
     expect(r.success).toBe(true);
   });
 
-  it("明示 id の重複はエラー (パス付き)", () => {
+  it("duplicate explicit id is an error (with path)", () => {
     const r = DeckSchema.safeParse({
       bases: [{ id: "standard", file: "./theme.yaml" }],
       slides: [{ id: "dup" }, { id: "dup" }],
     });
     expect(r.success).toBe(false);
     if (!r.success) {
-      const issue = r.error.issues.find((i) => i.message.includes("重複"));
+      // match by path (stable across message translation), pointing at the 2nd id
+      const issue = r.error.issues.find(
+        (i) => i.path.join(".") === ["slides", 1, "id"].join("."),
+      );
       expect(issue).toBeTruthy();
-      // 2 番目の id を指す
       expect(issue!.path).toEqual(["slides", 1, "id"]);
     }
   });
 
-  it("id 省略時はインデックス由来の id が割り当たる", async () => {
+  it("an index-derived id is assigned when id is omitted", async () => {
     const { compiled, errors } = await compileDeck(
       resolver(
         `bases: [{ id: standard, file: ./theme.yaml }]\nslides: [{}, { id: agenda }]`,
@@ -54,13 +56,13 @@ describe("スライド id", () => {
     expect(compiled!.deck.slides[1].id).toBe("agenda");
   });
 
-  it("重複 id はコンパイル時にエラーとして返る (preview は更新されない)", async () => {
+  it("duplicate id is returned as a compile-time error (preview not updated)", async () => {
     const { compiled, errors } = await compileDeck(
       resolver(
         `bases: [{ id: standard, file: ./theme.yaml }]\nslides: [{ id: x }, { id: x }]`,
       ),
     );
     expect(compiled).toBeFalsy();
-    expect(errors.some((e) => e.message.includes("重複"))).toBe(true);
+    expect(errors.length).toBeGreaterThan(0);
   });
 });

@@ -5,7 +5,7 @@
   import PresentView from "./present/PresentView.svelte";
   import WelcomeView from "./WelcomeView.svelte";
 
-  // ハッシュベースの簡易ルーティング ("#present" でプレゼンモード)。
+  // Simple hash-based routing ("#present" enters presentation mode).
   let route = $state(currentRoute());
 
   function currentRoute(): string {
@@ -19,8 +19,8 @@
     return () => window.removeEventListener("hashchange", onHash);
   });
 
-  // #editor / #present はプロジェクトのロードが前提。未ロードならトップへ戻す。
-  // サーバ連携モードは常にエディタが開ける (トップ画面は無い)。
+  // #editor / #present require a loaded project. Return to top if not loaded.
+  // Server-linked mode can always open the editor (there is no top screen).
   $effect(() => {
     if (
       !store.booting &&
@@ -34,7 +34,7 @@
 </script>
 
 {#if store.booting}
-  <div class="boot">読み込み中...</div>
+  <div class="boot">Loading...</div>
 {:else if route === "present" && store.ready}
   <PresentView />
 {:else if store.ready && (route === "editor" || store.serverMode)}

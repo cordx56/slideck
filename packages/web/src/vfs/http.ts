@@ -1,5 +1,5 @@
-// HTTP 越しに cli の DiskVfs を操作する VFS 実装。slideck serve 起動時に
-// web がこちらを使い、ディスク上のプロジェクトを直接編集する。
+// VFS implementation that operates the cli's DiskVfs over HTTP. When slideck
+// serve is running, web uses this to edit the on-disk project directly.
 import type {
   VFS,
   FileEntry,
@@ -17,7 +17,7 @@ const JSON_CT = { "content-type": "application/json" };
 
 class HttpVfs implements VFS {
   private bus = new EventBus();
-  // クライアント識別子。自分の書き込みに由来する SSE エコーを無視するのに使う。
+  // Client identifier. Used to ignore SSE echoes from our own writes.
   private clientId = crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
   private es: EventSource;
 
@@ -26,15 +26,15 @@ class HttpVfs implements VFS {
     this.es.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data as string) as VfsEventMessage;
-        if (msg.origin === this.clientId) return; // ローカルで反映済み
+        if (msg.origin === this.clientId) return; // already applied locally
         this.bus.emit(msg.event);
       } catch {
-        // 不正なペイロードは無視
+        // ignore malformed payloads
       }
     };
   }
 
-  // 変更系リクエストには発生元クライアントヘッダを付ける。
+  // Attach the origin client header to mutating requests.
   private h(extra?: Record<string, string>): HeadersInit {
     return { [CLIENT_HEADER]: this.clientId, ...extra };
   }
@@ -54,7 +54,7 @@ class HttpVfs implements VFS {
 
   private async fetchFile(path: string): Promise<Response> {
     const res = await fetch(VfsApi.file(path));
-    if (!res.ok) throw new Error(`読み込み失敗: ${path}`);
+    if (!res.ok) throw new Error(`Read failed: ${path}`);
     return res;
   }
 
@@ -70,13 +70,13 @@ class HttpVfs implements VFS {
     return (await this.fetchFile(path)).blob();
   }
 
-  // 画像等は file エンドポイントを直接 src にできる。更新検知のため mtime を付ける。
+  // Images etc. can use the file endpoint directly as src. Append mtime for change detection.
   async getObjectURL(path: string): Promise<string> {
     const st = await this.stat(path);
     return `${VfsApi.file(path)}&v=${st ? st.modifiedAt : Date.now()}`;
   }
 
-  // --- Write (IndexedDB 実装同様、ローカルへ optimistic にイベントを出す) ---
+  // --- Write (like the IndexedDB impl, emit events optimistically to local) ---
   async writeText(path: string, text: string): Promise<void> {
     const p = normalize(path);
     const existed = await this.exists(p);
@@ -127,7 +127,7 @@ class HttpVfs implements VFS {
     this.bus.emit({ type: "delete", path: p });
   }
 
-  // --- Bulk (ZIP はクライアント側で他メソッドを使い処理) ---
+  // --- Bulk (ZIP is handled client-side using the other methods) ---
   async exportZip(): Promise<Blob> {
     const entries: ZipEntry[] = [];
     for (const f of await this.list()) {
@@ -145,7 +145,7 @@ class HttpVfs implements VFS {
   }
 
   clear(): Promise<void> {
-    return Promise.reject(new Error("clear はサーバ連携モードでは未対応"));
+    return Promise.reject(new Error("clear is not supported in server-linked mode"));
   }
 
   // --- Meta ---
@@ -168,7 +168,7 @@ class HttpVfs implements VFS {
   }
 }
 
-// サーバ連携モードか判定する。slideck serve 配下なら ServerInfo を返す。
+// Determine whether we are in server-linked mode. Returns ServerInfo when under slideck serve.
 export async function probeServer(): Promise<ServerInfo | null> {
   try {
     const res = await fetch(VfsApi.info);

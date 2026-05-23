@@ -1,5 +1,5 @@
-// VFS の抽象インタフェース (実装はコンシューマ側: web=IndexedDB, cli=disk 等)。
-// core はこの型のみに依存し、具体実装は持たない。
+// Abstract VFS interface (implemented by consumers: web=IndexedDB, cli=disk, etc.).
+// core depends only on this type and holds no concrete implementation.
 
 export type VFSEvent =
   | { type: "create"; path: string }

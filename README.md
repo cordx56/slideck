@@ -1,94 +1,130 @@
 # slideck
 
-YAML を宣言的に書いて、ブラウザ上でスライドを作成・編集・プレゼン・PDF 出力する
-フロントエンド完結アプリ。詳細設計は [PLAN.md](./PLAN.md)。
+Write slides declaratively in YAML and author, edit, present, and export them to
+PDF — entirely in the browser, or headlessly from the command line.
 
-## 特徴
+slideck compiles a YAML project through a compiler-style intermediate
+representation so that the **SVG renderer** (used for live preview and
+presentation) and the **PDF renderer** (with embedded, subsetted fonts) consume
+exactly the same layout. What you see in the editor is what you get in the PDF.
 
-- **サーバ不要**: 静的ホスティング (GitHub Pages 等) で配布可能。
-- **三層 IR** (HIR → MIR → LIR): SVG レンダラと PDF レンダラが同一の LIR を消費し、
-  レイアウトが一致する。フォント計測 (fontkit) も両者で共有。
-- **宣言的 YAML**: Base (合成可能レイヤー)・変数・配置・グループ・auto-layout を記述。
-  他ツールでいうテーマ・オーバーレイは **Base** に統合されている (`always:true` で
-  全スライド適用、`use:` で選択)。`${slideNumber}` 等のシステム変数も使える。
-- **PDF**: TrueType サブセット埋め込み + ToUnicode (テキスト選択/抽出可)。
-- **3 ペインエディタ**: アウトライン/インスペクタ・プレビュー・CodeMirror。
-  インスペクタ編集はコメントを保ったまま YAML AST を in-place 更新する。
-- **ファイル入出力**: File System Access API (フォルダ読み書き) / ZIP フォールバック。
+## Features
 
-## モノレポ構成 (pnpm workspace)
+- **Frontend-complete**: the web app needs no server and can be hosted as static
+  files (GitHub Pages, etc.).
+- **Three-layer IR** (HIR -> MIR -> LIR): the SVG and PDF renderers share the
+  same lowered primitives, so layout, line wrapping, and font metrics (via
+  fontkit) match across outputs.
+- **Declarative YAML**: bases (composable layers), variables, absolute
+  positioning, groups, and auto-layout. Themes and overlays are unified into
+  **Bases** (`always: true` applies to every slide, `use:` selects per slide).
+  System variables such as `${slideNumber}` are available.
+- **Bases inheritance**: a base file can `extends:` another.
+- **Colors as variables**: `colors:` are injected into the variable scope and
+  referenced as `${name}`; color fields accept a `${var}` or a literal.
+- **Lists**: `ul` / `ol` with `items` (same shape as a group's children).
+- **Inline Markdown**: bold, italic, inline `code`, ~~strikethrough~~, and links.
+  Links are rendered as real clickable annotations in PDF and `<a>` in SVG.
+- **Inline math**: `$...$` is rendered with MathJax into native vector paths, so
+  formulas render identically in the SVG preview, the exported SVG, and the PDF
+  (no browser or external CSS required at view time).
+- **Fonts**: TrueType embedding with subsetting and ToUnicode (selectable /
+  extractable text in the PDF). TTC collections are supported (`index:`).
+- **Images**: intrinsic size is parsed from the file header (PNG/JPEG/GIF/WebP/
+  BMP), so aspect ratio is correct in every environment, including headless.
+
+## Monorepo layout (pnpm workspace)
 
 ```
 packages/
-  core/   @slideck/core — ブラウザ非依存のパイプライン (ライブラリ)
-  web/    @slideck/web  — Svelte エディタ/プレゼン (ブラウザ)
-  cli/    @slideck/cli  — Node CLI (編集サーバ / YAML -> PDF/SVG)
+  core/   @slideck/core — browser-independent pipeline (library)
+  web/    @slideck/web  — Svelte editor / presenter (browser)
+  cli/    @slideck/cli  — Node CLI (scaffold / edit server / YAML -> PDF/SVG)
 ```
 
-- **core**: schema(zod) / ir(HIR・MIR・LIR) / load(parse・base解決・prepare) /
-  normalize / lower / render(svg・pdf) / edit(YAML AST) / pipeline。`AssetResolver`
-  と `VFS` を抽象として持ち、具体実装 (IndexedDB 等) には依存しない。
-  PDF レンダラは重いので `@slideck/core/pdf` に分離。
-- **web**: IndexedDB ベースの VFS、File ツリー UI、CodeMirror、KaTeX プレビュー等。
-  サーバ連携時は IndexedDB の代わりに HTTP 経由の VFS (`HttpVfs`) を使う。
-- **cli**: ディスク上のプロジェクトを実体とする `DiskVfs`。同梱した web を配信し、
-  HTTP VFS API + SSE でブラウザのエディタとディスクを双方向に繋ぐ編集サーバ
-  (`serve`) と、`core` でヘッドレスに PDF/SVG を生成するビルド (`export`)。
+- **core**: schema (zod) / ir (HIR, MIR, LIR) / load (parse, base resolution,
+  prepare) / normalize / lower / render (svg, pdf) / edit (YAML AST) / pipeline.
+  It depends only on the `AssetResolver` and `VFS` abstractions, never on a
+  concrete implementation (IndexedDB, disk, ...). The heavy PDF renderer is split
+  out under `@slideck/core/pdf`.
+- **web**: an IndexedDB-backed VFS, a file-tree UI, CodeMirror, live SVG preview,
+  presentation mode, ZIP import/export, and client-side PDF export. When launched
+  by the CLI edit server it uses an HTTP-backed VFS instead of IndexedDB.
+- **cli**: a `DiskVfs` that treats a project directory as the source of truth. It
+  serves the bundled web editor and bridges the browser to disk over an HTTP VFS
+  API + SSE (`serve`), and renders PDF/SVG headlessly with `core` (`export`).
 
-## 開発
+## Development
 
 ```bash
 pnpm install
-pnpm dev          # web 開発サーバ (= pnpm --filter @slideck/web dev)
-pnpm test         # 全パッケージのテスト (vitest)
-pnpm check        # 全パッケージの型チェック
-pnpm build        # web + cli の本番ビルド (cli は web を同梱)
-pnpm build:web    # web のみ (静的サイト配信用)
+pnpm dev          # web dev server (= pnpm --filter @slideck/web dev)
+pnpm test         # all packages (vitest)
+pnpm check        # type-check all packages
+pnpm build        # build web + cli (the cli bundles the web build)
+pnpm build:web    # web only (for static hosting)
 ```
 
-サンプルは `packages/web/public/examples/basic/`。web 起動時に選択して開く。
+The sample project lives in `packages/web/public/examples/basic/`; pick it from
+the web app's start screen.
 
 ## CLI (`@slideck/cli`)
 
-グローバルインストールして使う:
+Install globally:
 
 ```bash
 npm install -g @slideck/cli
 ```
 
 ```bash
-# サンプルプロジェクトを新規作成 (省略時は my-deck/)
+# Scaffold a new sample project into ./my-deck (defaults to ./my-deck)
 slideck new my-deck
 
-# ディスク上のプロジェクトを編集サーバで開く (ブラウザが自動で開く)
-slideck serve ./my-deck          # 省略時はカレントディレクトリ
+# Open a project on disk in the edit server (a browser opens automatically)
+slideck serve ./my-deck          # defaults to the current directory
 slideck serve ./my-deck --port 4321 --no-open
 
-# YAML プロジェクトを PDF (と任意で SVG) に変換
+# Render a YAML project to PDF (and optionally per-slide SVG)
 slideck export ./my-deck/deck.yaml -o out.pdf --svg ./svg-out
 ```
 
-`serve` は同梱した web エディタを配信し、ブラウザ上の編集がそのままディスクへ
-保存される (HTTP VFS API + SSE)。エディタ外でファイルを編集してもブラウザへ
-反映される。`.slideck/` にツリー展開状態などの内部メタを保存する。
+`serve` hosts the bundled web editor and saves edits straight to disk over an
+HTTP VFS API + SSE; edits made outside the editor are reflected in the browser as
+well. Internal state such as the file-tree expansion is kept under `.slideck/`.
 
-リポジトリ内では `pnpm cli` (= `pnpm --filter @slideck/cli start`) で実行できる。
-ただし pnpm はスクリプトを `packages/cli` で実行するため、相対パスはそこ起点になる
-(絶対パスを渡すか、対象ディレクトリに `cd` してから実行するのが確実):
+Inside the repository you can use `pnpm cli` (= `pnpm --filter @slideck/cli
+start`). Note that pnpm runs the script from `packages/cli`, so relative paths are
+resolved from there (pass an absolute path, or `cd` into the target first):
 
 ```bash
 pnpm cli serve "$PWD/packages/web/public/examples/basic"
 ```
 
-### 公開 (npm)
+### Publishing (npm)
 
-`@slideck/cli` は単一ファイル (cli + core を esbuild でバンドル) と同梱 web を
-`dist/` に持つ。`prepublishOnly` でビルドされるため、`packages/cli` で
-`npm publish` するだけでよい (`publishConfig.access: public`)。
+`@slideck/cli` ships a single bundled file (cli + core via esbuild) plus the
+bundled web build under `dist/`. It is built by `prepublishOnly`, so publishing is
+just `npm publish` from `packages/cli` (`publishConfig.access: public`).
 
-## デプロイ (web)
+## Project structure
 
-`packages/web/dist/` は完全に静的。サブパス配信時は `VITE_BASE` を設定:
+A slideck project is a directory:
+
+```
+my-deck/
+  deck.yaml            # entry: slides
+  theme.yaml           # a base (theme/overlay), one or more
+  overlays/footer.yaml
+  fonts/...            # .ttf / .ttc
+  img/...              # images
+```
+
+Relative paths are resolved from the file that references them. See
+[PLAN.md](./PLAN.md) for the full design.
+
+## Deploy (web)
+
+`packages/web/dist/` is fully static. For sub-path hosting, set `VITE_BASE`:
 
 ```bash
 VITE_BASE=/slideck/ pnpm --filter @slideck/web build

@@ -1,5 +1,5 @@
-// YAML プロジェクト -> レンダリング可能なデッキ、までの一連を束ねる。
-// parse/normalize/lower は同期純粋、prepare のみ非同期 IO。
+// Ties together the steps from YAML project to a renderable deck.
+// parse/normalize/lower are synchronous and pure; only prepare does async IO.
 import type { AssetResolver } from "./load/assets";
 import type { MirDeck } from "./ir/mir";
 import type { SlideLir } from "./ir/lir";
@@ -14,7 +14,7 @@ import { PipelineError } from "./lib/error";
 export interface CompiledDeck {
   deck: MirDeck;
   ctx: LowerCtx;
-  // family -> ロード済みフォント (PDF 埋め込み / プレビュー登録用)
+  // family -> loaded font (for PDF embedding / preview registration)
   fonts: Map<string, LoadedFont>;
 }
 
@@ -27,7 +27,7 @@ export interface CompileOptions {
   entry?: string;
 }
 
-// プロジェクトを読み込み、MIR + lower 用リソースまで構築する。
+// Load the project and build MIR plus the resources needed for lower.
 export async function compileDeck(
   resolver: AssetResolver,
   options: CompileOptions = {},
@@ -49,8 +49,8 @@ export interface RecompileResult {
   errors: PipelineError[];
 }
 
-// deck テキスト編集時用の軽量再コンパイル。prepare (フォント/画像ロード) を
-// 行わず parse + normalize のみ。呼び出し側が既存の ctx/fonts を再利用する。
+// Lightweight recompile for deck text edits. Skips prepare (font/image loading)
+// and does only parse + normalize. The caller reuses the existing ctx/fonts.
 export async function recompileDeck(
   resolver: AssetResolver,
   entry = "deck.yaml",
@@ -62,14 +62,14 @@ export async function recompileDeck(
   return { deck: normalized.deck, errors: normalized.errors };
 }
 
-// 指定スライドを LIR に下ろす。
+// Lower the given slide to LIR.
 export function lowerSlide(compiled: CompiledDeck, index: number): SlideLir | undefined {
   const slide = compiled.deck.slides[index];
   if (!slide) return undefined;
   return lower(slide, compiled.deck, compiled.ctx);
 }
 
-// 指定スライドを SVG 文字列にする。
+// Render the given slide to an SVG string.
 export function renderSlideSvg(
   compiled: CompiledDeck,
   index: number,

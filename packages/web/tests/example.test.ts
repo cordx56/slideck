@@ -5,7 +5,7 @@ import type { AssetResolver } from "@slideck/core";
 import { normalizePath } from "@slideck/core";
 import { compileDeck, renderSlideSvg } from "@slideck/core";
 
-// public/examples/basic を実ディスクから読む resolver (Node 専用、テスト用)。
+// Resolver that reads public/examples/basic from real disk (Node only, for testing).
 class DiskResolver implements AssetResolver {
   constructor(private root: string) {}
   private p(rel: string) {
@@ -28,7 +28,7 @@ class DiskResolver implements AssetResolver {
 }
 
 describe("examples/basic", () => {
-  it("全スライドが SVG にレンダリングできる", async () => {
+  it("renders all slides to SVG", async () => {
     const resolver = new DiskResolver(
       resolve(__dirname, "../public/examples/basic"),
     );
@@ -42,19 +42,20 @@ describe("examples/basic", () => {
     const svgs = slides.map((_, i) => renderSlideSvg(compiled!, i)!);
     for (const svg of svgs) expect(svg.startsWith("<svg")).toBe(true);
 
-    // intro: タイトル + サブタイトル + 画像 + フッタ
-    expect(svgs[0]).toContain("YAML スライドの世界");
+    // intro: title + subtitle + image + footer
+    expect(svgs[0]).toContain("The World of YAML Slides");
     expect(svgs[0]).toContain("<image");
-    // always:true の footer base は全スライドに適用される
+    // always:true footer base applies to all slides
     for (const svg of svgs) expect(svg).toContain("slideck — YAML Slides");
-    // システム変数によるページ番号 (footer base 内 ${slideNumber}/${slideCount})
+    // page number from system variables (${slideNumber}/${slideCount} in footer base)
     expect(svgs[0]).toContain("1 / 5");
     expect(svgs[4]).toContain("5 / 5");
-    // section テーマ (extends) のスライド
-    expect(svgs[2]).toContain("背景と動機");
-    // closing: light プリセット (extends で配色のみ上書き) の明るい背景
+    // slide with the section theme (extends). The title wraps, so assert a
+    // single token that cannot be split across lines.
+    expect(svgs[2]).toContain("Motivation");
+    // closing: light preset (extends overriding only colors) bright background
     expect(svgs[3]).toContain('fill="#f7f7fb"');
-    // feature: row レイアウトの矩形が 3 つ + フッタ line
+    // feature: 3 rects in the row layout + footer line
     expect((svgs[4].match(/<rect/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });
 });

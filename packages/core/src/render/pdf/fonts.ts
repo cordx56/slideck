@@ -3,14 +3,14 @@ import type { LoadedFont } from "../../lower/context";
 import { PipelineError } from "../../lib/error";
 
 export interface EmbeddedFonts {
-  // family -> 埋め込み済み PDFFont
+  // family -> embedded PDFFont
   byFamily: Map<string, PDFFont>;
-  // ASCII フォールバック (埋め込みフォントが無い family 用)
+  // ASCII fallback (for families with no embedded font)
   fallback: PDFFont;
 }
 
-// フォントを subset 埋め込みする。TTF(glyf) はそのまま、失敗時は
-// 全埋め込み (CFF/OTF のサブセットバグ回避) にフォールバック。
+// Embed fonts as subsets. TTF(glyf) as-is; on failure, fall back to
+// full embed (avoids CFF/OTF subset bugs).
 export async function embedFonts(
   pdf: PDFDocument,
   fonts: Map<string, LoadedFont>,
@@ -36,13 +36,13 @@ async function embedOne(
     });
   } catch {
     try {
-      // サブセット化に失敗するフォント (一部 CFF) は全埋め込み。
+      // Fonts that fail subsetting (some CFF) get full embed.
       return await pdf.embedFont(lf.bytes as ArrayBuffer & Uint8Array, {
         subset: false,
       });
     } catch (e) {
       errors.push(
-        new PipelineError(`フォント埋め込み失敗: ${lf.family} (${String(e)})`),
+        new PipelineError(`Font embed failed: ${lf.family} (${String(e)})`),
       );
       return undefined;
     }

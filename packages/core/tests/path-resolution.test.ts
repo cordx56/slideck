@@ -3,7 +3,7 @@ import { MemoryAssetResolver } from "../src/load/assets";
 import { loadDeck } from "../src/load/resolve-refs";
 import { compileDeck } from "../src/pipeline";
 
-// サブフォルダに置いた base が、自分からの相対で font / image を参照するケース。
+// Case where a base in a subfolder references font / image relative to itself.
 const deck = `bases:
   - { id: t, always: true, file: ./theme/base.yaml }
 slides:
@@ -33,29 +33,29 @@ function resolver() {
   );
 }
 
-describe("相対パスは宣言元ファイル基準で解決される", () => {
-  it("base の font.path / layout image は base ファイルからの相対", async () => {
+describe("relative paths resolve against the declaring file", () => {
+  it("base font.path / layout image are relative to the base file", async () => {
     const { loaded, errors } = await loadDeck(resolver());
     expect(errors).toHaveLength(0);
     const t = loaded!.basesById.get("t")!;
-    // theme/base.yaml からの相対 -> theme/fonts/x.ttf
+    // relative to theme/base.yaml -> theme/fonts/x.ttf
     expect(t.fonts!.body.path).toBe("theme/fonts/x.ttf");
-    // layout 画像 -> theme/logo.png
+    // layout image -> theme/logo.png
     const img = t.layout![0] as { type: "image"; src: string };
     expect(img.src).toBe("theme/logo.png");
   });
 
-  it("slide elements の画像は deck.yaml からの相対", async () => {
+  it("slide element images are relative to deck.yaml", async () => {
     const { loaded } = await loadDeck(resolver());
     const slide = loaded!.deck.slides[0];
     const img = slide.elements![0] as { type: "image"; src: string };
     expect(img.src).toBe("pics/slide.png");
   });
 
-  it("compile が宣言元相対のアセットを読み込める (root にはない)", async () => {
+  it("compile can load declaration-relative assets (not at root)", async () => {
     const { compiled, errors } = await compileDeck(resolver());
-    // theme/fonts/x.ttf や theme/logo.png, pics/slide.png を解決できる
-    // (root の /fonts/x.ttf 等は存在しないので、誤って root 解決ならエラーになる)
+    // can resolve theme/fonts/x.ttf, theme/logo.png, pics/slide.png
+    // (root /fonts/x.ttf etc. do not exist, so wrong root resolution errors)
     expect(errors).toHaveLength(0);
     expect(compiled).toBeTruthy();
   });

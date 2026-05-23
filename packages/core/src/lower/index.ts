@@ -13,7 +13,7 @@ import type { LowerCtx } from "./context";
 export type { LowerCtx } from "./context";
 export type { LoadedImage } from "./context";
 
-// MIR スライドを LIR (絶対座標プリミティブ列) に下ろす。同期・純粋関数。
+// Lower a MIR slide to LIR (a sequence of absolute-coord primitives). Sync, pure function.
 export function lower(slide: MirSlide, deck: MirDeck, ctx: LowerCtx): SlideLir {
   const slideBox: Box = {
     x: 0,
@@ -32,7 +32,7 @@ export function lower(slide: MirSlide, deck: MirDeck, ctx: LowerCtx): SlideLir {
   };
 }
 
-// 親ボックスに対して位置を解決し、要素を配置・描画する。
+// Resolve position relative to the parent box, then place and draw the element.
 function lowerElement(
   el: MirElement,
   parentBox: Box,
@@ -44,7 +44,7 @@ function lowerElement(
     return;
   }
   if (el.type === "line") {
-    // line は from/to を親ボックス相対で解釈するため、box=親。
+    // line interprets from/to relative to the parent box, so box=parent.
     placeElement(el, parentBox, ctx, out);
     return;
   }
@@ -52,7 +52,7 @@ function lowerElement(
   placeElement(el, box, ctx, out);
 }
 
-// text 要素のリンク/コードスタイル。normalize 済みなら el.rich を使う。
+// Link/code style for a text element. Uses el.rich if already normalized.
 function richStyleOf(el: MirText): RichStyle {
   return (
     el.rich ?? {
@@ -64,7 +64,7 @@ function richStyleOf(el: MirText): RichStyle {
   );
 }
 
-// テキストの位置解決: 先に幅を確定し、シェイプして高さを得てから縦を解決。
+// Text position resolution: fix width first, shape to get height, then resolve vertical.
 function textBox(el: MirText, parent: Box, ctx: LowerCtx): Box {
   const p = el.position ?? {};
   const hx = resolveAxis(p.left, p.right, p.width, parent.x, parent.w);
@@ -81,7 +81,7 @@ function textBox(el: MirText, parent: Box, ctx: LowerCtx): Box {
   return { x: hx.pos, y: vy.pos, w: hx.size, h: vy.size };
 }
 
-// 確定した box に要素を描画する (auto-layout からはこの box が直接渡る)。
+// Draw an element into the resolved box (auto-layout passes this box directly).
 function placeElement(
   el: MirElement,
   box: Box,
@@ -91,8 +91,8 @@ function placeElement(
   switch (el.type) {
     case "text": {
       if (hasRichMarkup(el.text)) {
-        // inline markdown + 数式: ネイティブな text/line/path に展開する
-        // (foreignObject を使わず SVG/PDF/web すべてで一致させる)。
+        // inline markdown + math: expand into native text/line/path
+        // (no foreignObject, so SVG/PDF/web all match).
         const layout = shapeRich(
           el.text, el.font, el.size, box.w, el.align,
           el.lineHeight, el.letterSpacing, ctx.metrics, richStyleOf(el), el.color,
@@ -117,7 +117,7 @@ function placeElement(
     }
     case "image": {
       const img = ctx.images.get(el.src);
-      if (!img) break; // prepare で未解決ならスキップ
+      if (!img) break; // skip if unresolved in prepare
       const fitted = fitImage(box, img.width, img.height, el.fit);
       out.push({
         kind: "image",
@@ -183,7 +183,7 @@ function placeElement(
   }
 }
 
-// ul/ol を縦並びに展開し、各 item の左に gutter でマーカ (• / 番号) を描く。
+// Expand ul/ol vertically and draw a marker (bullet / number) in the gutter left of each item.
 function placeList(
   el: Extract<MirElement, { type: "ul" | "ol" }>,
   box: Box,
@@ -200,7 +200,7 @@ function placeList(
     h: inner.h,
   };
 
-  // items を column auto-layout で配置する。
+  // Lay out items with column auto-layout.
   const placed = computeAutoLayout(
     {
       type: "group",
@@ -218,7 +218,7 @@ function placeList(
   const markerAlign = el.type === "ol" ? "right" : "left";
   placed.forEach((p, i) => {
     const marker = el.type === "ul" ? "•" : `${el.start + i}.`;
-    // マーカのベースラインを item の 1 行目に合わせる。
+    // Align the marker baseline with the item's first line.
     const itemAscent =
       p.el.type === "text"
         ? p.el.size * ctx.metrics.ascentRatio(p.el.font)
@@ -245,7 +245,7 @@ function placeList(
   });
 }
 
-// auto-layout が割り当てた box に子を配置する (子自身の position は無視)。
+// Place a child into the box assigned by auto-layout (the child's own position is ignored).
 function placeAtBox(
   el: MirElement,
   box: Box,
@@ -255,7 +255,7 @@ function placeAtBox(
   placeElement(el, box, ctx, out);
 }
 
-// shapeRich の結果を text(runs) + line(下線/打ち消し) + path(数式) に展開する。
+// Expand the shapeRich result into text(runs) + line(underline/strike) + path(math).
 function emitRich(layout: RichLayout, box: Box, mathColor: string, out: Primitive[]): void {
   const runs: TextRun[] = layout.runs.map((r) => ({
     text: r.text,
@@ -271,7 +271,7 @@ function emitRich(layout: RichLayout, box: Box, mathColor: string, out: Primitiv
     if (r.underline) out.push(decoLine(box, r, r.baseline + r.size * 0.12));
     if (r.strike) out.push(decoLine(box, r, r.baseline - r.size * 0.28));
     if (r.href) {
-      // run のボックスをクリック領域にする (上端 ~ ベースライン下まで)。
+      // Use the run's box as the click region (top edge to below baseline).
       out.push({
         kind: "link",
         x: box.x + r.x,
@@ -294,7 +294,7 @@ function emitRich(layout: RichLayout, box: Box, mathColor: string, out: Primitiv
   }
 }
 
-// run の下線/打ち消しを 1 本の line プリミティブにする。
+// Turn a run's underline/strike into a single line primitive.
 function decoLine(box: Box, r: RichRun, yRel: number): Primitive {
   const y = box.y + yRel;
   return {
@@ -312,7 +312,7 @@ function makeStroke(color: string | undefined, width: number): Stroke | undefine
   return { color, width };
 }
 
-// fit に応じて画像描画矩形を box 内に収める。cover は Phase 1 では fill 相当。
+// Fit the image draw rect inside box per fit. cover behaves like fill in Phase 1.
 function fitImage(
   box: Box,
   iw: number,

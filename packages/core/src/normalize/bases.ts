@@ -7,14 +7,14 @@ export interface AppliedBase {
   base: BaseHir;
 }
 
-// use を配列に正規化する (未指定は空配列 = always base のみ)。
+// Normalize use into an array (unspecified means empty array = always bases only).
 export function normalizeUse(use: string | string[] | undefined): string[] {
   if (use === undefined) return [];
   return Array.isArray(use) ? use : [use];
 }
 
-// スライドに適用される base を順序付きで決める。
-// always:true 群 (宣言順) の後ろに use 群 (指定順) を積む。
+// Determine the ordered bases applied to a slide.
+// Stack the use group (in given order) after the always:true group (in declaration order).
 export function resolveAppliedBases(
   loaded: LoadedDeck,
   slide: SlideHir,
@@ -23,12 +23,12 @@ export function resolveAppliedBases(
   const alwaysIds = loaded.deck.bases.filter((b) => b.always).map((b) => b.id);
   const useIds = normalizeUse(slide.use);
 
-  // always と use の二重適用は許容するが警告する。
+  // Double application via always and use is allowed but warned.
   for (const id of useIds) {
     if (alwaysIds.includes(id)) {
       errors.push(
         new PipelineError(
-          `base "${id}" が always と use で二重適用されています (スライド "${slide.id ?? "(id 未指定)"}")`,
+          `base "${id}" is applied twice via always and use (slide "${slide.id ?? "(id unspecified)"}")`,
         ),
       );
     }
@@ -38,7 +38,7 @@ export function resolveAppliedBases(
   for (const id of [...alwaysIds, ...useIds]) {
     const base = loaded.basesById.get(id);
     if (!base) {
-      errors.push(new PipelineError(`未知の base id: "${id}"`));
+      errors.push(new PipelineError(`unknown base id: "${id}"`));
       continue;
     }
     applied.push({ id, base });
@@ -46,7 +46,7 @@ export function resolveAppliedBases(
   return applied;
 }
 
-// z-order に従って layout 要素を積む (base 群 -> slide.elements)。
+// Stack layout elements by z-order (bases -> slide.elements).
 export function composeLayers(
   applied: AppliedBase[],
   slide: SlideHir,
@@ -57,14 +57,14 @@ export function composeLayers(
   return out;
 }
 
-// 適用 base の colors をマージ (後勝ち)。変数として注入される。
+// Merge colors of the applied bases (last wins). Injected as variables.
 export function mergeColors(applied: AppliedBase[]): Record<string, string> {
   const colors: Record<string, string> = {};
   for (const { base } of applied) Object.assign(colors, base.colors);
   return colors;
 }
 
-// 適用 base の fonts キー -> family をマージ (後勝ち)。
+// Merge the fonts key -> family of the applied bases (last wins).
 export function mergeFontKeys(applied: AppliedBase[]): Map<string, string> {
   const m = new Map<string, string>();
   for (const { base } of applied) {
@@ -75,7 +75,7 @@ export function mergeFontKeys(applied: AppliedBase[]): Map<string, string> {
   return m;
 }
 
-// 適用 base の background を後勝ちで採る (最前面 base 優先)。
+// Take the background of the applied bases with last wins (frontmost base preferred).
 export function pickBackground(applied: AppliedBase[]): string | undefined {
   let bg: string | undefined;
   for (const { base } of applied) if (base.background) bg = base.background;

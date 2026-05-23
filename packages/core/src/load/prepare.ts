@@ -9,13 +9,13 @@ import { mimeFromPath } from "../lib/mime";
 import { imageSize } from "../lib/image-size";
 import { PipelineError } from "../lib/error";
 
-// lower 用リソース一式。fonts は PDF 埋め込み/プレビュー登録にも使う。
+// Resource bundle for lower. fonts are also used for PDF embedding/preview registration.
 export interface PreparedAssets {
   ctx: LowerCtx;
   fonts: Map<string, LoadedFont>;
 }
 
-// 全スライドの要素ツリーを走査して image の src を集める。
+// Walk the element tree of all slides and collect image src values.
 function collectImageSrcs(deck: MirDeck): Set<string> {
   const srcs = new Set<string>();
   const walk = (els: MirElement[]) => {
@@ -39,7 +39,7 @@ async function loadFonts(
     if (!decl.path) continue;
     try {
       let bytes = await resolver.readBytes(decl.path);
-      // .ttc は指定インデックスのフォントを単独 SFNT に展開する。
+      // .ttc expands the font at the given index into a standalone SFNT.
       if (isTtc(bytes)) bytes = extractFontFromTtc(bytes, decl.index ?? 0);
       fonts.set(family, {
         family,
@@ -48,7 +48,7 @@ async function loadFonts(
         style: decl.style,
       });
     } catch (e) {
-      errors.push(new PipelineError(`フォント読込失敗: ${decl.path} (${String(e)})`));
+      errors.push(new PipelineError(`failed to load font: ${decl.path} (${String(e)})`));
     }
   }
   return fonts;
@@ -64,7 +64,7 @@ function buildMetrics(fonts: Map<string, LoadedFont>): FontMetrics {
   return fk.size > 0 ? new FontkitMetrics(fk) : new ApproximateMetrics();
 }
 
-// lower に渡すリソース (画像・フォント・メトリクス) を非同期に揃える。
+// Asynchronously assemble the resources (images, fonts, metrics) passed to lower.
 export async function prepare(
   deck: MirDeck,
   resolver: AssetResolver,
@@ -81,7 +81,7 @@ export async function prepare(
       const { width, height } = imageSize(data);
       images.set(src, { data, mime, width, height });
     } catch (e) {
-      errors.push(new PipelineError(`画像読込失敗: ${src} (${String(e)})`));
+      errors.push(new PipelineError(`failed to load image: ${src} (${String(e)})`));
     }
   }
 

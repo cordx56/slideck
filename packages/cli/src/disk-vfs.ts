@@ -4,9 +4,9 @@ import type { VFS, FileEntry, VFSListener } from "@slideck/core";
 import { EventBus, normalize, mimeFromPath } from "@slideck/core";
 import { createWatcher, type Watcher } from "./watch";
 
-// ツリーに出さない/監視しないトップレベル名と内部メタディレクトリ。
+// Top-level names to exclude from the tree / not watch, and the internal meta dir.
 const IGNORE_TOP = new Set([".git", "node_modules"]);
-const META_DIR = ".slideck"; // ツリー状態などサーバ内部メタの置き場
+const META_DIR = ".slideck"; // storage for server-internal meta such as tree state
 const META_FILE = ".slideck/meta.json";
 
 function ignored(relPosix: string): boolean {
@@ -14,8 +14,8 @@ function ignored(relPosix: string): boolean {
   return IGNORE_TOP.has(top) || relPosix === META_DIR || relPosix.startsWith(META_DIR + "/");
 }
 
-// プロジェクトディレクトリを実体とする VFS 実装。変更通知はディスク監視
-// (createWatcher) を唯一の発生源とし、書き込みメソッド自身は emit しない。
+// VFS implementation backed by a project directory. Change notifications come
+// solely from disk watching (createWatcher); the write methods do not emit themselves.
 export class DiskVfs implements VFS {
   private bus = new EventBus();
   private watcher: Watcher;
@@ -26,7 +26,7 @@ export class DiskVfs implements VFS {
     });
   }
 
-  // VFS パス ("/a/b") -> ディスク絶対パス。
+  // VFS path ("/a/b") -> absolute disk path.
   private disk(p: string): string {
     const n = normalize(p);
     return n === "/" ? this.root : pjoin(this.root, n.slice(1));
@@ -104,10 +104,10 @@ export class DiskVfs implements VFS {
   }
 
   getObjectURL(): Promise<string> {
-    return Promise.reject(new Error("getObjectURL は server 側では未対応"));
+    return Promise.reject(new Error("getObjectURL is not supported on the server side"));
   }
 
-  // --- Write (emit はせず、watcher 経由で通知される) ---
+  // --- Write (does not emit; notified via the watcher) ---
   async writeBytes(path: string, data: Uint8Array): Promise<void> {
     const d = this.disk(path);
     await this.ensureParent(d);
@@ -144,18 +144,18 @@ export class DiskVfs implements VFS {
     await rm(this.disk(path), { recursive: true, force: true });
   }
 
-  // --- Bulk (ZIP はクライアント側で他メソッドを使い処理する) ---
+  // --- Bulk (ZIP is handled on the client side using the other methods) ---
   importZip(): Promise<void> {
-    return Promise.reject(new Error("importZip は client 側で処理する"));
+    return Promise.reject(new Error("importZip is handled on the client side"));
   }
   exportZip(): Promise<Blob> {
-    return Promise.reject(new Error("exportZip は client 側で処理する"));
+    return Promise.reject(new Error("exportZip is handled on the client side"));
   }
   clear(): Promise<void> {
-    return Promise.reject(new Error("clear はサーバ連携では未対応"));
+    return Promise.reject(new Error("clear is not supported with server integration"));
   }
 
-  // --- Meta (.slideck/meta.json に集約) ---
+  // --- Meta (consolidated in .slideck/meta.json) ---
   private async readMeta(): Promise<Record<string, unknown>> {
     try {
       return JSON.parse(await readFile(pjoin(this.root, META_FILE), "utf8")) as Record<

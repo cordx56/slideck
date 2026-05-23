@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { AssetResolver } from "@slideck/core";
 
-// ディスクからプロジェクトを読む AssetResolver。パイプラインが渡す
-// (root 相対の) パスを deck ディレクトリ起点で解決する。
+// AssetResolver that reads the project from disk. Resolves the (root-relative)
+// paths the pipeline passes, anchored at the deck directory.
 export class NodeAssetResolver implements AssetResolver {
   constructor(private readonly root: string) {}
 
