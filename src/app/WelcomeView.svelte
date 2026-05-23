@@ -99,7 +99,7 @@
           disabled={projects.length === 0}
           onclick={() => (step = "projects")}
         >
-          プロジェクトを開く{projects.length ? ` (${projects.length})` : ""}
+          プロジェクトを開く
         </button>
         <button onclick={() => startCreate("empty")}>空のプロジェクトを作成</button>
         <button onclick={() => startCreate("sample")}>サンプルから作成</button>
