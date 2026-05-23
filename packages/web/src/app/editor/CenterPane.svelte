@@ -157,8 +157,11 @@
     position: absolute;
     left: 4px;
     bottom: 2px;
+    padding: 0 4px;
     font-size: 11px;
-    color: var(--fg);
-    text-shadow: 0 0 4px #000;
+    color: #fff;
+    background: #000;
+    border-radius: 3px;
+    box-shadow: 0 0 4px #000;
   }
 </style>
