@@ -2,8 +2,22 @@ import type { AssetResolver } from "./assets";
 import { resolveFrom } from "./assets";
 import { parseAndValidate } from "./parse";
 import { DeckSchema, BaseSchema } from "../schema";
-import type { DeckHir, BaseHir } from "../ir/hir";
+import type { DeckHir, BaseHir, HirElement } from "../ir/hir";
 import { PipelineError } from "../lib/error";
+
+// アセット参照 (image.src / font.path) を「宣言したファイルからの相対」で
+// 絶対パス (root 相対) に解決する。${...} を含むものは変数展開後に委ねる。
+function resolveRef(ref: string, fromFile: string): string {
+  return ref.includes("${") ? ref : resolveFrom(fromFile, ref);
+}
+
+// 要素ツリーを走査して image.src を fromFile 基準に解決する (group 再帰)。
+function resolveElementPaths(elements: HirElement[], fromFile: string): void {
+  for (const el of elements) {
+    if (el.type === "image") el.src = resolveRef(el.src, fromFile);
+    else if (el.type === "group") resolveElementPaths(el.children, fromFile);
+  }
+}
 
 export interface LoadedDeck {
   deck: DeckHir;
@@ -58,6 +72,12 @@ async function loadBaseFile(
   }
   const base = parsed.value;
 
+  // フォントパス・レイアウト内画像をこの base ファイル基準で解決する。
+  for (const decl of Object.values(base.fonts ?? {})) {
+    decl.path = resolveRef(decl.path, path);
+  }
+  if (base.layout) resolveElementPaths(base.layout, path);
+
   if (base.extends) {
     const parentPath = resolveFrom(path, base.extends);
     const parent = await loadBaseFile(resolver, parentPath, seen, errors);
@@ -85,6 +105,11 @@ export async function loadDeck(
   const parsedDeck = parseAndValidate(deckText, DeckSchema, entry);
   if (!parsedDeck.value) return { errors: parsedDeck.errors };
   const deck = parsedDeck.value;
+
+  // スライド要素内の画像を deck.yaml 基準で解決する。
+  for (const slide of deck.slides) {
+    if (slide.elements) resolveElementPaths(slide.elements, entry);
+  }
 
   // 各 base ファイルを読み込み id でマップ化する。
   const basesById = new Map<string, BaseHir>();
