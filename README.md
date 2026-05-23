@@ -119,8 +119,7 @@ my-deck/
   img/...              # images
 ```
 
-Relative paths are resolved from the file that references them. See
-[PLAN.md](./PLAN.md) for the full design.
+Relative paths are resolved from the file that references them.
 
 ## Deploy (web)
 
