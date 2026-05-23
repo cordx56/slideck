@@ -73,13 +73,29 @@ export interface GroupElement extends BaseElement {
   vars?: Record<string, unknown>;
 }
 
+// ul (箇条書き) / ol (番号付き) リスト。group と同様の縦並びコンテナで、
+// 子は items。各 item の前にマーカ (• / 1.) を描く。
+export interface ListElement extends BaseElement {
+  type: "ul" | "ol";
+  items: HirElement[];
+  gap?: Dimension;
+  align?: CrossAlign;
+  padding?: Dimension;
+  // マーカのスタイル (省略時はテキストデフォルト)。
+  font?: string;
+  size?: number;
+  color?: string;
+  start?: number; // ol の開始番号 (既定 1)
+}
+
 export type HirElement =
   | TextElement
   | ImageElement
   | RectElement
   | LineElement
   | PathElement
-  | GroupElement;
+  | GroupElement
+  | ListElement;
 
 // テーマ -----------------------------------------------------------------
 

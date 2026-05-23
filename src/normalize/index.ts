@@ -221,5 +221,22 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
         justify: hir.justify ?? GROUP_FALLBACK.justify,
         padding: hir.padding ?? { kind: "percent", value: 0 },
       };
+    case "ul":
+    case "ol": {
+      const td = ctx.textDefaults;
+      return {
+        type: hir.type,
+        position: hir.position,
+        flex: hir.flex,
+        items: hir.items.map((c) => convertElement(c, ctx)),
+        gap: hir.gap ?? { kind: "percent", value: 0 },
+        align: hir.align ?? GROUP_FALLBACK.align,
+        padding: hir.padding ?? { kind: "percent", value: 0 },
+        font: hir.font ? resolveFont(exp(hir.font)) : td.family,
+        size: hir.size ?? td.size,
+        color: hir.color ? color(hir.color) : td.color,
+        start: hir.start ?? 1,
+      };
+    }
   }
 }

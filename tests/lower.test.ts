@@ -3,7 +3,7 @@ import { lower } from "../src/lower";
 import { computeAutoLayout } from "../src/lower/auto-layout";
 import { ApproximateMetrics } from "../src/lower/metrics";
 import type { LowerCtx } from "../src/lower/context";
-import type { MirDeck, MirGroup, MirSlide } from "../src/ir";
+import type { MirDeck, MirGroup, MirList, MirSlide, MirText } from "../src/ir";
 import type { Dimension } from "../src/schema/position";
 
 const pct = (v: number): Dimension => ({ kind: "percent", value: v });
@@ -220,5 +220,67 @@ describe("computeAutoLayout", () => {
     const placed = computeAutoLayout(group, inner, ctx);
     expect(placed[0].box.w).toBeCloseTo(100); // 1/4
     expect(placed[1].box.w).toBeCloseTo(300); // 3/4
+  });
+});
+
+describe("lower lists (ul/ol)", () => {
+  const textItem = (t: string): MirText => ({
+    type: "text",
+    text: t,
+    font: "body",
+    size: 40,
+    color: "#000",
+    align: "left",
+    lineHeight: 1.2,
+    letterSpacing: 0,
+  });
+
+  function list(type: "ul" | "ol", start = 1): MirList {
+    return {
+      type,
+      position: { left: pct(0), top: pct(0), width: pct(100), height: pct(100) },
+      items: [textItem("A"), textItem("B")],
+      gap: pct(0),
+      align: "stretch",
+      padding: pct(0),
+      font: "body",
+      size: 40,
+      color: "#000",
+      start,
+    };
+  }
+
+  const runTexts = (deck: MirDeck) =>
+    lower(deck.slides[0], deck, ctx)
+      .primitives.filter((p) => p.kind === "text")
+      .map((p) => (p.kind === "text" ? p.runs.map((r) => r.text).join("") : ""));
+
+  it("ol は番号マーカと item を描く", () => {
+    const texts = runTexts(deckWith([list("ol")]));
+    expect(texts).toContain("1.");
+    expect(texts).toContain("2.");
+    expect(texts).toContain("A");
+    expect(texts).toContain("B");
+  });
+
+  it("ol の start で開始番号を変えられる", () => {
+    const texts = runTexts(deckWith([list("ol", 3)]));
+    expect(texts).toContain("3.");
+    expect(texts).toContain("4.");
+  });
+
+  it("ul は箇条書きマーカ (•) を描く", () => {
+    const texts = runTexts(deckWith([list("ul")]));
+    expect(texts.filter((t) => t === "•")).toHaveLength(2);
+  });
+
+  it("マーカは item の左 (gutter 内) に置かれる", () => {
+    const lir = lower(deckWith([list("ol")]).slides[0], deckWith([list("ol")]), ctx);
+    const texts = lir.primitives.filter((p) => p.kind === "text");
+    const marker = texts.find((p) => p.kind === "text" && p.runs[0].text === "1.");
+    const itemA = texts.find((p) => p.kind === "text" && p.runs[0].text === "A");
+    if (marker?.kind === "text" && itemA?.kind === "text") {
+      expect(marker.runs[0].x).toBeLessThan(itemA.runs[0].x);
+    }
   });
 });

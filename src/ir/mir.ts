@@ -66,13 +66,29 @@ export interface MirGroup {
   padding: Dimension;
 }
 
+export interface MirList {
+  type: "ul" | "ol";
+  position?: Position;
+  flex?: number;
+  items: MirElement[];
+  gap: Dimension;
+  align: CrossAlign;
+  padding: Dimension;
+  // マーカ (• / 番号) の描画スタイル。
+  font: string;
+  size: number;
+  color: string;
+  start: number;
+}
+
 export type MirElement =
   | MirText
   | MirImage
   | MirRect
   | MirLine
   | MirPath
-  | MirGroup;
+  | MirGroup
+  | MirList;
 
 export interface MirFont {
   family: string;

@@ -35,6 +35,7 @@ function collectImageSrcs(deck: MirDeck): Set<string> {
     for (const el of els) {
       if (el.type === "image") srcs.add(el.src);
       else if (el.type === "group") walk(el.children);
+      else if (el.type === "ul" || el.type === "ol") walk(el.items);
     }
   };
   for (const s of deck.slides) walk(s.elements);

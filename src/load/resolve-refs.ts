@@ -16,6 +16,7 @@ function resolveElementPaths(elements: HirElement[], fromFile: string): void {
   for (const el of elements) {
     if (el.type === "image") el.src = resolveRef(el.src, fromFile);
     else if (el.type === "group") resolveElementPaths(el.children, fromFile);
+    else if (el.type === "ul" || el.type === "ol") resolveElementPaths(el.items, fromFile);
   }
 }
 

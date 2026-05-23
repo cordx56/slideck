@@ -27,16 +27,16 @@ slides:
     vars:
       title: "目次"
     elements:
-      - type: group
+      - type: ol
         position: { left: 12%, right: 12%, top: 40%, bottom: 14% }
-        layout: column
         gap: 3%
-        align: stretch
-        children:
-          - { type: text, text: "1. 背景と動機", size: 56 }
-          - { type: text, text: "2. 三層 IR アーキテクチャ", size: 56 }
-          - { type: text, text: "3. レンダラの一貫性", size: 56 }
-          - { type: text, text: "4. これからの拡張", size: 56 }
+        size: 56
+        color: ${accent}
+        items:
+          - { type: text, text: "背景と動機", size: 56 }
+          - { type: text, text: "三層 IR アーキテクチャ", size: 56 }
+          - { type: text, text: "レンダラの一貫性", size: 56 }
+          - { type: text, text: "これからの拡張", size: 56 }
 
   - id: section-1
     use: section

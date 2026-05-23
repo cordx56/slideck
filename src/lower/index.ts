@@ -157,7 +157,73 @@ function placeElement(
       }
       break;
     }
+    case "ul":
+    case "ol":
+      placeList(el, box, ctx, out);
+      break;
   }
+}
+
+// ul/ol を縦並びに展開し、各 item の左に gutter でマーカ (• / 番号) を描く。
+function placeList(
+  el: Extract<MirElement, { type: "ul" | "ol" }>,
+  box: Box,
+  ctx: LowerCtx,
+  out: Primitive[],
+): void {
+  const inner = applyPadding(box, el.padding);
+  const gutter = el.size * (el.type === "ol" ? 1.8 : 1.0);
+  const markerGap = el.size * 0.4;
+  const contentBox: Box = {
+    x: inner.x + gutter + markerGap,
+    y: inner.y,
+    w: Math.max(0, inner.w - gutter - markerGap),
+    h: inner.h,
+  };
+
+  // items を column auto-layout で配置する。
+  const placed = computeAutoLayout(
+    {
+      type: "group",
+      children: el.items,
+      layout: "column",
+      gap: el.gap,
+      align: el.align,
+      justify: "start",
+      padding: { kind: "percent", value: 0 },
+    },
+    contentBox,
+    ctx,
+  );
+
+  const markerAlign = el.type === "ol" ? "right" : "left";
+  placed.forEach((p, i) => {
+    const marker = el.type === "ul" ? "•" : `${el.start + i}.`;
+    // マーカのベースラインを item の 1 行目に合わせる。
+    const itemAscent =
+      p.el.type === "text"
+        ? p.el.size * ctx.metrics.ascentRatio(p.el.font)
+        : el.size * ctx.metrics.ascentRatio(el.font);
+    const shaped = shapeText(marker, el.font, el.size, gutter, markerAlign, 1.2, 0, ctx.metrics);
+    const line = shaped.lines[0];
+    out.push({
+      kind: "text",
+      x: inner.x,
+      y: p.box.y,
+      align: markerAlign,
+      runs: [
+        {
+          text: marker,
+          font: { family: el.font },
+          size: el.size,
+          color: el.color,
+          x: inner.x + line.x,
+          y: p.box.y + itemAscent,
+        },
+      ],
+    });
+    placeAtBox(p.el, p.box, ctx, out);
+  });
 }
 
 // auto-layout が割り当てた box に子を配置する (子自身の position は無視)。
