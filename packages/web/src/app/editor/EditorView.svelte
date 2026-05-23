@@ -90,9 +90,13 @@
   style="grid-template-columns: {leftWidth}px 5px 1fr 5px {rightWidth}px"
 >
   <header class="topbar">
-    <button class="home" title="プロジェクト一覧" onclick={() => (location.hash = "")}>
-      slideck
-    </button>
+    {#if store.serverMode}
+      <span class="home" title="ディスク連携モード">slideck</span>
+    {:else}
+      <button class="home" title="プロジェクト一覧" onclick={() => (location.hash = "")}>
+        slideck
+      </button>
+    {/if}
     <span class="proj">{store.currentProject}</span>
     <span class="file">{store.openPath}{store.dirty ? " ●" : ""}</span>
     {#if store.errors.length > 0}

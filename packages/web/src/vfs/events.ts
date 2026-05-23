@@ -1,14 +1,2 @@
-import type { VFSEvent, VFSListener } from "@slideck/core";
-
-export class EventBus {
-  private listeners = new Set<VFSListener>();
-
-  subscribe(listener: VFSListener): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  }
-
-  emit(event: VFSEvent): void {
-    for (const l of this.listeners) l(event);
-  }
-}
+// EventBus は core が提供する (web/cli 共通)。互換のため再エクスポート。
+export { EventBus } from "@slideck/core";

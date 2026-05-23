@@ -1,7 +1,7 @@
 import type { AssetResolver } from "@slideck/core";
 import { OverrideResolver } from "@slideck/core";
 import { VfsResolver } from "../load/vfs-resolver";
-import { openVfs, type VFS, type FileEntry } from "../vfs";
+import { openVfs, openHttpVfs, probeServer, type VFS, type FileEntry } from "../vfs";
 import { extname, dirname, basename, join, normalize, isDescendant } from "@slideck/core";
 import { uniqueName, type UploadEntry } from "./editor/file-ops";
 import {
@@ -33,6 +33,7 @@ const ENTRY = "deck.yaml"; // VFS では /deck.yaml
 // 画面遷移は URL ハッシュで決める (App 側)。store は VFS 初期化状態のみ持つ。
 let booting = $state(true); // 初期化完了まで true
 let ready = $state(false); // プロジェクトがロード済み (エディタ表示可能)
+let serverMode = $state(false); // slideck serve 配下 (ディスク連携) か
 let currentProject = $state<string | null>(null);
 let projectsVersion = $state(0); // レジストリ変更時に増やして projects を再評価
 let openPath = $state("/deck.yaml");
@@ -235,9 +236,23 @@ export const store = {
     return vfs;
   },
 
-  // 起動: 最後に開いたプロジェクトがあれば復元しておく (#editor のリロード対応)。
-  // どの画面を出すかは URL ハッシュで決める (App)。
+  get serverMode() {
+    return serverMode;
+  },
+
+  // 起動: slideck serve 配下ならディスク連携モードで即エディタを開く。
+  // そうでなければ、最後に開いたプロジェクトがあれば復元しておく
+  // (#editor のリロード対応)。どの画面を出すかは URL ハッシュで決める (App)。
   async boot() {
+    const info = await probeServer();
+    if (info) {
+      serverMode = true;
+      vfs = openHttpVfs();
+      currentProject = info.name;
+      await loadCurrentProject();
+      booting = false;
+      return;
+    }
     void navigator.storage?.persist?.();
     const last = getLastProject();
     if (last && projectExists(last)) {

@@ -20,8 +20,14 @@
   });
 
   // #editor / #present はプロジェクトのロードが前提。未ロードならトップへ戻す。
+  // サーバ連携モードは常にエディタが開ける (トップ画面は無い)。
   $effect(() => {
-    if (!store.booting && (route === "editor" || route === "present") && !store.ready) {
+    if (
+      !store.booting &&
+      !store.serverMode &&
+      (route === "editor" || route === "present") &&
+      !store.ready
+    ) {
       location.hash = "";
     }
   });
@@ -29,10 +35,10 @@
 
 {#if store.booting}
   <div class="boot">読み込み中...</div>
-{:else if route === "editor" && store.ready}
-  <EditorView />
 {:else if route === "present" && store.ready}
   <PresentView />
+{:else if store.ready && (route === "editor" || store.serverMode)}
+  <EditorView />
 {:else}
   <WelcomeView />
 {/if}

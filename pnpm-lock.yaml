@@ -13,14 +13,16 @@ importers:
         version: 5.9.3
 
   packages/cli:
-    dependencies:
+    devDependencies:
       '@slideck/core':
         specifier: workspace:*
         version: link:../core
-    devDependencies:
       '@types/node':
         specifier: ^22.19.19
         version: 22.19.19
+      esbuild:
+        specifier: ^0.25.12
+        version: 0.25.12
       tsx:
         specifier: ^4.19.2
         version: 4.22.3

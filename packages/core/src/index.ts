@@ -29,6 +29,7 @@ export * from "./render/svg";
 export * from "./lib/color";
 export * from "./lib/error";
 export * from "./lib/debounce";
+export * from "./lib/event-bus";
 export * from "./lib/base64";
 export * from "./lib/mime";
 export * from "./lib/inline-math";
@@ -40,3 +41,4 @@ export * from "./edit/ast";
 // パス / VFS 抽象
 export * from "./path";
 export type * from "./vfs";
+export * from "./vfs-http";

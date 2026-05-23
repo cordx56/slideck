@@ -1,47 +1,70 @@
-#!/usr/bin/env tsx
+import { fileURLToPath } from "node:url";
+import { dirname, join, resolve, basename } from "node:path";
+import { existsSync } from "node:fs";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { resolve, dirname, basename } from "node:path";
 import { compileDeck, renderSlideSvg } from "@slideck/core";
 import { renderPdf } from "@slideck/core/pdf";
 import { NodeAssetResolver } from "./node-resolver";
+import { serve, type ServeOptions } from "./server";
 
-interface Options {
-  deck: string;
-  out?: string;
-  svgDir?: string;
-}
-
-function parseArgs(argv: string[]): Options | null {
-  const opts: Partial<Options> = {};
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === "-o" || a === "--out") opts.out = argv[++i];
-    else if (a === "--svg") opts.svgDir = argv[++i];
-    else if (a === "-h" || a === "--help") return null;
-    else if (!a.startsWith("-")) opts.deck = a;
-  }
-  return opts.deck ? (opts as Options) : null;
-}
-
-const USAGE = `slideck — YAML スライドを PDF/SVG にビルド
+const USAGE = `slideck — YAML スライドの編集サーバ / PDF・SVG ビルド
 
 使い方:
-  slideck <deck.yaml> [-o out.pdf] [--svg <dir>]
+  slideck serve [dir]                 ディレクトリを編集サーバで開く (既定: カレント)
+  slideck export <deck.yaml> [opts]   PDF/SVG にビルド
 
-オプション:
+serve オプション:
+  -p, --port <n>     待ち受けポート (既定: 4321、埋まっていれば繰り上げ)
+  --host <h>         待ち受けホスト (既定: localhost)
+  --no-open          ブラウザを自動で開かない
+
+export オプション:
   -o, --out <file>   出力 PDF パス (既定: <deck>.pdf)
   --svg <dir>        各スライドを SVG でも出力するディレクトリ
+
   -h, --help         このヘルプ
 `;
 
-async function main(): Promise<void> {
-  const opts = parseArgs(process.argv.slice(2));
-  if (!opts) {
+// web のビルド成果物の場所。公開パッケージでは dist/web、リポジトリ内 dev では
+// packages/web/dist を見る。
+function webDir(): string {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const candidates = [join(here, "web"), join(here, "..", "..", "web", "dist")];
+  for (const c of candidates) if (existsSync(join(c, "index.html"))) return c;
+  throw new Error(
+    "web のビルド成果物が見つかりません。`pnpm --filter @slideck/web build` を実行してください。",
+  );
+}
+
+async function cmdServe(args: string[]): Promise<void> {
+  let dir = ".";
+  const opts: ServeOptions = {};
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === "-p" || a === "--port") opts.port = Number(args[++i]);
+    else if (a === "--host") opts.host = args[++i];
+    else if (a === "--no-open") opts.open = false;
+    else if (!a.startsWith("-")) dir = a;
+  }
+  await serve(dir, webDir(), opts);
+}
+
+async function cmdExport(args: string[]): Promise<void> {
+  let deck: string | undefined;
+  let out: string | undefined;
+  let svgDir: string | undefined;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === "-o" || a === "--out") out = args[++i];
+    else if (a === "--svg") svgDir = args[++i];
+    else if (!a.startsWith("-")) deck = a;
+  }
+  if (!deck) {
     process.stdout.write(USAGE);
-    process.exit(process.argv.length <= 2 ? 1 : 0);
+    process.exit(1);
   }
 
-  const deckPath = resolve(opts.deck);
+  const deckPath = resolve(deck);
   const root = dirname(deckPath);
   const entry = basename(deckPath);
 
@@ -51,31 +74,47 @@ async function main(): Promise<void> {
     process.exit(1);
   });
 
-  const { compiled, errors } = await compileDeck(new NodeAssetResolver(root), {
-    entry,
-  });
+  const { compiled, errors } = await compileDeck(new NodeAssetResolver(root), { entry });
   for (const e of errors) console.error(`! ${e.message}`);
   if (!compiled) {
     console.error("コンパイルに失敗しました。");
     process.exit(1);
   }
 
-  const out = opts.out ?? deckPath.replace(/\.[^.]+$/, "") + ".pdf";
+  const outPath = out ?? deckPath.replace(/\.[^.]+$/, "") + ".pdf";
   const { bytes, errors: pdfErrors } = await renderPdf(compiled);
   for (const e of pdfErrors) console.error(`! ${e.message}`);
-  await writeFile(out, bytes);
+  await writeFile(outPath, bytes);
 
   let svgNote = "";
-  if (opts.svgDir) {
-    await mkdir(opts.svgDir, { recursive: true });
+  if (svgDir) {
+    await mkdir(svgDir, { recursive: true });
     compiled.deck.slides.forEach((slide, i) => {
       const svg = renderSlideSvg(compiled, i) ?? "";
-      void writeFile(resolve(opts.svgDir!, `${String(i + 1).padStart(2, "0")}-${slide.id}.svg`), svg);
+      void writeFile(resolve(svgDir!, `${String(i + 1).padStart(2, "0")}-${slide.id}.svg`), svg);
     });
-    svgNote = `, SVG -> ${opts.svgDir}/`;
+    svgNote = `, SVG -> ${svgDir}/`;
   }
 
-  console.log(`wrote ${out} (${compiled.deck.slides.length} slides)${svgNote}`);
+  console.log(`wrote ${outPath} (${compiled.deck.slides.length} slides)${svgNote}`);
+}
+
+async function main(): Promise<void> {
+  const argv = process.argv.slice(2);
+  const [cmd, ...rest] = argv;
+
+  if (cmd === "serve") return cmdServe(rest);
+  if (cmd === "export") return cmdExport(rest);
+  if (cmd === "-h" || cmd === "--help" || cmd === undefined) {
+    process.stdout.write(USAGE);
+    process.exit(cmd === undefined ? 1 : 0);
+  }
+  // 後方互換: 第一引数が .yaml ならビルド扱い。
+  if (/\.ya?ml$/i.test(cmd)) return cmdExport(argv);
+
+  console.error(`不明なコマンド: ${cmd}`);
+  process.stdout.write(USAGE);
+  process.exit(1);
 }
 
 void main();

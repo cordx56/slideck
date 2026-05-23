@@ -22,7 +22,7 @@ YAML を宣言的に書いて、ブラウザ上でスライドを作成・編集
 packages/
   core/   @slideck/core — ブラウザ非依存のパイプライン (ライブラリ)
   web/    @slideck/web  — Svelte エディタ/プレゼン (ブラウザ)
-  cli/    @slideck/cli  — Node CLI (YAML -> PDF/SVG)
+  cli/    @slideck/cli  — Node CLI (編集サーバ / YAML -> PDF/SVG)
 ```
 
 - **core**: schema(zod) / ir(HIR・MIR・LIR) / load(parse・base解決・prepare) /
@@ -30,7 +30,10 @@ packages/
   と `VFS` を抽象として持ち、具体実装 (IndexedDB 等) には依存しない。
   PDF レンダラは重いので `@slideck/core/pdf` に分離。
 - **web**: IndexedDB ベースの VFS、File ツリー UI、CodeMirror、KaTeX プレビュー等。
-- **cli**: ディスクから読む `NodeAssetResolver` + `core` でヘッドレスに PDF/SVG 生成。
+  サーバ連携時は IndexedDB の代わりに HTTP 経由の VFS (`HttpVfs`) を使う。
+- **cli**: ディスク上のプロジェクトを実体とする `DiskVfs`。同梱した web を配信し、
+  HTTP VFS API + SSE でブラウザのエディタとディスクを双方向に繋ぐ編集サーバ
+  (`serve`) と、`core` でヘッドレスに PDF/SVG を生成するビルド (`export`)。
 
 ## 開発
 
@@ -39,17 +42,46 @@ pnpm install
 pnpm dev          # web 開発サーバ (= pnpm --filter @slideck/web dev)
 pnpm test         # 全パッケージのテスト (vitest)
 pnpm check        # 全パッケージの型チェック
-pnpm build        # web の本番ビルド
+pnpm build        # web + cli の本番ビルド (cli は web を同梱)
+pnpm build:web    # web のみ (静的サイト配信用)
 ```
 
 サンプルは `packages/web/public/examples/basic/`。web 起動時に選択して開く。
 
-### CLI
+## CLI (`@slideck/cli`)
+
+グローバルインストールして使う:
 
 ```bash
-# YAML プロジェクトを PDF (と任意で SVG) に変換
-pnpm --filter @slideck/cli start <deck.yaml> -o out.pdf --svg ./svg-out
+npm install -g @slideck/cli
 ```
+
+```bash
+# ディスク上のプロジェクトを編集サーバで開く (ブラウザが自動で開く)
+slideck serve ./my-deck          # 省略時はカレントディレクトリ
+slideck serve ./my-deck --port 4321 --no-open
+
+# YAML プロジェクトを PDF (と任意で SVG) に変換
+slideck export ./my-deck/deck.yaml -o out.pdf --svg ./svg-out
+```
+
+`serve` は同梱した web エディタを配信し、ブラウザ上の編集がそのままディスクへ
+保存される (HTTP VFS API + SSE)。エディタ外でファイルを編集してもブラウザへ
+反映される。`.slideck/` にツリー展開状態などの内部メタを保存する。
+
+リポジトリ内では `pnpm cli` (= `pnpm --filter @slideck/cli start`) で実行できる。
+ただし pnpm はスクリプトを `packages/cli` で実行するため、相対パスはそこ起点になる
+(絶対パスを渡すか、対象ディレクトリに `cd` してから実行するのが確実):
+
+```bash
+pnpm cli serve "$PWD/packages/web/public/examples/basic"
+```
+
+### 公開 (npm)
+
+`@slideck/cli` は単一ファイル (cli + core を esbuild でバンドル) と同梱 web を
+`dist/` に持つ。`prepublishOnly` でビルドされるため、`packages/cli` で
+`npm publish` するだけでよい (`publishConfig.access: public`)。
 
 ## デプロイ (web)
 
