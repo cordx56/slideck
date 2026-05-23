@@ -14,34 +14,39 @@ export function normalizeUse(use: string | string[] | undefined): string[] {
 }
 
 // Determine the ordered bases applied to a slide.
-// Stack the use group (in given order) after the always:true group (in declaration order).
+// Bases are applied in their declaration order (in deck.bases); a base is included
+// when it is always:true or selected via use. use is only a switch, so it never
+// reorders the bases (a use'd base keeps its declared position).
 export function resolveAppliedBases(
   loaded: LoadedDeck,
   slide: SlideHir,
   errors: PipelineError[],
 ): AppliedBase[] {
-  const alwaysIds = loaded.deck.bases.filter((b) => b.always).map((b) => b.id);
   const useIds = normalizeUse(slide.use);
 
   // Double application via always and use is allowed but warned.
-  for (const id of useIds) {
-    if (alwaysIds.includes(id)) {
+  for (const b of loaded.deck.bases) {
+    if (b.always && useIds.includes(b.id)) {
       errors.push(
         new PipelineError(
-          `base "${id}" is applied twice via always and use (slide "${slide.id ?? "(id unspecified)"}")`,
+          `base "${b.id}" is applied twice via always and use (slide "${slide.id ?? "(id unspecified)"}")`,
         ),
       );
     }
   }
 
-  const applied: AppliedBase[] = [];
-  for (const id of [...alwaysIds, ...useIds]) {
-    const base = loaded.basesById.get(id);
-    if (!base) {
+  // Error on use ids that do not refer to a declared base.
+  for (const id of useIds) {
+    if (!loaded.basesById.has(id)) {
       errors.push(new PipelineError(`unknown base id: "${id}"`));
-      continue;
     }
-    applied.push({ id, base });
+  }
+
+  const applied: AppliedBase[] = [];
+  for (const b of loaded.deck.bases) {
+    if (!(b.always || useIds.includes(b.id))) continue;
+    const base = loaded.basesById.get(b.id);
+    if (base) applied.push({ id: b.id, base });
   }
   return applied;
 }

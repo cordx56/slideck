@@ -119,11 +119,9 @@ describe("base composition: defaults deep merge", () => {
 });
 
 describe("base composition: z-order", () => {
-  it("stacks in order always -> use -> slide.elements", () => {
-    const base = (t: string): BaseHir => ({
-      slide: slideSize,
-      layout: [{ type: "text", text: t }],
-    });
+  const base = (t: string): BaseHir => ({ slide: slideSize, layout: [{ type: "text", text: t }] });
+
+  it("stacks in declaration order, then slide.elements", () => {
     const { deck } = normalize(
       loaded(
         [
@@ -136,8 +134,22 @@ describe("base composition: z-order", () => {
     expect(texts(deck)).toEqual(["footer", "std", "own"]);
   });
 
-  it("a use: array stacks in the given order", () => {
-    const base = (t: string): BaseHir => ({ slide: slideSize, layout: [{ type: "text", text: t }] });
+  it("a use'd base keeps its declared position (use is a switch, not a reorder)", () => {
+    // standard is declared before the always:true footer, so it stays first even
+    // though it is applied via use.
+    const { deck } = normalize(
+      loaded(
+        [
+          { id: "standard", base: base("standard") },
+          { id: "footer", always: true, base: base("footer") },
+        ],
+        [{ id: "s", use: "standard" }],
+      ),
+    );
+    expect(texts(deck)).toEqual(["standard", "footer"]);
+  });
+
+  it("use order does not affect layering (declaration order wins)", () => {
     const { deck } = normalize(
       loaded(
         [
@@ -147,7 +159,7 @@ describe("base composition: z-order", () => {
         [{ id: "s", use: ["b2", "b1"] }],
       ),
     );
-    expect(texts(deck)).toEqual(["2", "1"]);
+    expect(texts(deck)).toEqual(["1", "2"]);
   });
 });
 
