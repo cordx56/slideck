@@ -119,7 +119,6 @@
       Export ZIP
     </button>
 
-    <span class="nav">{store.currentSlide + 1} / {store.slideCount}</span>
     <button onclick={present}>Present</button>
     <button class="pdf" onclick={exportPdf} disabled={exporting}>
       {#if exporting}<Spinner />{/if}
@@ -192,12 +191,6 @@
   }
   .spacer {
     flex: 1;
-  }
-  .nav {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
   }
   .err {
     color: var(--error);
