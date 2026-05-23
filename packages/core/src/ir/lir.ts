@@ -1,6 +1,7 @@
 // LIR: レンダリングプリミティブの平坦リスト。
 // グループ展開済み、絶対座標 (px, スライド左上原点)、テキストはシェイプ済み。
-import type { Align, RichStyle } from "./hir";
+// inline markdown/数式は lower で text/line/path に展開済み (専用 primitive は持たない)。
+import type { Align } from "./hir";
 
 export interface FontRef {
   family: string;
@@ -45,23 +46,6 @@ export type Primitive =
       rx?: number;
     }
   | { kind: "path"; d: string; fill?: string; stroke?: Stroke }
-  | {
-      // インライン数式 ($...$) を含むテキスト。SVG は KaTeX を foreignObject で
-      // 描画、PDF は runs (素テキスト) を描画する。
-      kind: "richtext";
-      x: number;
-      y: number;
-      w: number;
-      h: number;
-      raw: string; // $...$ を含む元テキスト
-      runs: TextRun[]; // 素テキストをシェイプ済み (PDF/フォールバック用)
-      align: Align;
-      font: FontRef;
-      size: number;
-      color: string;
-      lineHeight: number;
-      rich: RichStyle; // リンク/コードのスタイル
-    }
   | {
       kind: "line";
       x1: number;

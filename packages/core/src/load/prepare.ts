@@ -6,6 +6,7 @@ import { FontkitMetrics, createFkFont } from "../lower/fontkit-metrics";
 import type { LoadedImage, LoadedFont, LowerCtx } from "../lower/context";
 import { isTtc, extractFontFromTtc } from "./ttc";
 import { mimeFromPath } from "../lib/mime";
+import { imageSize } from "../lib/image-size";
 import { PipelineError } from "../lib/error";
 
 // lower 用リソース一式。fonts は PDF 埋め込み/プレビュー登録にも使う。
@@ -26,21 +27,6 @@ function collectImageSrcs(deck: MirDeck): Set<string> {
   };
   for (const s of deck.slides) walk(s.elements);
   return srcs;
-}
-
-// 画像 Blob から自然サイズを得る (ブラウザ)。Node では 0 を返す。
-async function decodeSize(
-  data: Uint8Array,
-  mime: string,
-): Promise<{ width: number; height: number }> {
-  if (typeof createImageBitmap !== "function") {
-    return { width: 0, height: 0 };
-  }
-  const blob = new Blob([data as BlobPart], { type: mime });
-  const bmp = await createImageBitmap(blob);
-  const size = { width: bmp.width, height: bmp.height };
-  bmp.close();
-  return size;
 }
 
 async function loadFonts(
@@ -92,7 +78,7 @@ export async function prepare(
     try {
       const data = await resolver.readBytes(src);
       const mime = mimeFromPath(src);
-      const { width, height } = await decodeSize(data, mime);
+      const { width, height } = imageSize(data);
       images.set(src, { data, mime, width, height });
     } catch (e) {
       errors.push(new PipelineError(`画像読込失敗: ${src} (${String(e)})`));

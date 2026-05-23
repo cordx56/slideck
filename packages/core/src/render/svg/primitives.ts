@@ -1,6 +1,5 @@
 import type { Primitive, Stroke } from "../../ir/lir";
 import { dataUri } from "../../lib/base64";
-import { renderRichHtml } from "../../lib/richtext";
 
 export function escapeXml(s: string): string {
   return s
@@ -63,19 +62,5 @@ export function renderPrimitive(p: Primitive): string {
       return `<path d="${escapeXml(p.d)}" fill="${
         p.fill ? escapeXml(p.fill) : "none"
       }"${strokeAttrs(p.stroke)}/>`;
-    case "richtext": {
-      // インライン Markdown + 数式入りテキストを foreignObject 内の HTML で描画する。
-      // 数式表示には katex の CSS/フォントがページに読み込まれている必要がある。
-      const inner = renderRichHtml(p.raw, p.rich);
-      const style =
-        `font-family:${escapeXml(fontFamilyWithFallback(p.font.family))};` +
-        `font-size:${num(p.size)}px;color:${escapeXml(p.color)};` +
-        `text-align:${p.align};line-height:${p.lineHeight}`;
-      return (
-        `<foreignObject x="${num(p.x)}" y="${num(p.y)}" width="${num(p.w)}" height="${num(p.h)}">` +
-        `<div xmlns="http://www.w3.org/1999/xhtml" style="${style}">${inner}</div>` +
-        `</foreignObject>`
-      );
-    }
   }
 }

@@ -32,8 +32,10 @@ export * from "./lib/debounce";
 export * from "./lib/event-bus";
 export * from "./lib/base64";
 export * from "./lib/mime";
+export * from "./lib/image-size";
 export * from "./lib/inline-math";
 export * from "./lib/richtext";
+export * from "./lib/math";
 
 // YAML AST 編集
 export * from "./edit/ast";

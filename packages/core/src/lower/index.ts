@@ -4,7 +4,10 @@ import { type Box, resolveAxis, resolveBox, toPx } from "./position";
 import { applyPadding } from "./groups";
 import { computeAutoLayout } from "./auto-layout";
 import { shapeText } from "./text-shaping";
-import { hasRichMarkup, richToPlain } from "../lib/richtext";
+import { shapeRich, type RichLayout, type RichRun } from "./rich-shaping";
+import { hasRichMarkup } from "../lib/richtext";
+import { translateMathPath } from "../lib/math";
+import type { RichStyle } from "../ir/hir";
 import type { LowerCtx } from "./context";
 
 export type { LowerCtx } from "./context";
@@ -49,22 +52,32 @@ function lowerElement(
   placeElement(el, box, ctx, out);
 }
 
+// text 要素のリンク/コードスタイル。normalize 済みなら el.rich を使う。
+function richStyleOf(el: MirText): RichStyle {
+  return (
+    el.rich ?? {
+      linkColor: el.color,
+      linkUnderline: true,
+      monoFamily: "monospace",
+      monoColor: el.color,
+    }
+  );
+}
+
 // テキストの位置解決: 先に幅を確定し、シェイプして高さを得てから縦を解決。
 function textBox(el: MirText, parent: Box, ctx: LowerCtx): Box {
   const p = el.position ?? {};
   const hx = resolveAxis(p.left, p.right, p.width, parent.x, parent.w);
-  // 高さはマークアップを外した素テキストで概算する。
-  const shaped = shapeText(
-    richToPlain(el.text),
-    el.font,
-    el.size,
-    hx.size,
-    el.align,
-    el.lineHeight,
-    el.letterSpacing,
-    ctx.metrics,
-  );
-  const vy = resolveAxis(p.top, p.bottom, p.height, parent.y, parent.h, shaped.height);
+  const height = hasRichMarkup(el.text)
+    ? shapeRich(
+        el.text, el.font, el.size, hx.size, el.align,
+        el.lineHeight, el.letterSpacing, ctx.metrics, richStyleOf(el), el.color,
+      ).height
+    : shapeText(
+        el.text, el.font, el.size, hx.size, el.align,
+        el.lineHeight, el.letterSpacing, ctx.metrics,
+      ).height;
+  const vy = resolveAxis(p.top, p.bottom, p.height, parent.y, parent.h, height);
   return { x: hx.pos, y: vy.pos, w: hx.size, h: vy.size };
 }
 
@@ -77,49 +90,27 @@ function placeElement(
 ): void {
   switch (el.type) {
     case "text": {
-      const rich = hasRichMarkup(el.text);
-      const plain = rich ? richToPlain(el.text) : el.text;
-      const shaped = shapeText(
-        plain,
-        el.font,
-        el.size,
-        box.w,
-        el.align,
-        el.lineHeight,
-        el.letterSpacing,
-        ctx.metrics,
-      );
-      const runs: TextRun[] = shaped.lines.map((line) => ({
-        text: line.text,
-        font: { family: el.font },
-        size: el.size,
-        color: el.color,
-        x: box.x + line.x,
-        y: box.y + line.baseline,
-      }));
-      if (rich) {
-        // 数式/Markdown を含む: SVG は HTML(KaTeX/md)、PDF は素テキスト (runs)。
-        out.push({
-          kind: "richtext",
-          x: box.x,
-          y: box.y,
-          w: box.w,
-          h: shaped.height,
-          raw: el.text,
-          runs,
-          align: el.align,
+      if (hasRichMarkup(el.text)) {
+        // inline markdown + 数式: ネイティブな text/line/path に展開する
+        // (foreignObject を使わず SVG/PDF/web すべてで一致させる)。
+        const layout = shapeRich(
+          el.text, el.font, el.size, box.w, el.align,
+          el.lineHeight, el.letterSpacing, ctx.metrics, richStyleOf(el), el.color,
+        );
+        emitRich(layout, box, el.color, out);
+      } else {
+        const shaped = shapeText(
+          el.text, el.font, el.size, box.w, el.align,
+          el.lineHeight, el.letterSpacing, ctx.metrics,
+        );
+        const runs: TextRun[] = shaped.lines.map((line) => ({
+          text: line.text,
           font: { family: el.font },
           size: el.size,
           color: el.color,
-          lineHeight: el.lineHeight,
-          rich: el.rich ?? {
-            linkColor: el.color,
-            linkUnderline: true,
-            monoFamily: "monospace",
-            monoColor: el.color,
-          },
-        });
-      } else {
+          x: box.x + line.x,
+          y: box.y + line.baseline,
+        }));
         out.push({ kind: "text", x: box.x, y: box.y, runs, align: el.align });
       }
       break;
@@ -262,6 +253,47 @@ function placeAtBox(
   out: Primitive[],
 ): void {
   placeElement(el, box, ctx, out);
+}
+
+// shapeRich の結果を text(runs) + line(下線/打ち消し) + path(数式) に展開する。
+function emitRich(layout: RichLayout, box: Box, mathColor: string, out: Primitive[]): void {
+  const runs: TextRun[] = layout.runs.map((r) => ({
+    text: r.text,
+    font: r.font,
+    size: r.size,
+    color: r.color,
+    x: box.x + r.x,
+    y: box.y + r.baseline,
+  }));
+  if (runs.length) out.push({ kind: "text", x: box.x, y: box.y, runs, align: "left" });
+
+  for (const r of layout.runs) {
+    if (r.underline) out.push(decoLine(box, r, r.baseline + r.size * 0.12));
+    if (r.strike) out.push(decoLine(box, r, r.baseline - r.size * 0.28));
+  }
+
+  for (const m of layout.maths) {
+    for (const g of m.glyphs) {
+      out.push({
+        kind: "path",
+        d: translateMathPath(g.d, box.x + m.x, box.y + m.baseline),
+        fill: mathColor,
+      });
+    }
+  }
+}
+
+// run の下線/打ち消しを 1 本の line プリミティブにする。
+function decoLine(box: Box, r: RichRun, yRel: number): Primitive {
+  const y = box.y + yRel;
+  return {
+    kind: "line",
+    x1: box.x + r.x,
+    y1: y,
+    x2: box.x + r.x + r.width,
+    y2: y,
+    stroke: { color: r.color, width: Math.max(1, r.size * 0.05) },
+  };
 }
 
 function makeStroke(color: string | undefined, width: number): Stroke | undefined {

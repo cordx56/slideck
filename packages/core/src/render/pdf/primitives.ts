@@ -44,9 +44,7 @@ export async function drawPrimitive(
 ): Promise<void> {
   const ph = page.getHeight();
   switch (prim.kind) {
-    // richtext (インライン数式入り) は PDF では素テキスト (runs) で描く。
-    case "text":
-    case "richtext": {
+    case "text": {
       for (const run of prim.runs) {
         const font = fonts.byFamily.get(run.font.family) ?? fonts.fallback;
         try {

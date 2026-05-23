@@ -1,13 +1,12 @@
 import MarkdownIt from "markdown-it";
-import katex from "katex";
-import type { RichStyle } from "../ir/hir";
 import { parseInlineMath, hasInlineMath } from "./inline-math";
 
-// インラインのみの Markdown (強調/太字/コード/打ち消し/リンク) + インライン数式。
-// ブロック要素 (見出し/リスト等) は使わない。html:false で生 HTML は無効化。
+// インライン Markdown (強調/太字/コード/打ち消し/リンク) + インライン数式を
+// スタイル付きセグメント列に分解する。HTML や foreignObject は使わず、
+// 下流の shapeRich がネイティブな text/line/path プリミティブに落とす。
 const md = new MarkdownIt({ html: false, linkify: false, breaks: false });
 
-// ペアになったマーカのみ検出して、通常テキストを誤って richtext 化しないようにする。
+// ペアになったマーカのみ検出して、通常テキストを誤って rich 化しないようにする。
 const MARKDOWN_RE =
   /`[^`]+`|~~[^~]+~~|\*\*[^*]+\*\*|\*[^*]+\*|__[^_]+__|_[^_]+_|\[[^\]]+\]\([^)]+\)/;
 
@@ -15,59 +14,95 @@ export function hasMarkdown(text: string): boolean {
   return MARKDOWN_RE.test(text);
 }
 
-// 数式または Markdown を含むか (含めば richtext として扱う)。
+// 数式または Markdown を含むか (含めば rich として扱う)。
 export function hasRichMarkup(text: string): boolean {
   return hasInlineMath(text) || hasMarkdown(text);
 }
 
-function renderMath(tex: string): string {
-  try {
-    return katex.renderToString(tex, {
-      displayMode: false,
-      throwOnError: false,
-      output: "html",
-    });
-  } catch {
-    return tex;
+interface TextSegment {
+  kind: "text";
+  text: string;
+  bold: boolean;
+  italic: boolean;
+  code: boolean;
+  strike: boolean;
+  link: boolean;
+}
+
+interface MathSegment {
+  kind: "math";
+  tex: string;
+}
+
+export type RichSegment = TextSegment | MathSegment;
+
+// テキストを「数式」と「スタイル付きテキスト」のセグメント列に分解する。
+// 改行は "\n" のテキストとして残す (shapeRich が段落区切りに使う)。
+export function parseRich(text: string): RichSegment[] {
+  const out: RichSegment[] = [];
+  for (const seg of parseInlineMath(text)) {
+    if (seg.math) {
+      out.push({ kind: "math", tex: seg.value });
+      continue;
+    }
+    const tokens = md.parseInline(seg.value, {})[0]?.children ?? [];
+    let bold = 0;
+    let italic = 0;
+    let code = 0;
+    let strike = 0;
+    let link = 0;
+    const push = (t: string, isCode = false): void => {
+      if (t === "") return;
+      out.push({
+        kind: "text",
+        text: t,
+        bold: bold > 0,
+        italic: italic > 0,
+        code: isCode || code > 0,
+        strike: strike > 0,
+        link: link > 0,
+      });
+    };
+    for (const tk of tokens) {
+      switch (tk.type) {
+        case "text":
+          push(tk.content);
+          break;
+        case "code_inline":
+          push(tk.content, true);
+          break;
+        case "softbreak":
+        case "hardbreak":
+          push("\n");
+          break;
+        case "strong_open":
+          bold++;
+          break;
+        case "strong_close":
+          bold--;
+          break;
+        case "em_open":
+          italic++;
+          break;
+        case "em_close":
+          italic--;
+          break;
+        case "s_open":
+          strike++;
+          break;
+        case "s_close":
+          strike--;
+          break;
+        case "link_open":
+          link++;
+          break;
+        case "link_close":
+          link--;
+          break;
+        default:
+          break;
+      }
+    }
   }
-}
-
-// 属性値に入れる前の素朴なサニタイズ ("/<> を除去)。
-function safe(v: string): string {
-  return v.replace(/["<>]/g, "");
-}
-
-// 数式以外の部分を inline Markdown -> HTML、数式部分を KaTeX にして連結する。
-// style を渡すとリンク (<a>) とコード (<code>) にテーマのスタイルを当てる。
-export function renderRichHtml(text: string, style?: RichStyle): string {
-  const html = parseInlineMath(text)
-    .map((seg) => (seg.math ? renderMath(seg.value) : md.renderInline(seg.value)))
-    .join("");
-  if (!style) return html;
-  const link = `color:${safe(style.linkColor)};text-decoration:${
-    style.linkUnderline ? "underline" : "none"
-  }`;
-  const mono = `font-family:'${safe(style.monoFamily)}',monospace;color:${safe(
-    style.monoColor,
-  )}`;
-  return html
-    .replace(/<a /g, `<a style="${link}" `)
-    .replace(/<code>/g, `<code style="${mono}">`);
-}
-
-function stripTags(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, "")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
-}
-
-// マークアップを外した素テキスト (PDF フォールバック・高さ/幅の概算用)。
-export function richToPlain(text: string): string {
-  return parseInlineMath(text)
-    .map((seg) => (seg.math ? seg.value : stripTags(md.renderInline(seg.value))))
-    .join("");
+  return out;
 }
