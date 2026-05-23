@@ -1,6 +1,6 @@
 packages:
   - "packages/*"
 
-# pnpm 11 reads build-approval settings here (no longer from package.json's "pnpm" field).
-onlyBuiltDependencies:
-  - esbuild
+# pnpm 11 build-script approval (replaces the package.json "pnpm" field).
+allowBuilds:
+  esbuild: true
