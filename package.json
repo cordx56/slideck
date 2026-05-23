@@ -10,12 +10,18 @@
     "build:cli": "pnpm --filter @slideck/cli build",
     "check": "pnpm -r check",
     "test": "pnpm -r test",
+    "fmt": "prettier --write \"packages/*/src/**/*.{ts,svelte,css}\"",
     "cli": "pnpm --filter @slideck/cli start"
   },
   "devDependencies": {
+    "prettier": "^3.8.3",
+    "prettier-plugin-svelte": "^4.0.1",
+    "svelte": "^5.55.9",
     "typescript": "^5.9.3"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }
