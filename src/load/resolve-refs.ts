@@ -40,7 +40,11 @@ function mergeBase(base: BaseHir, derived: BaseHir): BaseHir {
     colors: { ...base.colors, ...derived.colors },
     slide: derived.slide ?? base.slide,
     background: derived.background ?? base.background,
-    defaults: { text: { ...base.defaults?.text, ...derived.defaults?.text } },
+    defaults: {
+      text: { ...base.defaults?.text, ...derived.defaults?.text },
+      link: { ...base.defaults?.link, ...derived.defaults?.link },
+      mono: { ...base.defaults?.mono, ...derived.defaults?.mono },
+    },
     schema: { vars: { ...base.schema?.vars, ...derived.schema?.vars } },
     layout: derived.layout ?? base.layout,
   };

@@ -2,7 +2,7 @@
 // テーマ適用済み、変数展開済み、デフォルト適用済み、色は hex、フォントは family 名。
 // position は依然 Dimension (% / px / center)、グループ階層は保持。
 import type { Position, Point, Dimension } from "../schema/position";
-import type { Align, Fit, LayoutDir, CrossAlign, Justify } from "./hir";
+import type { Align, Fit, LayoutDir, CrossAlign, Justify, RichStyle } from "./hir";
 
 export interface MirText {
   type: "text";
@@ -15,6 +15,8 @@ export interface MirText {
   align: Align;
   lineHeight: number;
   letterSpacing: number;
+  // インライン Markdown のリンク/コード スタイル (richtext 用)。
+  rich?: RichStyle;
 }
 
 export interface MirImage {

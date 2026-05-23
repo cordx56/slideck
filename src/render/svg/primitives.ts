@@ -66,7 +66,7 @@ export function renderPrimitive(p: Primitive): string {
     case "richtext": {
       // インライン Markdown + 数式入りテキストを foreignObject 内の HTML で描画する。
       // 数式表示には katex の CSS/フォントがページに読み込まれている必要がある。
-      const inner = renderRichHtml(p.raw);
+      const inner = renderRichHtml(p.raw, p.rich);
       const style =
         `font-family:${escapeXml(fontFamilyWithFallback(p.font.family))};` +
         `font-size:${num(p.size)}px;color:${escapeXml(p.color)};` +

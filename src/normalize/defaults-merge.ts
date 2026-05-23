@@ -1,16 +1,21 @@
-import type { TextDefaults } from "../ir/hir";
+import type { TextDefaults, LinkDefaults, MonoDefaults } from "../ir/hir";
 import type { AppliedBase } from "./bases";
 
 export interface MergedDefaults {
   text: TextDefaults;
+  link: LinkDefaults;
+  mono: MonoDefaults;
 }
 
 // 適用 base の defaults を順に深いマージする (後勝ち)。
-// 現状は defaults.text のみ。将来 image 等を追加する場合もここで合成する。
 export function mergeDefaults(applied: AppliedBase[]): MergedDefaults {
   let text: TextDefaults = {};
+  let link: LinkDefaults = {};
+  let mono: MonoDefaults = {};
   for (const { base } of applied) {
     text = { ...text, ...base.defaults?.text };
+    link = { ...link, ...base.defaults?.link };
+    mono = { ...mono, ...base.defaults?.mono };
   }
-  return { text };
+  return { text, link, mono };
 }

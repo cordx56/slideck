@@ -112,6 +112,12 @@ function placeElement(
           size: el.size,
           color: el.color,
           lineHeight: el.lineHeight,
+          rich: el.rich ?? {
+            linkColor: el.color,
+            linkUnderline: true,
+            monoFamily: "monospace",
+            monoColor: el.color,
+          },
         });
       } else {
         out.push({ kind: "text", x: box.x, y: box.y, runs, align: el.align });

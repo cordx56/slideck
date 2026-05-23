@@ -33,6 +33,14 @@ const TextDefaultsSchema = z
   })
   .strict();
 
+const LinkDefaultsSchema = z
+  .object({ color: z.string().optional(), underline: z.boolean().optional() })
+  .strict();
+
+const MonoDefaultsSchema = z
+  .object({ family: z.string().optional(), color: z.string().optional() })
+  .strict();
+
 // base ファイル本体のスキーマ (旧 theme.yaml 構造)。id は deck.bases 側。
 export const BaseSchema: z.ZodType<BaseHir, z.ZodTypeDef, unknown> = z
   .object({
@@ -45,7 +53,14 @@ export const BaseSchema: z.ZodType<BaseHir, z.ZodTypeDef, unknown> = z
       .strict()
       .optional(),
     background: z.string().optional(),
-    defaults: z.object({ text: TextDefaultsSchema.optional() }).strict().optional(),
+    defaults: z
+      .object({
+        text: TextDefaultsSchema.optional(),
+        link: LinkDefaultsSchema.optional(),
+        mono: MonoDefaultsSchema.optional(),
+      })
+      .strict()
+      .optional(),
     schema: z
       .object({ vars: z.record(VarDeclSchema).optional() })
       .strict()

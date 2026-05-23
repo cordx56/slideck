@@ -1,6 +1,6 @@
 // LIR: レンダリングプリミティブの平坦リスト。
 // グループ展開済み、絶対座標 (px, スライド左上原点)、テキストはシェイプ済み。
-import type { Align } from "./hir";
+import type { Align, RichStyle } from "./hir";
 
 export interface FontRef {
   family: string;
@@ -60,6 +60,7 @@ export type Primitive =
       size: number;
       color: string;
       lineHeight: number;
+      rich: RichStyle; // リンク/コードのスタイル
     }
   | {
       kind: "line";

@@ -124,4 +124,17 @@ describe("inline Markdown", () => {
   it("生 HTML は無効化される (html:false)", () => {
     expect(renderRichHtml("a `x` <script>bad</script>")).not.toContain("<script>");
   });
+
+  it("RichStyle でリンク/コードにスタイルを当てる", () => {
+    const html = renderRichHtml("`c` [t](http://e.com)", {
+      linkColor: "#ff0000",
+      linkUnderline: false,
+      monoFamily: "Menlo",
+      monoColor: "#00ff00",
+    });
+    expect(html).toContain("color:#ff0000");
+    expect(html).toContain("text-decoration:none");
+    expect(html).toContain("font-family:'Menlo',monospace");
+    expect(html).toContain("color:#00ff00");
+  });
 });

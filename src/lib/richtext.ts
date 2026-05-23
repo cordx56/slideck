@@ -1,5 +1,6 @@
 import MarkdownIt from "markdown-it";
 import katex from "katex";
+import type { RichStyle } from "../ir/hir";
 import { parseInlineMath, hasInlineMath } from "./inline-math";
 
 // インラインのみの Markdown (強調/太字/コード/打ち消し/リンク) + インライン数式。
@@ -31,11 +32,27 @@ function renderMath(tex: string): string {
   }
 }
 
+// 属性値に入れる前の素朴なサニタイズ ("/<> を除去)。
+function safe(v: string): string {
+  return v.replace(/["<>]/g, "");
+}
+
 // 数式以外の部分を inline Markdown -> HTML、数式部分を KaTeX にして連結する。
-export function renderRichHtml(text: string): string {
-  return parseInlineMath(text)
+// style を渡すとリンク (<a>) とコード (<code>) にテーマのスタイルを当てる。
+export function renderRichHtml(text: string, style?: RichStyle): string {
+  const html = parseInlineMath(text)
     .map((seg) => (seg.math ? renderMath(seg.value) : md.renderInline(seg.value)))
     .join("");
+  if (!style) return html;
+  const link = `color:${safe(style.linkColor)};text-decoration:${
+    style.linkUnderline ? "underline" : "none"
+  }`;
+  const mono = `font-family:'${safe(style.monoFamily)}',monospace;color:${safe(
+    style.monoColor,
+  )}`;
+  return html
+    .replace(/<a /g, `<a style="${link}" `)
+    .replace(/<code>/g, `<code style="${mono}">`);
 }
 
 function stripTags(html: string): string {

@@ -1,5 +1,5 @@
 import type { LoadedDeck } from "../load/resolve-refs";
-import type { HirElement, TextDefaults } from "../ir/hir";
+import type { HirElement, TextDefaults, RichStyle } from "../ir/hir";
 import type {
   MirDeck,
   MirElement,
@@ -17,7 +17,7 @@ import {
   pickBackground,
 } from "./bases";
 import { mergeSchemas } from "./schema-merge";
-import { mergeDefaults } from "./defaults-merge";
+import { mergeDefaults, type MergedDefaults } from "./defaults-merge";
 import { buildSystemVars } from "./system-vars";
 import {
   DEFAULT_SLIDE,
@@ -37,6 +37,7 @@ interface ConvertCtx {
   vars: VarContext;
   fontKeyToFamily: Map<string, string>;
   textDefaults: ResolvedTextDefaults;
+  rich: RichStyle;
   errors: PipelineError[];
 }
 
@@ -77,10 +78,18 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
       vars,
       errors,
     );
+    const rich = resolveRichStyle(
+      mergedDefaults,
+      textDefaults,
+      fontKeyToFamily,
+      vars,
+      errors,
+    );
     const ctx: ConvertCtx = {
       vars,
       fontKeyToFamily,
       textDefaults,
+      rich,
       errors,
     };
 
@@ -149,6 +158,30 @@ function resolveColorLiteral(value: string): string {
   return normalizeHex(value) ?? value;
 }
 
+// defaults.link / defaults.mono からリンク・コードの描画スタイルを解決する。
+function resolveRichStyle(
+  d: MergedDefaults,
+  td: ResolvedTextDefaults,
+  fontKeyToFamily: Map<string, string>,
+  vars: VarContext,
+  errors: PipelineError[],
+): RichStyle {
+  const col = (s: string | undefined, fallback: string) =>
+    s ? resolveColorLiteral(expandString(s, vars, errors)) : fallback;
+  const monoFamily = d.mono.family
+    ? (() => {
+        const f = expandString(d.mono.family, vars, errors);
+        return fontKeyToFamily.get(f) ?? f;
+      })()
+    : "monospace";
+  return {
+    linkColor: col(d.link.color, td.color),
+    linkUnderline: d.link.underline ?? true,
+    monoFamily,
+    monoColor: col(d.mono.color, td.color),
+  };
+}
+
 function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
   const exp = (s: string) => expandString(s, ctx.vars, ctx.errors);
   const color = (s: string) => resolveColorLiteral(exp(s));
@@ -168,6 +201,7 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
         align: hir.align ?? td.align,
         lineHeight: hir.lineHeight ?? td.lineHeight,
         letterSpacing: hir.letterSpacing ?? td.letterSpacing,
+        rich: ctx.rich,
       };
     }
     case "image":

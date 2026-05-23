@@ -108,6 +108,27 @@ describe("normalize", () => {
     expect(el.color).toBe("#00ff00");
   });
 
+  it("defaults.link / defaults.mono が MirText.rich に解決される", () => {
+    const base: BaseHir = {
+      ...stdBase,
+      colors: { fg: "#ffffff", accent: "#7aa2f7", muted: "#999999" },
+      defaults: {
+        text: { family: "body", size: 30, color: "${fg}" },
+        link: { color: "${accent}", underline: false },
+        mono: { color: "${muted}" },
+      },
+      layout: [{ type: "text", text: "${title}" }],
+    };
+    const el = normalize(single(base, [{ id: "s", vars: { title: "x" } }]))
+      .deck!.slides[0].elements[0] as MirText;
+    expect(el.rich).toEqual({
+      linkColor: "#7aa2f7",
+      linkUnderline: false,
+      monoFamily: "monospace",
+      monoColor: "#999999",
+    });
+  });
+
   it("deck-level vars が slide.vars に上書きされる", () => {
     const base: BaseHir = { ...stdBase, layout: [{ type: "text", text: "${title}" }] };
     const { deck } = normalize(

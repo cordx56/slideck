@@ -856,6 +856,9 @@ Phase 1〜5 すべて実装済み。テスト 49 件 (vitest)、`npm run build` 
     HTML (md + KaTeX) を出す (プレビューに `katex` CSS/フォントが必要、main.ts で import)。
     PDF は HTML を組版できないため **素テキスト (runs) で代替描画**。
     `lib/richtext.ts` (renderRichHtml / richToPlain / hasRichMarkup)。ブロック要素は非対応。
+  - リンク/コードのスタイルは `defaults.link` ({color, underline}) と `defaults.mono`
+    ({family, color}) で指定。normalize で `RichStyle` に解決し richtext プリミティブへ。
+    SVG では `<a>`/`<code>` にインライン style として注入する。
 
 ### 既知の残課題（将来）
 

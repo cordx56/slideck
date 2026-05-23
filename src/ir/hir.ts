@@ -131,6 +131,24 @@ export interface TextDefaults {
   letterSpacing?: number;
 }
 
+// インライン Markdown のリンク/コード(mono)のスタイル。
+export interface LinkDefaults {
+  color?: string;
+  underline?: boolean;
+}
+export interface MonoDefaults {
+  family?: string;
+  color?: string;
+}
+
+// richtext (リンク/コード) 解決済みスタイル。
+export interface RichStyle {
+  linkColor: string;
+  linkUnderline: boolean;
+  monoFamily: string;
+  monoColor: string;
+}
+
 // Base: theme と overlay を統合した合成可能レイヤー。
 // 旧 theme.yaml と同じ構造。id は deck.bases 側で付与するため name は任意。
 export interface BaseHir {
@@ -140,7 +158,7 @@ export interface BaseHir {
   colors?: Record<string, string>;
   slide?: { width: number; height: number };
   background?: string;
-  defaults?: { text?: TextDefaults };
+  defaults?: { text?: TextDefaults; link?: LinkDefaults; mono?: MonoDefaults };
   schema?: { vars?: Record<string, VarDecl> };
   layout?: HirElement[];
 }

@@ -20,6 +20,8 @@ background: ${bg}
 
 defaults:
   text: { family: body, size: 40, color: "${fg}", lineHeight: 1.35 }
+  link: { color: "${accent}", underline: true }
+  mono: { color: "${muted}" }
 
 schema:
   vars:
