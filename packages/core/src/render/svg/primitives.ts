@@ -62,5 +62,14 @@ export function renderPrimitive(p: Primitive): string {
       return `<path d="${escapeXml(p.d)}" fill="${
         p.fill ? escapeXml(p.fill) : "none"
       }"${strokeAttrs(p.stroke)}/>`;
+    case "link":
+      // 透明な矩形を <a> で包んだクリック領域 (ブラウザで開いた SVG 用)。
+      return (
+        `<a href="${escapeXml(p.href)}" target="_blank" rel="noopener">` +
+        `<rect x="${num(p.x)}" y="${num(p.y)}" width="${num(p.w)}" height="${num(
+          p.h,
+        )}" fill="transparent" pointer-events="all"/>` +
+        `</a>`
+      );
   }
 }

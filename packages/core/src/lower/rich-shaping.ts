@@ -17,6 +17,7 @@ export interface RichRun {
   color: string;
   underline: boolean;
   strike: boolean;
+  href?: string; // link 時のリンク先 (PDF/SVG のクリック領域用)
 }
 
 export interface RichMathPlaced {
@@ -37,6 +38,7 @@ interface Style {
   code: boolean;
   strike: boolean;
   link: boolean;
+  href?: string;
 }
 
 type Atom =
@@ -49,7 +51,8 @@ const sameStyle = (a: Style, b: Style): boolean =>
   a.italic === b.italic &&
   a.code === b.code &&
   a.strike === b.strike &&
-  a.link === b.link;
+  a.link === b.link &&
+  a.href === b.href;
 
 function fontFor(style: Style, baseFont: string, rich: RichStyle): string {
   return style.code ? rich.monoFamily : baseFont;
@@ -125,7 +128,14 @@ function buildAtoms(
     pushText(
       atoms,
       seg.text,
-      { bold: seg.bold, italic: seg.italic, code: seg.code, strike: seg.strike, link: seg.link },
+      {
+        bold: seg.bold,
+        italic: seg.italic,
+        code: seg.code,
+        strike: seg.strike,
+        link: seg.link,
+        href: seg.href,
+      },
       baseFont,
       size,
       ls,
@@ -219,6 +229,7 @@ export function shapeRich(
         color: s.link ? rich.linkColor : s.code ? rich.monoColor : color,
         underline: s.link && rich.linkUnderline,
         strike: s.strike,
+        href: s.href,
       });
       cur = null;
     };

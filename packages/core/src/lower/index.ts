@@ -270,6 +270,17 @@ function emitRich(layout: RichLayout, box: Box, mathColor: string, out: Primitiv
   for (const r of layout.runs) {
     if (r.underline) out.push(decoLine(box, r, r.baseline + r.size * 0.12));
     if (r.strike) out.push(decoLine(box, r, r.baseline - r.size * 0.28));
+    if (r.href) {
+      // run のボックスをクリック領域にする (上端 ~ ベースライン下まで)。
+      out.push({
+        kind: "link",
+        x: box.x + r.x,
+        y: box.y + r.baseline - r.size * 0.8,
+        w: r.width,
+        h: r.size,
+        href: r.href,
+      });
+    }
   }
 
   for (const m of layout.maths) {

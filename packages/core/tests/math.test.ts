@@ -67,7 +67,7 @@ describe("parseRich (セグメント分解)", () => {
     expect(find(segs, "b")).toMatchObject({ bold: true });
     expect(find(segs, "c")).toMatchObject({ code: true });
     expect(find(segs, "s")).toMatchObject({ strike: true });
-    expect(find(segs, "l")).toMatchObject({ link: true });
+    expect(find(segs, "l")).toMatchObject({ link: true, href: "https://e.com" });
   });
 });
 
@@ -119,8 +119,21 @@ describe("rich テキストの lower (ネイティブ展開)", () => {
     expect(prims("これは ~~消し~~ ます").some((p) => p.kind === "line")).toBe(true);
   });
 
-  it("リンクは下線 (line) を生む", () => {
-    expect(prims("[L](https://e.com) を見て").some((p) => p.kind === "line")).toBe(true);
+  it("リンクは下線 (line) とクリック領域 (link) を生む", () => {
+    const ps = prims("[L](https://e.com) を見て");
+    expect(ps.some((p) => p.kind === "line")).toBe(true);
+    const link = ps.find((p) => p.kind === "link");
+    expect(link).toBeDefined();
+    if (link?.kind === "link") {
+      expect(link.href).toBe("https://e.com");
+      expect(link.w).toBeGreaterThan(0);
+    }
+  });
+
+  it("SVG はリンクを <a> で出す", () => {
+    const ps = prims("[L](https://e.com) を見て");
+    const svg = renderSvgString({ id: "s", width: 1000, height: 1000, primitives: ps });
+    expect(svg).toContain('<a href="https://e.com"');
   });
 
   it("不正な TeX でも例外を投げない", () => {

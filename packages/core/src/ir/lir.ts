@@ -53,7 +53,10 @@ export type Primitive =
       x2: number;
       y2: number;
       stroke: Stroke;
-    };
+    }
+  // クリック可能なリンク領域 (PDF はリンク注釈、SVG は <a>)。見た目は
+  // text(色) + line(下線) 側が担うため、これは透明なホットスポット。
+  | { kind: "link"; x: number; y: number; w: number; h: number; href: string };
 
 export interface SlideLir {
   id: string;

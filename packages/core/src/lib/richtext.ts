@@ -27,6 +27,7 @@ interface TextSegment {
   code: boolean;
   strike: boolean;
   link: boolean;
+  href?: string; // link 時のリンク先 URL
 }
 
 interface MathSegment {
@@ -51,6 +52,7 @@ export function parseRich(text: string): RichSegment[] {
     let code = 0;
     let strike = 0;
     let link = 0;
+    const hrefs: string[] = []; // ネスト対応のリンク先スタック
     const push = (t: string, isCode = false): void => {
       if (t === "") return;
       out.push({
@@ -61,6 +63,7 @@ export function parseRich(text: string): RichSegment[] {
         code: isCode || code > 0,
         strike: strike > 0,
         link: link > 0,
+        href: link > 0 ? hrefs[hrefs.length - 1] : undefined,
       });
     };
     for (const tk of tokens) {
@@ -95,9 +98,11 @@ export function parseRich(text: string): RichSegment[] {
           break;
         case "link_open":
           link++;
+          hrefs.push(tk.attrGet("href") ?? "");
           break;
         case "link_close":
           link--;
+          hrefs.pop();
           break;
         default:
           break;

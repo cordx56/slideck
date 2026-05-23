@@ -4,6 +4,7 @@ import {
   type PDFImage,
   rgb,
   type Color,
+  PDFString,
 } from "pdf-lib";
 import type { Primitive } from "../../ir/lir";
 import { hexToRgb01 } from "../../lib/color";
@@ -94,6 +95,18 @@ export async function drawPrimitive(
         borderWidth: prim.stroke?.width ?? 0,
       });
       break;
+    case "link": {
+      // クリック可能なリンク注釈。Rect は PDF 座標 (y 上向き) に変換する。
+      const annot = pdf.context.obj({
+        Type: "Annot",
+        Subtype: "Link",
+        Rect: [prim.x, ph - (prim.y + prim.h), prim.x + prim.w, ph - prim.y],
+        Border: [0, 0, 0],
+        A: { Type: "Action", S: "URI", URI: PDFString.of(prim.href) },
+      });
+      page.node.addAnnot(pdf.context.register(annot));
+      break;
+    }
     case "image": {
       const img = await embedImage(pdf, prim.data, prim.mime, images);
       if (!img) {
