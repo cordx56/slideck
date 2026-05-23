@@ -34,15 +34,11 @@ jobs:
       - name: Build web
         run: pnpm --filter @slideck/web build
 
-      # Pre-install Wrangler here so wrangler-action skips its own install. This
-      # keeps the deploy-only native build approvals (sharp, workerd) in CI rather
-      # than in pnpm-workspace.yaml.
-      - name: Install Wrangler
-        run: pnpm add -w wrangler@4 --allow-build=sharp --allow-build=workerd
-
+      # Deploy via npx (npm), not pnpm/wrangler-action: npm runs wrangler's native
+      # build scripts (sharp, workerd) without pnpm 11's build-approval gate, so
+      # those deploy-only packages stay out of pnpm-workspace.yaml.
       - name: Deploy
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy packages/web/dist --project-name=slideck
+        run: npx --yes wrangler@4 pages deploy packages/web/dist --project-name=slideck
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
