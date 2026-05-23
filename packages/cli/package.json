@@ -20,10 +20,10 @@
   },
   "devDependencies": {
     "@slideck/core": "workspace:*",
-    "@types/node": "^22.19.19",
-    "esbuild": "^0.25.12",
+    "@types/node": "^25.9.1",
+    "esbuild": "^0.28.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
   }
 }

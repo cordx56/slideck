@@ -14,7 +14,7 @@ export interface ParseOutput<T> {
 // For both YAML syntax errors and zod errors, attach the source text offset when possible.
 export function parseAndValidate<T>(
   text: string,
-  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  schema: z.ZodType<T>,
   label = "document",
 ): ParseOutput<T> {
   const doc = parseDocument(text, { keepSourceTokens: true });
@@ -38,10 +38,12 @@ export function parseAndValidate<T>(
   }
 
   const errors = result.error.issues.map((iss) => {
-    const offset = offsetForPath(doc, iss.path);
-    const where = iss.path.length > 0 ? ` at ${joinPath(iss.path)}` : "";
+    // zod 4 types path as PropertyKey[]; YAML-derived paths never contain symbols.
+    const path = iss.path as (string | number)[];
+    const offset = offsetForPath(doc, path);
+    const where = path.length > 0 ? ` at ${joinPath(path)}` : "";
     return new PipelineError(`${label}: ${iss.message}${where}`, {
-      path: iss.path,
+      path,
       offset,
     });
   });

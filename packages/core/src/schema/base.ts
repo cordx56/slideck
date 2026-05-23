@@ -42,12 +42,12 @@ const MonoDefaultsSchema = z
   .strict();
 
 // Schema for the base file body (old theme.yaml structure). id is on the deck.bases side.
-export const BaseSchema: z.ZodType<BaseHir, z.ZodTypeDef, unknown> = z
+export const BaseSchema: z.ZodType<BaseHir> = z
   .object({
     name: z.string().optional(),
     extends: z.string().optional(),
-    fonts: z.record(FontDeclSchema).optional(),
-    colors: z.record(z.string()).optional(),
+    fonts: z.record(z.string(), FontDeclSchema).optional(),
+    colors: z.record(z.string(), z.string()).optional(),
     slide: z
       .object({ width: z.number().positive(), height: z.number().positive() })
       .strict()
@@ -62,7 +62,7 @@ export const BaseSchema: z.ZodType<BaseHir, z.ZodTypeDef, unknown> = z
       .strict()
       .optional(),
     schema: z
-      .object({ vars: z.record(VarDeclSchema).optional() })
+      .object({ vars: z.record(z.string(), VarDeclSchema).optional() })
       .strict()
       .optional(),
     layout: z.array(ElementSchema).optional(),

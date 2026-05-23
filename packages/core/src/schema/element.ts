@@ -93,7 +93,7 @@ const GroupSchema = z
     align: crossAlignSchema.optional(),
     justify: justifySchema.optional(),
     padding: lengthSchema.optional(),
-    vars: z.record(z.unknown()).optional(),
+    vars: z.record(z.string(), z.unknown()).optional(),
     children: z.array(z.lazy(() => ElementSchema)),
   })
   .strict();
@@ -115,7 +115,7 @@ const OlSchema = z.object({ type: z.literal("ol"), ...listFields }).strict();
 
 // Recursive element union. lazy because children references ElementSchema.
 // Input is raw YAML (to transform into Dimension), so the input type is unknown.
-export const ElementSchema: z.ZodType<HirElement, z.ZodTypeDef, unknown> = z.lazy(() =>
+export const ElementSchema: z.ZodType<HirElement> = z.lazy(() =>
   z.discriminatedUnion("type", [
     TextSchema,
     ImageSchema,

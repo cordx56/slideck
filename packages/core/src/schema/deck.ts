@@ -16,17 +16,17 @@ const SlideSchema = z
     id: z.string().optional(),
     // use accepts either a single value or an array (normalize wraps it in an array).
     use: z.union([z.string(), z.array(z.string())]).optional(),
-    vars: z.record(z.unknown()).optional(),
+    vars: z.record(z.string(), z.unknown()).optional(),
     background: z.string().optional(),
     elements: z.array(ElementSchema).optional(),
   })
   .strict();
 
-export const DeckSchema: z.ZodType<DeckHir, z.ZodTypeDef, unknown> = z
+export const DeckSchema: z.ZodType<DeckHir> = z
   .object({
     // base definitions. always:true auto-applies to all slides; others are selected via use:.
     bases: z.array(BaseRefSchema).min(1, "at least one base is required"),
-    vars: z.record(z.unknown()).optional(),
+    vars: z.record(z.string(), z.unknown()).optional(),
     slides: z.array(SlideSchema).min(1, "at least one slide is required"),
   })
   .strict()
