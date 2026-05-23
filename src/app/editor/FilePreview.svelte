@@ -2,6 +2,7 @@
   import { store } from "../store.svelte";
   import { isImagePath, isFontPath } from "../../lib/mime";
   import { basename } from "../../vfs/path";
+  import { isTtc, extractFontFromTtc } from "../../load/ttc";
 
   interface Props {
     path: string;
@@ -33,7 +34,9 @@
       const family = `preview-${basename(p)}`;
       void vfs.readBytes(p).then(async (bytes) => {
         try {
-          const face = new FontFace(family, bytes as BufferSource);
+          // .ttc はブラウザの FontFace が扱えないため先頭フォントを展開。
+          const data = isTtc(bytes) ? extractFontFromTtc(bytes, 0) : bytes;
+          const face = new FontFace(family, data as BufferSource);
           await face.load();
           document.fonts.add(face);
           if (path === p) fontFamily = family;

@@ -8,6 +8,8 @@ const FontDeclSchema = z
     family: z.string(),
     weight: z.number().optional(),
     style: z.enum(["normal", "italic"]).optional(),
+    // .ttc (TrueType Collection) のときに使うフォント番号 (既定 0)。
+    index: z.number().int().nonnegative().optional(),
   })
   .strict();
 

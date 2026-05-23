@@ -113,6 +113,7 @@ function buildFontRegistry(loaded: LoadedDeck): Map<string, MirFont> {
         path: decl.path,
         weight: decl.weight,
         style: decl.style,
+        index: decl.index,
       });
     }
   }

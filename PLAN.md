@@ -769,6 +769,10 @@ Phase 1〜5 すべて実装済み。テスト 49 件 (vitest)、`npm run build` 
   - サブセット化は実際に効いている (4-5 スライドで PDF 約 30KB)。ただし pdf-lib は
     標準のサブセット接頭辞を付けないため `pdffonts` の `sub` 列は `no` 表示になる。
   - `uni=yes` (ToUnicode あり) なので **PDF テキスト選択/抽出が可能** (Phase 5 項目4)。
+- **TTC 対応**: `.ttc` (TrueType Collection) もフォントに使える。`load/ttc.ts` が
+  読み込み時に指定インデックス (`fonts.<key>.index`, 既定 0) のフォントを単独 SFNT に
+  展開するため、メトリクス計算・PDF 埋め込み・FontFace 登録は通常フォントと同じ経路で
+  動く。NotoSansCJK (CFF/複数フォント) で end-to-end の埋め込みを確認済み。
 - **フォント計測**: `lower/fontkit-metrics.ts` を追加。SVG と PDF が同じ `FontMetrics`
   を使うことで折り返しを一致させる (実フォント未ロード時は近似メトリクスに自動降格)。
   プレビューは FontFace API で実フォントを登録し見た目も一致させる。

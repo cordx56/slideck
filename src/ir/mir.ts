@@ -79,6 +79,7 @@ export interface MirFont {
   path?: string;
   weight?: number;
   style?: "normal" | "italic";
+  index?: number; // .ttc 内のフォント番号
 }
 
 export interface MirSlide {

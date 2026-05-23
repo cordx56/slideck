@@ -13,6 +13,7 @@ const MIME_BY_EXT: Record<string, string> = {
   bmp: "image/bmp",
   ttf: "font/ttf",
   otf: "font/otf",
+  ttc: "font/collection",
   woff: "font/woff",
   woff2: "font/woff2",
 };
@@ -32,7 +33,7 @@ export function isImagePath(path: string): boolean {
   return IMAGE_EXTS.has(path.slice(path.lastIndexOf(".") + 1).toLowerCase());
 }
 
-const FONT_EXTS = new Set(["ttf", "otf", "woff", "woff2"]);
+const FONT_EXTS = new Set(["ttf", "otf", "ttc", "woff", "woff2"]);
 export function isFontPath(path: string): boolean {
   return FONT_EXTS.has(path.slice(path.lastIndexOf(".") + 1).toLowerCase());
 }

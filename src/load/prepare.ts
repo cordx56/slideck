@@ -4,6 +4,7 @@ import type { FontMetrics } from "../lower/metrics";
 import { ApproximateMetrics } from "../lower/metrics";
 import { FontkitMetrics, createFkFont } from "../lower/fontkit-metrics";
 import type { LoadedImage, LoadedFont, LowerCtx } from "../lower/context";
+import { isTtc, extractFontFromTtc } from "./ttc";
 import { PipelineError } from "../lib/error";
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -64,7 +65,9 @@ async function loadFonts(
   for (const [family, decl] of deck.fonts) {
     if (!decl.path) continue;
     try {
-      const bytes = await resolver.readBytes(decl.path);
+      let bytes = await resolver.readBytes(decl.path);
+      // .ttc は指定インデックスのフォントを単独 SFNT に展開する。
+      if (isTtc(bytes)) bytes = extractFontFromTtc(bytes, decl.index ?? 0);
       fonts.set(family, {
         family,
         bytes,
