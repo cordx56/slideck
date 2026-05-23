@@ -121,6 +121,17 @@ const listFields = {
 const UlSchema = z.object({ type: z.literal("ul"), ...listFields }).strict();
 const OlSchema = z.object({ type: z.literal("ol"), ...listFields }).strict();
 
+const MathSchema = z
+  .object({
+    type: z.literal("math"),
+    ...baseFields,
+    tex: z.string(),
+    size: z.number().positive().optional(),
+    color: z.string().optional(),
+    display: z.boolean().optional(),
+  })
+  .strict();
+
 // 再帰的な要素 union。children が ElementSchema を参照するため lazy。
 // 入力は生の YAML (Dimension へ transform するため) なので input 型は unknown。
 export const ElementSchema: z.ZodType<HirElement, z.ZodTypeDef, unknown> = z.lazy(() =>
@@ -133,5 +144,6 @@ export const ElementSchema: z.ZodType<HirElement, z.ZodTypeDef, unknown> = z.laz
     GroupSchema,
     UlSchema,
     OlSchema,
+    MathSchema,
   ]),
 );

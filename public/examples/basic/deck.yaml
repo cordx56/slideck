@@ -42,6 +42,12 @@ slides:
     use: section
     vars:
       title: "背景と動機"
+    elements:
+      - type: math
+        position: { left: 14%, top: 64%, width: 72% }
+        size: 52
+        color: ${muted}
+        tex: 'E = mc^2 \quad \sum_{i=1}^{n} i = \frac{n(n+1)}{2}'
 
   - id: closing
     use: light

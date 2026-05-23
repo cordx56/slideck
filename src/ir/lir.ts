@@ -46,6 +46,17 @@ export type Primitive =
     }
   | { kind: "path"; d: string; fill?: string; stroke?: Stroke }
   | {
+      kind: "math";
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      tex: string;
+      size: number;
+      color: string;
+      display: boolean;
+    }
+  | {
       kind: "line";
       x1: number;
       y1: number;

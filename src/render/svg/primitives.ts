@@ -1,3 +1,4 @@
+import katex from "katex";
 import type { Primitive, Stroke } from "../../ir/lir";
 import { dataUri } from "../../lib/base64";
 
@@ -62,5 +63,30 @@ export function renderPrimitive(p: Primitive): string {
       return `<path d="${escapeXml(p.d)}" fill="${
         p.fill ? escapeXml(p.fill) : "none"
       }"${strokeAttrs(p.stroke)}/>`;
+    case "math": {
+      // KaTeX を foreignObject 内の HTML としてレンダリングする。
+      // 表示には katex の CSS/フォントがページに読み込まれている必要がある。
+      const html = renderMath(p.tex, p.display);
+      return (
+        `<foreignObject x="${num(p.x)}" y="${num(p.y)}" width="${num(p.w)}" height="${num(p.h)}">` +
+        `<div xmlns="http://www.w3.org/1999/xhtml" style="font-size:${num(
+          p.size,
+        )}px;color:${escapeXml(p.color)};line-height:normal">${html}</div>` +
+        `</foreignObject>`
+      );
+    }
+  }
+}
+
+// KaTeX レンダリング (Node/ブラウザ両対応の文字列生成)。失敗時はソースを表示。
+function renderMath(tex: string, display: boolean): string {
+  try {
+    return katex.renderToString(tex, {
+      displayMode: display,
+      throwOnError: false,
+      output: "html",
+    });
+  } catch {
+    return escapeXml(tex);
   }
 }

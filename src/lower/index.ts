@@ -161,6 +161,19 @@ function placeElement(
     case "ol":
       placeList(el, box, ctx, out);
       break;
+    case "math":
+      out.push({
+        kind: "math",
+        x: box.x,
+        y: box.y,
+        w: box.w,
+        h: box.h,
+        tex: el.tex,
+        size: el.size,
+        color: el.color,
+        display: el.display,
+      });
+      break;
   }
 }
 

@@ -843,6 +843,16 @@ Phase 1〜5 すべて実装済み。テスト 49 件 (vitest)、`npm run build` 
   (`indexedDB.deleteDatabase`)。
 - ルーティングは従来どおり: ハッシュなし=トップ(ようこそ/選択/名前入力)、`#editor`、`#present`。
 
+### 追加要素タイプ
+
+- **ul / ol**: group 同様の縦並びコンテナ。子は `items`。各 item の前にマーカ
+  (`•` / `1.`、`start` で開始番号変更) を gutter に描く。`gap`/`align`/`padding` と
+  マーカ用の `font`/`size`/`color`。
+- **math (KaTeX)**: `tex` を KaTeX でレンダリング。SVG は `<foreignObject>` 内に KaTeX
+  の HTML を出す (プレビューには `katex` の CSS/フォントが必要、main.ts で import)。
+  PDF は HTML を組版できないため **ソース文字列のテキスト代替** を描く (要 future:
+  ラスタライズ埋め込み or MathJax SVG)。
+
 ### 既知の残課題（将来）
 
 - `cover` の正確なクリッピング、letterSpacing の描画反映、禁則処理。

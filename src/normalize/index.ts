@@ -238,5 +238,17 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
         start: hir.start ?? 1,
       };
     }
+    case "math": {
+      const td = ctx.textDefaults;
+      return {
+        type: "math",
+        position: hir.position,
+        flex: hir.flex,
+        tex: exp(hir.tex),
+        size: hir.size ?? td.size,
+        color: hir.color ? color(hir.color) : td.color,
+        display: hir.display ?? true,
+      };
+    }
   }
 }
