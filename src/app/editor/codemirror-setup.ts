@@ -116,6 +116,32 @@ const darkTheme = EditorView.theme(
   { dark: true },
 );
 
+const VFS_PATH_MIME = "application/x-vfs-path";
+
+// ファイルツリーからの D&D を受け、離した位置に絶対パスを挿入する。
+const vfsPathDropHandler = EditorView.domEventHandlers({
+  dragover(event) {
+    if (!event.dataTransfer?.types.includes(VFS_PATH_MIME)) return false;
+    event.preventDefault(); // ドロップを許可
+    event.dataTransfer.dropEffect = "copy";
+    return true;
+  },
+  drop(event, view) {
+    const path = event.dataTransfer?.getData(VFS_PATH_MIME);
+    if (!path) return false;
+    event.preventDefault();
+    const pos =
+      view.posAtCoords({ x: event.clientX, y: event.clientY }) ??
+      view.state.selection.main.head;
+    view.dispatch({
+      changes: { from: pos, insert: path },
+      selection: { anchor: pos + path.length },
+    });
+    view.focus();
+    return true;
+  },
+});
+
 export interface EditorHandle {
   view: EditorView;
   destroy(): void;
@@ -143,6 +169,7 @@ export function createEditor(opts: {
       keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
       darkTheme,
       EditorView.lineWrapping,
+      vfsPathDropHandler,
       EditorView.updateListener.of((u) => {
         if (u.docChanged) opts.onChange(u.state.doc.toString());
       }),

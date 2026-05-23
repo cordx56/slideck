@@ -43,7 +43,8 @@
 
   function onDragStart(e: DragEvent) {
     e.dataTransfer?.setData("application/x-vfs-path", node.path);
-    e.dataTransfer!.effectAllowed = "move";
+    // ツリー内移動(move)とエディタへのパス挿入(copy)の両方を許可。
+    e.dataTransfer!.effectAllowed = "copyMove";
   }
 
   function onDrop(e: DragEvent) {
