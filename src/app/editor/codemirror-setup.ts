@@ -14,7 +14,25 @@ import {
   indentWithTab,
 } from "@codemirror/commands";
 import { yaml } from "@codemirror/lang-yaml";
+import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { tags as t } from "@lezer/highlight";
 import { linter, lintGutter, type Diagnostic } from "@codemirror/lint";
+
+// YAML 構文ハイライト (@lezer/yaml のタグに対応)。ダークテーマ配色。
+const yamlHighlight = HighlightStyle.define([
+  { tag: t.lineComment, color: "#565f89", fontStyle: "italic" },
+  { tag: t.definition(t.propertyName), color: "#7dcfff" }, // キー
+  { tag: t.string, color: "#9ece6a" }, // クォート文字列
+  { tag: t.special(t.string), color: "#9ece6a" }, // ブロックリテラル
+  { tag: t.content, color: "#c0caf5" }, // プレーンな値
+  { tag: t.attributeValue, color: "#9ece6a" },
+  { tag: t.keyword, color: "#bb9af7" }, // ディレクティブ
+  { tag: t.labelName, color: "#e0af68" }, // anchor / alias
+  { tag: t.typeName, color: "#2ac3de" }, // tag
+  { tag: t.meta, color: "#ff9e64" }, // --- / ...
+  { tag: [t.separator, t.punctuation], color: "#89ddff" }, // : , - ?
+  { tag: [t.squareBracket, t.brace], color: "#89ddff" }, // [] {}
+]);
 import { DeckSchema, BaseSchema } from "../../schema";
 import { parseAndValidate } from "../../load/parse";
 import { collectFileReferences } from "../../load/references";
@@ -118,6 +136,7 @@ export function createEditor(opts: {
       drawSelection(),
       history(),
       yaml(),
+      syntaxHighlighting(yamlHighlight),
       lintGutter(),
       schemaLinter(opts.ctx),
       brokenRefLinter(opts.ctx),
