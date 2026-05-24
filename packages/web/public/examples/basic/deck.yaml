@@ -27,30 +27,30 @@ slides:
     vars:
       title: "Contents"
     elements:
-      - type: ol
+      - type: ol # explicit: a bare "items" infers ul, so ordered lists need type: ol
         position: { left: 12%, right: 12%, top: 40%, bottom: 14% }
         gap: 3%
         size: 56
         color: ${accent}
-        # The list size becomes the default text size for items (no per-item size needed).
+        # type can be omitted on elements; it is inferred from a characteristic
+        # field (text->text, children->group, items->ul, src->image, d->path ...).
+        # The list size also becomes the default text size for items.
         items:
-          # An ol item can be a group (layout: column) so a heading and a nested
-          # ul stack vertically. The group's height is measured automatically.
-          - type: group
-            layout: column
+          # An item can be a group (layout: column) so a heading and a nested ul
+          # stack vertically; the group's height is measured automatically.
+          - layout: column # group (inferred from children)
             gap: 1.5%
             children:
-              - { type: text, text: "Background and Motivation" }
-              - type: ul
-                size: 36
+              - { text: "Background and Motivation" } # text
+              - size: 36 # ul (inferred from items)
                 gap: 1%
                 color: ${muted}
                 items:
-                  - { type: text, text: "One IR for SVG and PDF", color: "${fg}" }
-                  - { type: text, text: "Declarative, reusable bases", color: "${fg}" }
-          - { type: text, text: "Three-Layer IR Architecture" }
-          - { type: text, text: "Renderer Consistency" }
-          - { type: text, text: "Future Extensions" }
+                  - { text: "One IR for SVG and PDF", color: "${fg}" }
+                  - { text: "Declarative, reusable bases", color: "${fg}" }
+          - { text: "Three-Layer IR Architecture" }
+          - { text: "Renderer Consistency" }
+          - { text: "Future Extensions" }
 
   - id: section-1
     use: section
