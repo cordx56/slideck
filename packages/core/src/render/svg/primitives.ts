@@ -59,6 +59,10 @@ export function renderPrimitive(p: Primitive): string {
       return `<path d="${escapeXml(p.d)}" fill="${
         p.fill ? escapeXml(p.fill) : "none"
       }"${strokeAttrs(p.stroke)}/>`;
+    case "circle":
+      return `<circle cx="${num(p.cx)}" cy="${num(p.cy)}" r="${num(p.r)}" fill="${
+        p.fill ? escapeXml(p.fill) : "none"
+      }"${strokeAttrs(p.stroke)}/>`;
     case "link":
       // Click region: a transparent rect wrapped in <a> (for SVG opened in a browser).
       return (

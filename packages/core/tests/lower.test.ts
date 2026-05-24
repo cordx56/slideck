@@ -269,9 +269,16 @@ describe("lower lists (ul/ol)", () => {
     expect(texts).toContain("4.");
   });
 
-  it("ul draws bullet markers (•)", () => {
-    const texts = runTexts(deckWith([list("ul")]));
-    expect(texts.filter((t) => t === "•")).toHaveLength(2);
+  it("ul draws circle bullet markers left of each item", () => {
+    const d = deckWith([list("ul")]);
+    const lir = lower(d.slides[0], d, ctx);
+    const circles = lir.primitives.filter((p) => p.kind === "circle");
+    expect(circles).toHaveLength(2);
+    const itemA = lir.primitives.find((p) => p.kind === "text" && p.runs[0].text === "A");
+    if (circles[0].kind === "circle" && itemA?.kind === "text") {
+      expect(circles[0].r).toBeGreaterThan(0);
+      expect(circles[0].cx).toBeLessThan(itemA.runs[0].x);
+    }
   });
 
   it("markers are placed to the left of the item (within the gutter)", () => {

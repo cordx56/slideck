@@ -46,6 +46,7 @@ export type Primitive =
       rx?: number;
     }
   | { kind: "path"; d: string; fill?: string; stroke?: Stroke }
+  | { kind: "circle"; cx: number; cy: number; r: number; fill?: string; stroke?: Stroke }
   | {
       kind: "line";
       x1: number;

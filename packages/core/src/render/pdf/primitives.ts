@@ -75,6 +75,16 @@ export async function drawPrimitive(
         color: toColor(prim.stroke.color),
       });
       break;
+    case "circle":
+      page.drawCircle({
+        x: prim.cx,
+        y: flipY(prim.cy, ph),
+        size: prim.r,
+        color: prim.fill ? toColor(prim.fill) : undefined,
+        borderColor: prim.stroke ? toColor(prim.stroke.color) : undefined,
+        borderWidth: prim.stroke?.width ?? 0,
+      });
+      break;
     case "path":
       // drawSvgPath draws SVG coords (y down) from (x,y) as origin.
       // Using the page top (y=ph) as origin matches slide absolute coords.

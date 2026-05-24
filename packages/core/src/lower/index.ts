@@ -2,7 +2,7 @@ import type { MirDeck, MirElement, MirSlide, MirText } from "../ir/mir";
 import type { Primitive, SlideLir, TextRun, Stroke } from "../ir/lir";
 import { type Box, resolveAxis, resolveBox, toPx } from "./position";
 import { applyPadding } from "./groups";
-import { computeAutoLayout } from "./auto-layout";
+import { computeAutoLayout, listGutter, listContentBox } from "./auto-layout";
 import { shapeText } from "./text-shaping";
 import { shapeRich, type RichLayout, type RichRun } from "./rich-shaping";
 import { hasRichMarkup } from "../lib/richtext";
@@ -209,14 +209,8 @@ function placeList(
   out: Primitive[],
 ): void {
   const inner = applyPadding(box, el.padding);
-  const gutter = el.size * (el.type === "ol" ? 1.8 : 1.0);
-  const markerGap = el.size * 0.4;
-  const contentBox: Box = {
-    x: inner.x + gutter + markerGap,
-    y: inner.y,
-    w: Math.max(0, inner.w - gutter - markerGap),
-    h: inner.h,
-  };
+  const gutter = listGutter(el);
+  const contentBox = listContentBox(el, box);
 
   // Lay out items with column auto-layout.
   const placed = computeAutoLayout(
@@ -233,32 +227,43 @@ function placeList(
     ctx,
   );
 
-  const markerAlign = el.type === "ol" ? "right" : "left";
   placed.forEach((p, i) => {
-    const marker = el.type === "ul" ? "•" : `${el.start + i}.`;
-    // Align the marker baseline with the item's first line.
+    // Align the marker to the item's first line.
     const itemAscent =
       p.el.type === "text"
         ? p.el.size * ctx.metrics.ascentRatio(p.el.font)
         : el.size * ctx.metrics.ascentRatio(el.font);
-    const shaped = shapeText(marker, el.font, el.size, gutter, markerAlign, 1.2, 0, ctx.metrics);
-    const line = shaped.lines[0];
-    out.push({
-      kind: "text",
-      x: inner.x,
-      y: p.box.y,
-      align: markerAlign,
-      runs: [
-        {
-          text: marker,
-          font: { family: el.font },
-          size: el.size,
-          color: el.color,
-          x: inner.x + line.x,
-          y: p.box.y + itemAscent,
-        },
-      ],
-    });
+    const baseline = p.box.y + itemAscent;
+
+    if (el.type === "ul") {
+      // Filled circle centered in the gutter, around the line's vertical middle.
+      out.push({
+        kind: "circle",
+        cx: inner.x + gutter / 2,
+        cy: baseline - el.size * 0.3,
+        r: el.size * 0.13,
+        fill: el.color,
+      });
+    } else {
+      const marker = `${el.start + i}.`;
+      const shaped = shapeText(marker, el.font, el.size, gutter, "right", 1.2, 0, ctx.metrics);
+      out.push({
+        kind: "text",
+        x: inner.x,
+        y: p.box.y,
+        align: "right",
+        runs: [
+          {
+            text: marker,
+            font: { family: el.font },
+            size: el.size,
+            color: el.color,
+            x: inner.x + shaped.lines[0].x,
+            y: baseline,
+          },
+        ],
+      });
+    }
     placeAtBox(p.el, p.box, ctx, out);
   });
 }

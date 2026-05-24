@@ -2,7 +2,64 @@ import type { MirElement, MirGroup } from "../ir/mir";
 import type { LayoutDir } from "../ir/hir";
 import { type Box, toPx } from "./position";
 import { shapeText } from "./text-shaping";
+import { applyPadding } from "./groups";
 import type { LowerCtx } from "./context";
+
+type MirList = Extract<MirElement, { type: "ul" | "ol" }>;
+
+// Gutter (marker column) and gap between marker and content for a ul/ol.
+// Kept in sync with placeList in ./index.ts.
+export function listGutter(el: MirList): number {
+  return el.size * (el.type === "ol" ? 1.8 : 1.0);
+}
+export function listMarkerGap(el: MirList): number {
+  return el.size * 0.4;
+}
+// Content box (where items are laid out) for a list placed in `box`.
+export function listContentBox(el: MirList, box: Box): Box {
+  const inner = applyPadding(box, el.padding);
+  const offset = listGutter(el) + listMarkerGap(el);
+  return { x: inner.x + offset, y: inner.y, w: Math.max(0, inner.w - offset), h: inner.h };
+}
+
+// Stacked height of an element when placed in a column of the given width.
+function stackedHeight(el: MirElement, width: number, ctx: LowerCtx): number {
+  switch (el.type) {
+    case "text":
+      return shapeText(
+        el.text,
+        el.font,
+        el.size,
+        width,
+        el.align,
+        el.lineHeight,
+        el.letterSpacing,
+        ctx.metrics,
+      ).height;
+    case "image": {
+      const img = ctx.images.get(el.src);
+      const aspect = img && img.height > 0 ? img.width / img.height : 16 / 9;
+      return width / aspect;
+    }
+    case "ul":
+    case "ol":
+      return listHeight(el, width, ctx);
+    default: {
+      const h = "position" in el ? el.position?.height : undefined;
+      return h ? toPx(h, width) : 0;
+    }
+  }
+}
+
+// Total height a ul/ol occupies at the given width (matches placeList geometry).
+// Percentage padding/gap are resolved against width here (exact for px/0).
+function listHeight(el: MirList, width: number, ctx: LowerCtx): number {
+  const pad = toPx(el.padding, width);
+  const contentWidth = Math.max(0, width - 2 * pad - listGutter(el) - listMarkerGap(el));
+  const gap = toPx(el.gap, width);
+  const content = el.items.reduce((s, it) => s + stackedHeight(it, contentWidth, ctx), 0);
+  return content + gap * Math.max(0, el.items.length - 1) + 2 * pad;
+}
 
 export interface PlacedChild {
   el: MirElement;
@@ -103,6 +160,11 @@ function childIntrinsic(
   dir: LayoutDir,
 ): { main: number; cross: number } {
   const isRow = dir === "row";
+  // In a column, a ul/ol takes its measured stacked height (avoids overlap with
+  // following siblings). In a row, fall through to position-based sizing.
+  if (!isRow && (el.type === "ul" || el.type === "ol")) {
+    return { main: listHeight(el, crossExtent, ctx), cross: crossExtent };
+  }
   switch (el.type) {
     case "text": {
       if (isRow) {
