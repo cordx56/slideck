@@ -162,6 +162,6 @@
     color: #fff;
     background: #000;
     border-radius: 3px;
-    box-shadow: 0 0 4px #000;
+    opacity: 0.7;
   }
 </style>
