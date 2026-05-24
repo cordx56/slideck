@@ -113,17 +113,40 @@ const listFields = {
 const UlSchema = z.object({ type: z.literal("ul"), ...listFields }).strict();
 const OlSchema = z.object({ type: z.literal("ol"), ...listFields }).strict();
 
+// Infer a missing element `type` from its distinctive fields, to make authoring
+// easier (type stays optional but is injected before validation). An explicit
+// type always wins. Order matters: each type has a characteristic field.
+function inferType(raw: unknown): unknown {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const o = raw as Record<string, unknown>;
+  if (o.type !== undefined) return raw;
+  const has = (k: string) => o[k] !== undefined;
+  let type: string | undefined;
+  if (has("text")) type = "text";
+  else if (has("src")) type = "image";
+  else if (has("d")) type = "path";
+  else if (has("from") || has("to")) type = "line";
+  else if (has("children")) type = "group";
+  else if (has("items")) type = has("start") ? "ol" : "ul";
+  else if (has("fill") || has("stroke") || has("strokeWidth") || has("rx")) type = "rect";
+  return type === undefined ? raw : { ...o, type };
+}
+
 // Recursive element union. lazy because children references ElementSchema.
 // Input is raw YAML (to transform into Dimension), so the input type is unknown.
+// preprocess injects an inferred `type` when it is omitted.
 export const ElementSchema: z.ZodType<HirElement> = z.lazy(() =>
-  z.discriminatedUnion("type", [
-    TextSchema,
-    ImageSchema,
-    RectSchema,
-    LineSchema,
-    PathSchema,
-    GroupSchema,
-    UlSchema,
-    OlSchema,
-  ]),
+  z.preprocess(
+    inferType,
+    z.discriminatedUnion("type", [
+      TextSchema,
+      ImageSchema,
+      RectSchema,
+      LineSchema,
+      PathSchema,
+      GroupSchema,
+      UlSchema,
+      OlSchema,
+    ]),
+  ),
 );

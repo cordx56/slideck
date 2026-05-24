@@ -17,6 +17,7 @@ interface Def {
   values?: unknown[];
   entries?: Record<string, unknown>;
   in?: Schema;
+  out?: Schema;
   getter?: () => Schema;
 }
 interface Schema {
@@ -108,9 +109,16 @@ function expandObject(s: Schema): string {
 
 const COMMON = new Set(["type", "id", "position", "flex"]);
 
+// ElementSchema is lazy(preprocess(discriminatedUnion)); unwrap to the union.
+function elementUnion(): Schema {
+  let s = def(as(ElementSchema)).getter!();
+  while (def(s).type === "pipe") s = def(s).out!;
+  return s;
+}
+
 // Multi-line expansion of the Element union: one line per variant.
 function expandElement(): string {
-  const union = def(def(as(ElementSchema)).getter!());
+  const union = def(elementUnion());
   const lines = union.options!.map((v) => {
     const shape = def(v).shape!;
     const tag = String((def(shape.type).values ?? [""])[0]);
@@ -140,7 +148,7 @@ function build(): SchemaDocs {
   for (const [name, s] of aliasObjects) aliases[name] = expandObject(s);
 
   // Flat field -> type, merged across the commonly edited objects.
-  const elementVariants = def(def(as(ElementSchema)).getter!()).options!;
+  const elementVariants = def(elementUnion()).options!;
   const objects: Schema[] = [
     as(DeckSchema),
     as(SlideSchema),
