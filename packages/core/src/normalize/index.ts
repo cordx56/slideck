@@ -240,16 +240,20 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
     case "ul":
     case "ol": {
       const td = ctx.textDefaults;
+      const size = hir.size ?? td.size;
+      // A list's size becomes the default text size for its items (overridable per item).
+      const itemCtx: ConvertCtx =
+        hir.size !== undefined ? { ...ctx, textDefaults: { ...td, size } } : ctx;
       return {
         type: hir.type,
         position: hir.position,
         flex: hir.flex,
-        items: hir.items.map((c) => convertElement(c, ctx)),
+        items: hir.items.map((c) => convertElement(c, itemCtx)),
         gap: hir.gap ?? { kind: "percent", value: 0 },
         align: hir.align ?? GROUP_FALLBACK.align,
         padding: hir.padding ?? { kind: "percent", value: 0 },
         font: hir.font ? resolveFont(exp(hir.font)) : td.family,
-        size: hir.size ?? td.size,
+        size,
         color: hir.color ? color(hir.color) : td.color,
         start: hir.start ?? 1,
       };

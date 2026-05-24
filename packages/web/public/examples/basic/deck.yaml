@@ -32,6 +32,7 @@ slides:
         gap: 3%
         size: 56
         color: ${accent}
+        # The list size becomes the default text size for items (no per-item size needed).
         items:
           # An ol item can be a group (layout: column) so a heading and a nested
           # ul stack vertically. The group's height is measured automatically.
@@ -39,17 +40,17 @@ slides:
             layout: column
             gap: 1.5%
             children:
-              - { type: text, text: "Background and Motivation", size: 56 }
+              - { type: text, text: "Background and Motivation" }
               - type: ul
                 size: 36
                 gap: 1%
                 color: ${muted}
                 items:
-                  - { type: text, text: "One IR for SVG and PDF", size: 36, color: "${fg}" }
-                  - { type: text, text: "Declarative, reusable bases", size: 36, color: "${fg}" }
-          - { type: text, text: "Three-Layer IR Architecture", size: 56 }
-          - { type: text, text: "Renderer Consistency", size: 56 }
-          - { type: text, text: "Future Extensions", size: 56 }
+                  - { type: text, text: "One IR for SVG and PDF", color: "${fg}" }
+                  - { type: text, text: "Declarative, reusable bases", color: "${fg}" }
+          - { type: text, text: "Three-Layer IR Architecture" }
+          - { type: text, text: "Renderer Consistency" }
+          - { type: text, text: "Future Extensions" }
 
   - id: section-1
     use: section

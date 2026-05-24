@@ -129,6 +129,39 @@ describe("normalize", () => {
     });
   });
 
+  it("a list size becomes the default text size of its items", () => {
+    const base: BaseHir = {
+      ...stdBase,
+      layout: [
+        {
+          type: "ul",
+          size: 50,
+          items: [
+            { type: "text", text: "a" }, // inherits the list size (50)
+            { type: "text", text: "b", size: 12 }, // explicit size wins
+          ],
+        },
+      ],
+    };
+    const list = normalize(single(base, [{ id: "s", vars: { title: "t" } }])).deck!.slides[0]
+      .elements[0];
+    expect(list.type === "ul" && list.size).toBe(50);
+    if (list.type === "ul") {
+      expect((list.items[0] as MirText).size).toBe(50);
+      expect((list.items[1] as MirText).size).toBe(12);
+    }
+  });
+
+  it("without a list size, items fall back to the global default size", () => {
+    const base: BaseHir = {
+      ...stdBase,
+      layout: [{ type: "ul", items: [{ type: "text", text: "a" }] }],
+    };
+    const list = normalize(single(base, [{ id: "s", vars: { title: "t" } }])).deck!.slides[0]
+      .elements[0];
+    if (list.type === "ul") expect((list.items[0] as MirText).size).toBe(30); // defaults.text.size
+  });
+
   it("deck-level vars are overridden by slide.vars", () => {
     const base: BaseHir = { ...stdBase, layout: [{ type: "text", text: "${title}" }] };
     const { deck } = normalize(
