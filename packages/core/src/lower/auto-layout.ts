@@ -44,11 +44,35 @@ function stackedHeight(el: MirElement, width: number, ctx: LowerCtx): number {
     case "ul":
     case "ol":
       return listHeight(el, width, ctx);
+    case "group":
+      return groupHeight(el, width, ctx);
     default: {
       const h = "position" in el ? el.position?.height : undefined;
       return h ? toPx(h, width) : 0;
     }
   }
+}
+
+// Stacked height of a group at the given width.
+// - layout column: sum of children heights + gaps + padding.
+// - layout row: tallest child + padding.
+// - no layout (absolute children): explicit height if set, else the tallest
+//   child as a best-effort extent. Stacking requires layout: column.
+function groupHeight(el: MirGroup, width: number, ctx: LowerCtx): number {
+  const pad = toPx(el.padding, width);
+  const innerW = Math.max(0, width - 2 * pad);
+  const kids = el.children;
+  if (kids.length === 0) return 2 * pad;
+  const heights = kids.map((c) => stackedHeight(c, innerW, ctx));
+  if (el.layout === "column") {
+    const gap = toPx(el.gap, width);
+    return heights.reduce((a, b) => a + b, 0) + gap * (kids.length - 1) + 2 * pad;
+  }
+  if (el.layout === "row") {
+    return Math.max(...heights) + 2 * pad;
+  }
+  const ph = el.position?.height;
+  return ph ? toPx(ph, width) : Math.max(...heights) + 2 * pad;
 }
 
 // Total height a ul/ol occupies at the given width (matches placeList geometry).
@@ -160,10 +184,10 @@ function childIntrinsic(
   dir: LayoutDir,
 ): { main: number; cross: number } {
   const isRow = dir === "row";
-  // In a column, a ul/ol takes its measured stacked height (avoids overlap with
-  // following siblings). In a row, fall through to position-based sizing.
-  if (!isRow && (el.type === "ul" || el.type === "ol")) {
-    return { main: listHeight(el, crossExtent, ctx), cross: crossExtent };
+  // In a column, a ul/ol/group takes its measured stacked height (avoids overlap
+  // with following siblings). In a row, fall through to position-based sizing.
+  if (!isRow && (el.type === "ul" || el.type === "ol" || el.type === "group")) {
+    return { main: stackedHeight(el, crossExtent, ctx), cross: crossExtent };
   }
   switch (el.type) {
     case "text": {

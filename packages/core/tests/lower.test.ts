@@ -290,4 +290,26 @@ describe("lower lists (ul/ol)", () => {
       expect(marker.runs[0].x).toBeLessThan(itemA.runs[0].x);
     }
   });
+
+  it("a group item is measured so following items do not overlap", () => {
+    const group: MirGroup = {
+      type: "group",
+      position: { left: pct(0), top: pct(0), width: pct(100), height: pct(100) },
+      layout: "column",
+      gap: pct(0),
+      align: "stretch",
+      justify: "start",
+      padding: pct(0),
+      children: [textItem("g1"), textItem("g2")],
+    };
+    const d = deckWith([{ ...list("ul"), items: [group, textItem("B")] }]);
+    const prims = lower(d.slides[0], d, ctx).primitives;
+    const yOf = (t: string) => {
+      const p = prims.find((p) => p.kind === "text" && p.runs[0].text === t);
+      return p?.kind === "text" ? p.runs[0].y : NaN;
+    };
+    // The group stacks g1 then g2; B must sit below g2 (group height measured).
+    expect(yOf("g2")).toBeGreaterThan(yOf("g1"));
+    expect(yOf("B")).toBeGreaterThan(yOf("g2"));
+  });
 });
