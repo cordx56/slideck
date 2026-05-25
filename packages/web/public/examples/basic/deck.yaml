@@ -63,6 +63,23 @@ slides:
         color: ${muted}
         text: 'You can write **Markdown**, `inline code`, ~~strikethrough~~, [links](https://example.com), and math like $E = mc^2$ right in the text.'
 
+  - id: multiline
+    use: standard
+    vars:
+      title: "Multi-line Text"
+    elements:
+      - type: text
+        position: { left: 12%, right: 12%, top: 42% }
+        size: 44
+        color: ${fg}
+        # |- is a YAML block scalar: it keeps the line breaks and strips the
+        # final trailing newline (use plain | to keep it). Inline markdown and
+        # math still work on each line.
+        text: |-
+          Line breaks are written with a YAML block scalar.
+          Each line is laid out on its own, and **markdown**,
+          `inline code`, and math like $E = mc^2$ still work.
+
   - id: closing
     use: light
     vars:
