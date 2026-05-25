@@ -41,7 +41,7 @@
       title="{g.remote.owner}/{g.remote.repo}@{g.remote.branch}"
     >
       {#if busy}<Spinner />{/if}
-      {g.remote.owner}/{g.remote.repo}
+      <span class="name">{g.remote.owner}/{g.remote.repo}</span>
     </button>
     {#if menu}
       <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
@@ -84,8 +84,11 @@
   .repo-btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     max-width: 220px;
+  }
+  /* Clip only the name so the round spinner is never cut into a bar shape. */
+  .repo-btn .name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
