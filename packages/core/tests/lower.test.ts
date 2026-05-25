@@ -313,3 +313,30 @@ describe("lower lists (ul/ol)", () => {
     expect(yOf("B")).toBeGreaterThan(yOf("g2"));
   });
 });
+
+describe("lower image aspect", () => {
+  it("derives height from width via aspect and anchors at the position (not centered)", () => {
+    const ictx: LowerCtx = {
+      metrics: new ApproximateMetrics(),
+      images: new Map([
+        ["a.png", { data: new Uint8Array(), mime: "image/png", width: 400, height: 200 }], // 2:1
+      ]),
+    };
+    const deck = deckWith([
+      {
+        type: "image",
+        src: "a.png",
+        fit: "contain",
+        position: { left: pct(10), top: pct(10), width: pct(40) }, // width only, no height
+      },
+    ]);
+    const img = lower(deck.slides[0], deck, ictx).primitives[0];
+    expect(img.kind).toBe("image");
+    if (img.kind === "image") {
+      expect(img.x).toBe(100); // left 10%
+      expect(img.y).toBe(100); // top 10% (anchored, not centered in leftover space)
+      expect(img.w).toBe(400); // width 40%
+      expect(img.h).toBe(200); // 400 / (400/200) aspect
+    }
+  });
+});

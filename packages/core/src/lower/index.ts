@@ -1,6 +1,7 @@
 import type { MirDeck, MirElement, MirSlide, MirText } from "../ir/mir";
 import type { Primitive, SlideLir, TextRun, Stroke } from "../ir/lir";
-import { type Box, resolveAxis, resolveBox, toPx } from "./position";
+import type { Dimension } from "../schema/position";
+import { type Box, type Intrinsic, resolveAxis, resolveBox, toPx } from "./position";
 import { applyPadding } from "./groups";
 import { computeAutoLayout, listGutter, listContentBox } from "./auto-layout";
 import { shapeText } from "./text-shaping";
@@ -43,8 +44,44 @@ function lowerElement(el: MirElement, parentBox: Box, ctx: LowerCtx, out: Primit
     placeElement(el, parentBox, ctx, out);
     return;
   }
+  if (el.type === "image") {
+    placeElement(el, imageBox(el, parentBox, ctx), ctx, out);
+    return;
+  }
   const box = resolveBox("position" in el ? el.position : undefined, parentBox);
   placeElement(el, box, ctx, out);
+}
+
+// Explicit px size of an axis (from size, or start+end), else undefined.
+function axisSize(
+  start: Dimension | undefined,
+  end: Dimension | undefined,
+  size: Dimension | undefined,
+  extent: number,
+): number | undefined {
+  if (size) return toPx(size, extent);
+  if (start && start.kind !== "center" && end) {
+    return extent - toPx(start, extent) - toPx(end, extent);
+  }
+  return undefined;
+}
+
+// Resolve an image's box. When only one of width/height is constrained, derive
+// the other from the image's aspect ratio so it is anchored at its position
+// rather than centered in the leftover space. Unknown intrinsic size (e.g. SVG)
+// keeps the generic box behavior.
+function imageBox(el: Extract<MirElement, { type: "image" }>, parent: Box, ctx: LowerCtx): Box {
+  const img = ctx.images.get(el.src);
+  const aspect = img && img.height > 0 ? img.width / img.height : undefined;
+  if (aspect === undefined) return resolveBox(el.position, parent);
+  const p = el.position ?? {};
+  const explicitW = axisSize(p.left, p.right, p.width, parent.w);
+  const explicitH = axisSize(p.top, p.bottom, p.height, parent.h);
+  const intrinsic: Intrinsic = {
+    w: explicitH !== undefined ? explicitH * aspect : undefined,
+    h: explicitW !== undefined ? explicitW / aspect : undefined,
+  };
+  return resolveBox(el.position, parent, intrinsic);
 }
 
 // Link/code style for a text element. Uses el.rich if already normalized.
