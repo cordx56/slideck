@@ -21,8 +21,26 @@ import { debounce } from "@slideck/core";
 import { registerFonts } from "../lib/fonts-register";
 import { isImagePath } from "@slideck/core";
 import { collectBrokenReferences, type Reference } from "@slideck/core";
+import {
+  loadAuth,
+  saveAuth,
+  clearAuth,
+  getUser,
+  listRepos,
+  type Repo,
+  loadRemote,
+  unlink,
+  clone as ghClone,
+  link as ghLink,
+  pull as ghPull,
+  push as ghPush,
+  hasLocalChanges,
+  type GithubRemote,
+} from "../github";
 
 const ENTRY = "deck.yaml"; // /deck.yaml in the VFS
+
+export type SyncStatus = "none" | "syncing" | "synced" | "ahead" | "conflict" | "error";
 
 // --- Reactive state ---
 // Navigation is decided by the URL hash (in App). The store only holds VFS init state.
@@ -42,8 +60,15 @@ let brokenRefs = $state.raw<Reference[]>([]);
 let expanded = $state.raw<Set<string>>(new Set());
 let showHidden = $state(false);
 
+// --- GitHub state ---
+let githubLogin = $state<string | null>(null); // connected account (null = not connected)
+let remote = $state.raw<GithubRemote | null>(null); // current project's linked repo
+let syncStatus = $state<SyncStatus>("none");
+let syncWarning = $state.raw<{ title: string; files: string[] } | null>(null); // conflict dialog
+
 // --- Non-reactive ---
 let vfs: VFS | null = null;
+let githubToken: string | null = null;
 let cachedCtx: LowerCtx | null = null;
 let cachedFonts: Map<string, LoadedFont> | null = null;
 let unsubscribe: (() => void) | null = null;
@@ -145,6 +170,76 @@ function applyYaml(text: string) {
   scheduleLive();
   scheduleRefs();
   scheduleSave(); // auto-save the change
+  scheduleStatus(); // reflect unpushed changes in the sync indicator
+}
+
+// --- GitHub sync helpers ---
+// Recompute the sync indicator from local-vs-baseline (cheap, no network).
+async function refreshSyncStatus(): Promise<void> {
+  if (!vfs || !remote || !githubToken) {
+    syncStatus = "none";
+    return;
+  }
+  try {
+    syncStatus = (await hasLocalChanges(vfs)) ? "ahead" : "synced";
+  } catch {
+    /* keep previous status */
+  }
+}
+const scheduleStatus = debounce(() => void refreshSyncStatus(), 800);
+
+// After sync overwrote files on disk, reload the open file and recompile.
+async function reloadOpen(): Promise<void> {
+  if (!vfs) return;
+  yamlText =
+    isYaml(openPath) && (await vfs.exists(openPath)) ? await vfs.readText(openPath) : yamlText;
+  dirty = false;
+  await refreshFiles();
+  cachedCtx = null;
+  cachedFonts = null;
+  await fullCompile();
+  await recomputeRefs();
+}
+
+async function loadGithubAuth(): Promise<void> {
+  const a = await loadAuth();
+  if (a) {
+    githubToken = a.token;
+    githubLogin = a.login;
+  }
+}
+
+// Warn before closing the tab if there are unpushed (or conflicting) changes.
+let unloadGuardInstalled = false;
+function installUnloadGuard(): void {
+  if (unloadGuardInstalled || typeof window === "undefined") return;
+  unloadGuardInstalled = true;
+  window.addEventListener("beforeunload", (e) => {
+    if (remote && (syncStatus === "ahead" || syncStatus === "conflict")) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  });
+}
+
+async function runPull(): Promise<void> {
+  if (!vfs || !remote || !githubToken) return;
+  await saveCurrent(); // flush unsaved edits so they participate in the diff
+  syncStatus = "syncing";
+  try {
+    const res = await ghPull(vfs, githubToken, remote);
+    await reloadOpen();
+    syncWarning = res.conflicts.length
+      ? {
+          title: "Conflicts auto-resolved (kept the newer version)",
+          files: res.conflicts.map((c) => `${c.path} — kept ${c.resolution}`),
+        }
+      : null;
+    await refreshSyncStatus();
+  } catch (e) {
+    syncStatus = "error";
+    errors = [new PipelineError(`GitHub pull failed: ${String(e)}`)];
+  }
 }
 
 // Switch to a named project's VFS (= dedicated IndexedDB).
@@ -158,7 +253,7 @@ async function useVfs(name: string) {
 }
 
 // Load the project from the current vfs, compile it, and become ready.
-async function loadCurrentProject() {
+async function loadCurrentProject(autoPull = false) {
   if (!vfs) return;
   unsubscribe?.();
   unsubscribe = vfs.subscribe(() => {
@@ -179,6 +274,12 @@ async function loadCurrentProject() {
   await fullCompile();
   await recomputeRefs();
   ready = true;
+
+  // GitHub: load the linked repo for this project; auto-pull on open.
+  syncWarning = null;
+  remote = githubToken ? ((await loadRemote(vfs)) ?? null) : null;
+  if (remote && autoPull) await runPull();
+  else await refreshSyncStatus();
 }
 
 export const store = {
@@ -253,10 +354,85 @@ export const store = {
     return serverMode;
   },
 
+  // --- GitHub ---
+  get github() {
+    return { login: githubLogin, remote, status: syncStatus, warning: syncWarning };
+  },
+  async connectGithub(token: string) {
+    const user = await getUser(token.trim()); // validates the token
+    await saveAuth({ token: token.trim(), login: user.login });
+    githubToken = token.trim();
+    githubLogin = user.login;
+    if (vfs) {
+      remote = (await loadRemote(vfs)) ?? null;
+      await refreshSyncStatus();
+    }
+  },
+  async disconnectGithub() {
+    await clearAuth();
+    githubToken = null;
+    githubLogin = null;
+    remote = null;
+    syncStatus = "none";
+    syncWarning = null;
+  },
+  listGithubRepos(): Promise<Repo[]> {
+    if (!githubToken) return Promise.reject(new Error("Not connected to GitHub"));
+    return listRepos(githubToken);
+  },
+  async cloneProject(name: string, owner: string, repo: string) {
+    if (!githubToken) throw new Error("Not connected to GitHub");
+    const token = githubToken;
+    await this.createProject(name, async (v) => {
+      await ghClone(v, token, owner, repo);
+    });
+  },
+  async linkRepo(owner: string, repo: string) {
+    if (!vfs || !githubToken) throw new Error("Connect GitHub and open a project first");
+    syncStatus = "syncing";
+    remote = await ghLink(vfs, githubToken, owner, repo);
+    await runPull();
+  },
+  async unlinkRepo() {
+    if (vfs) await unlink(vfs);
+    remote = null;
+    syncStatus = "none";
+    syncWarning = null;
+  },
+  async pull() {
+    await runPull();
+  },
+  async push(message = "Update from slideck") {
+    if (!vfs || !remote || !githubToken) return;
+    await saveCurrent();
+    syncStatus = "syncing";
+    try {
+      const res = await ghPush(vfs, githubToken, remote, message);
+      if (res.conflicts.length > 0) {
+        syncWarning = {
+          title: "Push blocked: pull first to resolve conflicts",
+          files: res.conflicts.map((c) => c.path),
+        };
+        syncStatus = "conflict";
+        return;
+      }
+      syncWarning = null;
+      await refreshSyncStatus();
+    } catch (e) {
+      syncStatus = "error";
+      errors = [new PipelineError(`GitHub push failed: ${String(e)}`)];
+    }
+  },
+  dismissSyncWarning() {
+    syncWarning = null;
+  },
+
   // Boot: under slideck serve, open the editor immediately in disk-linked mode.
   // Otherwise, restore the last opened project if there is one
   // (to handle reloading #editor). Which screen to show is decided by the URL hash (App).
   async boot() {
+    await loadGithubAuth();
+    installUnloadGuard();
     const info = await probeServer();
     if (info) {
       serverMode = true;
@@ -270,7 +446,7 @@ export const store = {
     const last = getLastProject();
     if (last && projectExists(last)) {
       await useVfs(last);
-      await loadCurrentProject();
+      await loadCurrentProject(true); // auto-pull on open
     }
     booting = false;
   },
@@ -280,7 +456,7 @@ export const store = {
     if (!projectExists(name)) throw new Error(`Project "${name}" does not exist`);
     ready = false;
     await useVfs(name);
-    await loadCurrentProject();
+    await loadCurrentProject(true); // auto-pull on open
   },
 
   // Create a new project. init writes the initial files.

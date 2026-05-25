@@ -6,6 +6,9 @@
   import Spinner from "../Spinner.svelte";
   import { downloadBytes } from "../../lib/download";
   import { handleGlobalShortcut } from "../keyboard/shortcuts";
+  import EditorGithub from "../github/EditorGithub.svelte";
+  import GithubStatus from "../github/GithubStatus.svelte";
+  import SyncWarningDialog from "../github/SyncWarningDialog.svelte";
 
   let exporting = $state(false);
   let zipInput: HTMLInputElement;
@@ -101,9 +104,13 @@
     {:else}
       <span class="ok">✓ OK</span>
     {/if}
+    <GithubStatus />
 
     <span class="spacer"></span>
 
+    {#if !store.serverMode}
+      <EditorGithub />
+    {/if}
     <button onclick={() => zipInput.click()} title="Import ZIP">Import ZIP</button>
     <input bind:this={zipInput} type="file" accept=".zip" hidden onchange={onZipPicked} />
     <button onclick={() => store.exportZip()} title="Export project as ZIP"> Export ZIP </button>
@@ -135,6 +142,8 @@
   ></div>
   <RightPane />
 </div>
+
+<SyncWarningDialog />
 
 <style>
   .editor {

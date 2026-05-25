@@ -2,13 +2,18 @@
   import { store } from "./store.svelte";
   import { installSample, createEmptyProject } from "./sample";
   import Spinner from "./Spinner.svelte";
+  import GithubConnect from "./github/GithubConnect.svelte";
+  import RepoPickerDialog from "./github/RepoPickerDialog.svelte";
   import type { VFS } from "../vfs";
 
-  type PendingKind = "empty" | "sample" | "zip";
+  type PendingKind = "empty" | "sample" | "zip" | "clone";
   type Step = "menu" | "projects" | "name";
 
   let step = $state<Step>("menu");
-  let pending = $state<{ kind: PendingKind; file?: File } | null>(null);
+  let pending = $state<{ kind: PendingKind; file?: File; owner?: string; repo?: string } | null>(
+    null,
+  );
+  let cloning = $state(false);
   let nameValue = $state("");
   let error = $state("");
   // In-progress action: "create" / `open:<name>` / null. Spinner only on the pressed button.
@@ -43,6 +48,14 @@
     if (file) startCreate("zip", file);
   }
 
+  function startClone(owner: string, repo: string) {
+    cloning = false;
+    pending = { kind: "clone", owner, repo };
+    nameValue = repo;
+    error = "";
+    step = "name";
+  }
+
   function initializer(p: { kind: PendingKind; file?: File }): (v: VFS) => Promise<void> {
     if (p.kind === "empty") return (v) => createEmptyProject(v);
     if (p.kind === "sample") return (v) => installSample(v, sampleBase());
@@ -55,7 +68,11 @@
     loading = "create";
     error = "";
     try {
-      await store.createProject(nameValue, initializer(pending));
+      if (pending.kind === "clone") {
+        await store.cloneProject(nameValue, pending.owner!, pending.repo!);
+      } else {
+        await store.createProject(nameValue, initializer(pending));
+      }
       toEditor();
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
@@ -104,6 +121,12 @@
         <button onclick={() => startCreate("empty")}>Create empty project</button>
         <button onclick={() => startCreate("sample")}>Create from sample</button>
         <button onclick={() => zipInput.click()}>Import from ZIP</button>
+        {#if store.github.login}
+          <button onclick={() => (cloning = true)}>Clone repository</button>
+        {/if}
+      </div>
+      <div class="github">
+        <GithubConnect />
       </div>
     {:else if step === "projects"}
       <p>Select a project</p>
@@ -153,6 +176,14 @@
 
     <input bind:this={zipInput} type="file" accept=".zip" hidden onchange={onZip} />
   </div>
+
+  {#if cloning}
+    <RepoPickerDialog
+      title="Clone a repository"
+      onpick={startClone}
+      onclose={() => (cloning = false)}
+    />
+  {/if}
 </div>
 
 <style>
@@ -192,6 +223,11 @@
     justify-content: center;
     gap: 6px;
     padding: 10px 16px;
+  }
+  .github {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
   }
   .primary {
     border-color: var(--accent);
