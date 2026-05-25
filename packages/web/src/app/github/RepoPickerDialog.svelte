@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { store } from "../store.svelte";
   import Spinner from "../Spinner.svelte";
-  import type { Repo } from "../../github";
+  import { parseRepoPath, type Repo } from "../../github";
 
   let {
     title = "Select a repository",
@@ -34,9 +34,10 @@
     repos.filter((r) => r.full_name.toLowerCase().includes(filter.toLowerCase())),
   );
 
+  const manualParsed = $derived(parseRepoPath(manual));
+
   function pickManual() {
-    const m = manual.trim().match(/^([^/\s]+)\/([^/\s]+)$/);
-    if (m) onpick(m[1], m[2]);
+    if (manualParsed) onpick(manualParsed.owner, manualParsed.repo);
   }
 </script>
 
@@ -46,9 +47,7 @@
   <div class="dialog" onclick={(e) => e.stopPropagation()}>
     <h2>{title}</h2>
     <input class="manual" placeholder="owner/repo (or pick below)" bind:value={manual} />
-    <button class="link" onclick={pickManual} disabled={!/^[^/\s]+\/[^/\s]+$/.test(manual.trim())}>
-      Use owner/repo
-    </button>
+    <button class="link" onclick={pickManual} disabled={!manualParsed}> Use owner/repo </button>
 
     <input class="filter" placeholder="Filter your repositories" bind:value={filter} />
     <div class="list">

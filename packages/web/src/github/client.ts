@@ -1,6 +1,24 @@
 // Minimal GitHub REST client (api.github.com supports CORS with a bearer token).
 const API = "https://api.github.com";
 
+// Encode every URL path segment derived from user input.
+const enc = encodeURIComponent;
+
+// GitHub naming rules: owner (login) is <=39 chars, alphanumeric with single
+// internal hyphens; repo is <=100 chars of [A-Za-z0-9._-].
+const OWNER_RE = /^[A-Za-z0-9](?:-?[A-Za-z0-9]){0,38}$/;
+const REPO_RE = /^[A-Za-z0-9._-]{1,100}$/;
+export const isValidOwner = (s: string): boolean => OWNER_RE.test(s);
+export const isValidRepo = (s: string): boolean => REPO_RE.test(s);
+
+// Parse "owner/repo", validating both names. Returns null when malformed.
+export function parseRepoPath(input: string): { owner: string; repo: string } | null {
+  const m = input.trim().match(/^([^/\s]+)\/([^/\s]+)$/);
+  if (!m) return null;
+  const [, owner, repo] = m;
+  return isValidOwner(owner) && isValidRepo(repo) ? { owner, repo } : null;
+}
+
 export interface Repo {
   full_name: string;
   name: string;
@@ -14,6 +32,7 @@ export interface TreeEntry {
   path: string;
   sha: string;
   type: "blob" | "tree" | "commit";
+  size?: number; // blob byte size (used for clone/pull preflight limits)
 }
 
 function authHeaders(token: string): Record<string, string> {
@@ -65,7 +84,7 @@ export async function listRepos(token: string): Promise<Repo[]> {
 }
 
 export async function getRepo(token: string, owner: string, repo: string): Promise<Repo> {
-  return gh(token, `/repos/${owner}/${repo}`);
+  return gh(token, `/repos/${enc(owner)}/${enc(repo)}`);
 }
 
 // Recursive blob list of a ref. Throws if the tree is truncated (too large).
@@ -77,7 +96,7 @@ export async function listTree(
 ): Promise<TreeEntry[]> {
   const res = await gh<{ tree: TreeEntry[]; truncated: boolean }>(
     token,
-    `/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
+    `/repos/${enc(owner)}/${enc(repo)}/git/trees/${enc(branch)}?recursive=1`,
   );
   if (res.truncated) throw new Error("repository tree is too large (truncated)");
   return res.tree.filter((e) => e.type === "blob");
@@ -91,7 +110,7 @@ export async function getBlob(
 ): Promise<Uint8Array> {
   const res = await gh<{ content: string; encoding: string }>(
     token,
-    `/repos/${owner}/${repo}/git/blobs/${sha}`,
+    `/repos/${enc(owner)}/${enc(repo)}/git/blobs/${enc(sha)}`,
   );
   return base64ToBytes(res.content);
 }
@@ -106,9 +125,7 @@ export async function lastCommitDate(
 ): Promise<number | undefined> {
   const res = await gh<{ commit: { committer: { date: string } } }[]>(
     token,
-    `/repos/${owner}/${repo}/commits?sha=${encodeURIComponent(branch)}&path=${encodeURIComponent(
-      path,
-    )}&per_page=1`,
+    `/repos/${enc(owner)}/${enc(repo)}/commits?sha=${enc(branch)}&path=${enc(path)}&per_page=1`,
   );
   const date = res[0]?.commit.committer.date;
   return date ? Date.parse(date) : undefined;
@@ -128,11 +145,11 @@ export async function getHeadCommit(
 ): Promise<{ commit: string; tree: string }> {
   const ref = await gh<{ object: { sha: string } }>(
     token,
-    `/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(branch)}`,
+    `/repos/${enc(owner)}/${enc(repo)}/git/ref/heads/${enc(branch)}`,
   );
   const commit = await gh<{ tree: { sha: string } }>(
     token,
-    `/repos/${owner}/${repo}/git/commits/${ref.object.sha}`,
+    `/repos/${enc(owner)}/${enc(repo)}/git/commits/${enc(ref.object.sha)}`,
   );
   return { commit: ref.object.sha, tree: commit.tree.sha };
 }
@@ -143,7 +160,7 @@ export async function createBlob(
   repo: string,
   bytes: Uint8Array,
 ): Promise<string> {
-  const res = await gh<{ sha: string }>(token, `/repos/${owner}/${repo}/git/blobs`, {
+  const res = await gh<{ sha: string }>(token, `/repos/${enc(owner)}/${enc(repo)}/git/blobs`, {
     method: "POST",
     body: JSON.stringify({ content: bytesToBase64(bytes), encoding: "base64" }),
   });
@@ -158,7 +175,7 @@ export async function createTree(
   changes: TreeChange[],
 ): Promise<string> {
   const tree = changes.map((c) => ({ path: c.path, mode: "100644", type: "blob", sha: c.sha }));
-  const res = await gh<{ sha: string }>(token, `/repos/${owner}/${repo}/git/trees`, {
+  const res = await gh<{ sha: string }>(token, `/repos/${enc(owner)}/${enc(repo)}/git/trees`, {
     method: "POST",
     body: JSON.stringify({ base_tree: baseTree, tree }),
   });
@@ -173,7 +190,7 @@ export async function createCommit(
   tree: string,
   parent: string,
 ): Promise<string> {
-  const res = await gh<{ sha: string }>(token, `/repos/${owner}/${repo}/git/commits`, {
+  const res = await gh<{ sha: string }>(token, `/repos/${enc(owner)}/${enc(repo)}/git/commits`, {
     method: "POST",
     body: JSON.stringify({ message, tree, parents: [parent] }),
   });
@@ -187,7 +204,7 @@ export async function updateBranch(
   branch: string,
   commit: string,
 ): Promise<void> {
-  await gh(token, `/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`, {
+  await gh(token, `/repos/${enc(owner)}/${enc(repo)}/git/refs/heads/${enc(branch)}`, {
     method: "PATCH",
     body: JSON.stringify({ sha: commit }),
   });

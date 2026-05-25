@@ -28,18 +28,34 @@ export function renderSvgString(lir: SlideLir, options: SvgRenderOptions = {}): 
   );
 }
 
+// The generated SVG is injected with {@html}, so nothing deck-controlled may
+// break out of the CSS string / <style> element. Every value below is either
+// validated or stripped to a safe charset before interpolation.
+const FONT_FORMATS = new Set(["truetype", "opentype", "woff", "woff2", "svg", "embedded-opentype"]);
+
+// Strip the family to the schema-allowed charset (defense in depth) and quote it.
+const cssFamily = (name: string): string => `"${name.replace(/[^\p{L}\p{N} ._-]/gu, "")}"`;
+
+// Accept only a base64 data: URL; reject anything that could contain ")" or
+// whitespace and escape the url() context. Returns null to drop the src.
+const fontDataUrl = (url: string): string | null =>
+  /^data:[\w.+-]+\/[\w.+-]+;base64,[A-Za-z0-9+/=]*$/.test(url) ? url : null;
+
 function fontFaceStyle(faces: FontFace[] | undefined): string {
   if (!faces || faces.length === 0) return "";
   const rules = faces
-    .map(
-      (f) =>
-        `@font-face{font-family:"${f.family}";` +
-        `${f.weight ? `font-weight:${f.weight};` : ""}` +
-        `${f.style ? `font-style:${f.style};` : ""}` +
-        `src:url(${f.dataUrl})${f.format ? ` format("${f.format}")` : ""};}`,
-    )
+    .map((f) => {
+      const url = fontDataUrl(f.dataUrl);
+      if (!url) return "";
+      const weight =
+        typeof f.weight === "number" && Number.isFinite(f.weight) ? `font-weight:${f.weight};` : "";
+      const style = f.style === "italic" || f.style === "normal" ? `font-style:${f.style};` : "";
+      const fmt = f.format && FONT_FORMATS.has(f.format) ? ` format("${f.format}")` : "";
+      return `@font-face{font-family:${cssFamily(f.family)};${weight}${style}src:url(${url})${fmt};}`;
+    })
+    .filter(Boolean)
     .join("");
-  return `<defs><style>${rules}</style></defs>`;
+  return rules ? `<defs><style>${rules}</style></defs>` : "";
 }
 
 // For browsers: parse the SVG string into an SVGElement and return it.

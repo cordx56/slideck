@@ -2,10 +2,17 @@ import { z } from "zod";
 import { ElementSchema } from "./element";
 import type { BaseHir } from "../ir/hir";
 
+// Conservative allowlist for font family names. These flow into CSS @font-face /
+// font-family in generated SVG, so disallow characters that could break out of
+// the CSS string or <style> element (the SVG is later injected with {@html}).
+const FamilyName = z
+  .string()
+  .regex(/^[\p{L}\p{N} ._-]+$/u, "font family may contain only letters, digits, spaces, . _ -");
+
 export const FontDeclSchema = z
   .object({
     path: z.string(),
-    family: z.string(),
+    family: FamilyName,
     weight: z.number().optional(),
     style: z.enum(["normal", "italic"]).optional(),
     // Font index used for a .ttc (TrueType Collection) (default 0).
@@ -24,7 +31,7 @@ export const VarDeclSchema = z
 
 const TextDefaultsSchema = z
   .object({
-    family: z.string().optional(),
+    family: FamilyName.optional(),
     size: z.number().positive().optional(),
     color: z.string().optional(),
     align: z.enum(["left", "center", "right"]).optional(),
@@ -38,7 +45,7 @@ const LinkDefaultsSchema = z
   .strict();
 
 const MonoDefaultsSchema = z
-  .object({ family: z.string().optional(), color: z.string().optional() })
+  .object({ family: FamilyName.optional(), color: z.string().optional() })
   .strict();
 
 // Schema for the base file body (old theme.yaml structure). id is on the deck.bases side.

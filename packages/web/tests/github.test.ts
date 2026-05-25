@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { gitBlobSha } from "../src/github/blob-sha";
 import { classify, isConflict, type Baseline } from "../src/github/sync";
+import { parseRepoPath } from "../src/github/client";
 
 describe("gitBlobSha", () => {
   it("matches git hash-object", async () => {
@@ -45,5 +46,28 @@ describe("classify (three-way diff)", () => {
     expect(s.get("/a")).toBe("remoteDeleted"); // local has it (==base), remote removed
     expect(s.get("/b")).toBe("localDeleted"); // remote has it (==base), local removed
     expect(s.get("/c")).toBe("bothDeleted"); // gone from both
+  });
+});
+
+describe("parseRepoPath", () => {
+  it("accepts valid owner/repo and trims", () => {
+    expect(parseRepoPath("  octocat/Hello-World.js  ")).toEqual({
+      owner: "octocat",
+      repo: "Hello-World.js",
+    });
+  });
+
+  it("rejects malformed or injection-prone input", () => {
+    for (const bad of [
+      "octocat", // no slash
+      "octocat/repo/extra", // too many segments
+      "octocat/re po", // space in repo
+      "-octocat/repo", // owner starts with hyphen
+      "oct--ocat/repo", // consecutive hyphens in owner
+      "owner/re$po", // illegal repo char
+      "../repo", // path traversal attempt
+    ]) {
+      expect(parseRepoPath(bad)).toBeNull();
+    }
   });
 });

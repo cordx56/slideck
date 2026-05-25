@@ -12,7 +12,31 @@ import {
   createCommit,
   updateBranch,
   type TreeChange,
+  type TreeEntry,
 } from "./client";
+
+// Guardrails against hostile/huge repositories: clone/pull stream every blob
+// into IndexedDB, so cap the file count and bytes before downloading anything.
+const MAX_FILES = 5000;
+const MAX_FILE_BYTES = 25 * 1024 * 1024; // 25 MB per file
+const MAX_TOTAL_BYTES = 100 * 1024 * 1024; // 100 MB total
+
+function enforceLimits(tree: TreeEntry[]): void {
+  if (tree.length > MAX_FILES) {
+    throw new Error(`repository has too many files (${tree.length} > ${MAX_FILES})`);
+  }
+  let total = 0;
+  for (const e of tree) {
+    const size = e.size ?? 0;
+    if (size > MAX_FILE_BYTES) {
+      throw new Error(`file ${e.path} is too large (${Math.round(size / 1e6)} MB > 25 MB)`);
+    }
+    total += size;
+  }
+  if (total > MAX_TOTAL_BYTES) {
+    throw new Error(`repository is too large (${Math.round(total / 1e6)} MB > 100 MB)`);
+  }
+}
 
 export interface GithubRemote {
   owner: string;
@@ -133,6 +157,7 @@ export async function clone(
   const info = await getRepo(token, owner, repo);
   const remote: GithubRemote = { owner, repo, branch: info.default_branch };
   const tree = await listTree(token, owner, repo, remote.branch);
+  enforceLimits(tree);
   const baseline: Baseline = {};
   for (const e of tree) {
     const p = "/" + e.path;
@@ -163,6 +188,7 @@ export async function link(
 // automatically; conflicts are resolved by "newer wins" and reported.
 export async function pull(vfs: VFS, token: string, remote: GithubRemote): Promise<PullResult> {
   const tree = await listTree(token, remote.owner, remote.repo, remote.branch);
+  enforceLimits(tree);
   const remoteMap = new Map(tree.map((e) => ["/" + e.path, e.sha] as const));
   const local = await localShas(vfs);
   const status = classify(shaMap(local), remoteMap, await loadBaseline(vfs));
