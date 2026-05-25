@@ -42,14 +42,15 @@ describe("examples/basic", () => {
     const svgs = slides.map((_, i) => renderSlideSvg(compiled!, i)!);
     for (const svg of svgs) expect(svg.startsWith("<svg")).toBe(true);
 
-    // multiline slide: |- block scalar -> three separate text lines, and inline
-    // code uses the unquoted "monospace" generic (so the browser uses a real
-    // monospace font and the following text does not overlap it).
+    // multiline slide: |- block scalar -> three separate text lines. Inline code
+    // (no declared mono font) uses the surrounding text font so its measured
+    // width matches the render (no overlap / gap); not a generic "monospace".
     const multiline = svgs[slides.findIndex((s) => s.id === "multiline")];
     expect(multiline).toContain("Line breaks are written");
     expect(multiline).toContain("Each line is laid out");
+    expect(multiline).toContain("inline code");
     expect(multiline).toContain("still work");
-    expect(multiline).toContain('font-family="monospace"');
+    expect(multiline).not.toContain('font-family="monospace"');
 
     // intro: title + subtitle + image + footer
     expect(svgs[0]).toContain("The World of YAML Slides");

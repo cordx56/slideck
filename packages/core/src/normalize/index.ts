@@ -150,12 +150,16 @@ function resolveRichStyle(
 ): RichStyle {
   const col = (s: string | undefined, fallback: string) =>
     s ? resolveColorLiteral(expandString(s, vars, errors)) : fallback;
+  // Empty: inline code uses the surrounding text's font. A generic like
+  // "monospace" cannot be measured (no glyph metrics), so its rendered width
+  // would not match the layout and the following text would mis-align. Set
+  // defaults.mono.family to a declared (loaded) font for a true monospace look.
   const monoFamily = d.mono.family
     ? (() => {
         const f = expandString(d.mono.family, vars, errors);
         return fontKeyToFamily.get(f) ?? f;
       })()
-    : "monospace";
+    : "";
   return {
     linkColor: col(d.link.color, td.color),
     linkUnderline: d.link.underline ?? true,

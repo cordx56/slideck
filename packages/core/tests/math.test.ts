@@ -114,9 +114,9 @@ describe("lower of rich text (native expansion)", () => {
     expect(run?.font.weight).toBe(700);
   });
 
-  it("code becomes a monospace-family run", () => {
+  it("code uses the surrounding text font when no mono font is declared", () => {
     const run = allRuns(prims("value is `x`")).find((r) => r.text === "x");
-    expect(run?.font.family).toBe("monospace");
+    expect(run?.font.family).toBe("body");
   });
 
   it("strikethrough produces a line primitive", () => {

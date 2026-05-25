@@ -124,7 +124,7 @@ describe("normalize", () => {
     expect(el.rich).toEqual({
       linkColor: "#7aa2f7",
       linkUnderline: false,
-      monoFamily: "monospace",
+      monoFamily: "", // no mono font declared -> inline code uses the text font
       monoColor: "#999999",
     });
   });

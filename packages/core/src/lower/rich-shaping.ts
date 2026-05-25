@@ -54,8 +54,10 @@ const sameStyle = (a: Style, b: Style): boolean =>
   a.link === b.link &&
   a.href === b.href;
 
+// Code uses the mono family if one is declared; otherwise the surrounding text's
+// font, so the measured width matches the rendered glyphs exactly.
 function fontFor(style: Style, baseFont: string, rich: RichStyle): string {
-  return style.code ? rich.monoFamily : baseFont;
+  return style.code && rich.monoFamily ? rich.monoFamily : baseFont;
 }
 
 function pushText(
@@ -221,7 +223,7 @@ export function shapeRich(
         baseline,
         width: cur.w,
         font: {
-          family: s.code ? rich.monoFamily : baseFont,
+          family: fontFor(s, baseFont, rich),
           weight: s.bold ? 700 : undefined,
           style: s.italic ? "italic" : undefined,
         },
