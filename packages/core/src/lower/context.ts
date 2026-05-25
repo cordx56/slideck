@@ -13,6 +13,9 @@ export interface LoadedImage {
 export interface LowerCtx {
   metrics: FontMetrics;
   images: Map<string, LoadedImage>;
+  // Slide (drawing area) size. Percentage gap/padding resolve against this:
+  // horizontal lengths against the width, vertical lengths against the height.
+  slide: { width: number; height: number };
 }
 
 // Loaded font bytes used for PDF embedding and SVG preview registration.

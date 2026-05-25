@@ -147,9 +147,10 @@ const DESCRIPTIONS: Record<string, string> = {
   d: "SVG path data.",
   from: "Line start point (relative to the box).",
   to: "Line end point (relative to the box).",
-  gap: "Gap between children in an auto-layout group/list.",
+  gap: "Gap between children in an auto-layout group/list. A % is of the slide (row: width, column: height); a number is px.",
   justify: "Auto-layout main-axis distribution.",
-  padding: "Inner padding of a group/list.",
+  padding:
+    "Inner padding of a group/list. A % is of the slide (left/right: width, top/bottom: height); a number is px.",
   children: "Child elements of a group.",
   items: "List items of a ul/ol.",
   start: "Starting number of an ol.",

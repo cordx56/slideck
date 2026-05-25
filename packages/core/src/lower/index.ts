@@ -22,8 +22,11 @@ export function lower(slide: MirSlide, deck: MirDeck, ctx: LowerCtx): SlideLir {
     w: deck.slide.width,
     h: deck.slide.height,
   };
+  // Resolve %-lengths (gap/padding) against the current slide size, even if ctx
+  // was prepared for a deck whose slide dimensions have since changed.
+  const lctx: LowerCtx = { ...ctx, slide: { width: deck.slide.width, height: deck.slide.height } };
   const out: Primitive[] = [];
-  for (const el of slide.elements) lowerElement(el, slideBox, ctx, out);
+  for (const el of slide.elements) lowerElement(el, slideBox, lctx, out);
   return {
     id: slide.id,
     width: deck.slide.width,
@@ -221,7 +224,7 @@ function placeElement(el: MirElement, box: Box, ctx: LowerCtx, out: Primitive[])
       });
       break;
     case "group": {
-      const inner = applyPadding(box, el.padding);
+      const inner = applyPadding(box, el.padding, ctx);
       if (el.layout) {
         for (const placed of computeAutoLayout(el, inner, ctx)) {
           placeAtBox(placed.el, placed.box, ctx, out);
@@ -245,9 +248,9 @@ function placeList(
   ctx: LowerCtx,
   out: Primitive[],
 ): void {
-  const inner = applyPadding(box, el.padding);
+  const inner = applyPadding(box, el.padding, ctx);
   const gutter = listGutter(el);
-  const contentBox = listContentBox(el, box);
+  const contentBox = listContentBox(el, box, ctx);
 
   // Lay out items with column auto-layout.
   const placed = computeAutoLayout(

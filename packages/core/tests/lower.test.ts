@@ -7,7 +7,11 @@ import type { MirDeck, MirGroup, MirList, MirSlide, MirText } from "../src/ir";
 import type { Dimension } from "../src/schema/position";
 
 const pct = (v: number): Dimension => ({ kind: "percent", value: v });
-const ctx: LowerCtx = { metrics: new ApproximateMetrics(), images: new Map() };
+const ctx: LowerCtx = {
+  metrics: new ApproximateMetrics(),
+  images: new Map(),
+  slide: { width: 1000, height: 1000 },
+};
 
 function deckWith(elements: MirSlide["elements"]): MirDeck {
   return {
@@ -116,7 +120,7 @@ describe("computeAutoLayout", () => {
       type: "group",
       children: [text("one"), text("two")],
       layout: "column",
-      gap: pct(10), // inner.h=200 -> 20px gap
+      gap: pct(10), // column gap -> % of slide height (1000) = 100px
       align: "stretch",
       justify: "start",
       padding: pct(0),
@@ -127,8 +131,8 @@ describe("computeAutoLayout", () => {
     expect(placed[0].box.y).toBe(0);
     // stretch, so width fills inner
     expect(placed[0].box.w).toBe(400);
-    // second is below the first by its height + gap(20)
-    const expectedY = placed[0].box.h + 20;
+    // second is below the first by its height + gap(100)
+    const expectedY = placed[0].box.h + 100;
     expect(placed[1].box.y).toBeCloseTo(expectedY);
   });
 
@@ -321,6 +325,7 @@ describe("lower image aspect", () => {
       images: new Map([
         ["a.png", { data: new Uint8Array(), mime: "image/png", width: 400, height: 200 }], // 2:1
       ]),
+      slide: { width: 1000, height: 1000 },
     };
     const deck = deckWith([
       {

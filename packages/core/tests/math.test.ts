@@ -11,7 +11,11 @@ import type { MirDeck, MirText } from "../src/ir";
 import type { Dimension } from "../src/schema/position";
 
 const pct = (v: number): Dimension => ({ kind: "percent", value: v });
-const ctx: LowerCtx = { metrics: new ApproximateMetrics(), images: new Map() };
+const ctx: LowerCtx = {
+  metrics: new ApproximateMetrics(),
+  images: new Map(),
+  slide: { width: 1000, height: 1000 },
+};
 
 function deckWithText(text: string): MirDeck {
   const el: MirText = {

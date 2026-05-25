@@ -85,5 +85,6 @@ export async function prepare(
     }
   }
 
-  return { ctx: { metrics, images }, fonts };
+  const slide = { width: deck.slide.width, height: deck.slide.height };
+  return { ctx: { metrics, images, slide }, fonts };
 }

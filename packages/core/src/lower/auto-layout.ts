@@ -16,8 +16,8 @@ export function listMarkerGap(el: MirList): number {
   return el.size * 0.4;
 }
 // Content box (where items are laid out) for a list placed in `box`.
-export function listContentBox(el: MirList, box: Box): Box {
-  const inner = applyPadding(box, el.padding);
+export function listContentBox(el: MirList, box: Box, ctx: LowerCtx): Box {
+  const inner = applyPadding(box, el.padding, ctx);
   const offset = listGutter(el) + listMarkerGap(el);
   return { x: inner.x + offset, y: inner.y, w: Math.max(0, inner.w - offset), h: inner.h };
 }
@@ -59,30 +59,33 @@ function stackedHeight(el: MirElement, width: number, ctx: LowerCtx): number {
 // - no layout (absolute children): explicit height if set, else the tallest
 //   child as a best-effort extent. Stacking requires layout: column.
 function groupHeight(el: MirGroup, width: number, ctx: LowerCtx): number {
-  const pad = toPx(el.padding, width);
-  const innerW = Math.max(0, width - 2 * pad);
+  // padding/gap resolve against the slide: horizontal->width, vertical->height.
+  const padX = toPx(el.padding, ctx.slide.width);
+  const padY = toPx(el.padding, ctx.slide.height);
+  const innerW = Math.max(0, width - 2 * padX);
   const kids = el.children;
-  if (kids.length === 0) return 2 * pad;
+  if (kids.length === 0) return 2 * padY;
   const heights = kids.map((c) => stackedHeight(c, innerW, ctx));
   if (el.layout === "column") {
-    const gap = toPx(el.gap, width);
-    return heights.reduce((a, b) => a + b, 0) + gap * (kids.length - 1) + 2 * pad;
+    const gap = toPx(el.gap, ctx.slide.height);
+    return heights.reduce((a, b) => a + b, 0) + gap * (kids.length - 1) + 2 * padY;
   }
   if (el.layout === "row") {
-    return Math.max(...heights) + 2 * pad;
+    return Math.max(...heights) + 2 * padY;
   }
   const ph = el.position?.height;
-  return ph ? toPx(ph, width) : Math.max(...heights) + 2 * pad;
+  return ph ? toPx(ph, width) : Math.max(...heights) + 2 * padY;
 }
 
 // Total height a ul/ol occupies at the given width (matches placeList geometry).
-// Percentage padding/gap are resolved against width here (exact for px/0).
+// padding/gap resolve against the slide: horizontal->width, vertical->height.
 function listHeight(el: MirList, width: number, ctx: LowerCtx): number {
-  const pad = toPx(el.padding, width);
-  const contentWidth = Math.max(0, width - 2 * pad - listGutter(el) - listMarkerGap(el));
-  const gap = toPx(el.gap, width);
+  const padX = toPx(el.padding, ctx.slide.width);
+  const padY = toPx(el.padding, ctx.slide.height);
+  const contentWidth = Math.max(0, width - 2 * padX - listGutter(el) - listMarkerGap(el));
+  const gap = toPx(el.gap, ctx.slide.height);
   const content = el.items.reduce((s, it) => s + stackedHeight(it, contentWidth, ctx), 0);
-  return content + gap * Math.max(0, el.items.length - 1) + 2 * pad;
+  return content + gap * Math.max(0, el.items.length - 1) + 2 * padY;
 }
 
 export interface PlacedChild {
@@ -104,7 +107,9 @@ export function computeAutoLayout(group: MirGroup, inner: Box, ctx: LowerCtx): P
   const isRow = dir === "row";
   const mainExtent = isRow ? inner.w : inner.h;
   const crossExtent = isRow ? inner.h : inner.w;
-  const gapPx = toPx(group.gap, mainExtent);
+  // gap is a % of the slide along the main axis (row->width, column->height), so
+  // it stays constant regardless of the group's own (possibly auto) size.
+  const gapPx = toPx(group.gap, isRow ? ctx.slide.width : ctx.slide.height);
   const n = group.children.length;
 
   const items: Measured[] = group.children.map((el) => {

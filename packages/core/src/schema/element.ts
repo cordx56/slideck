@@ -9,7 +9,9 @@ const layoutSchema = z.enum(["row", "column"]);
 const crossAlignSchema = z.enum(["start", "center", "end", "stretch"]);
 const justifySchema = z.enum(["start", "center", "end", "space-between", "space-around"]);
 
-// gap / padding are % or px lengths (center not allowed).
+// gap / padding are % or px lengths (center not allowed). A % resolves against
+// the slide size by orientation (horizontal->width, vertical->height), so it is
+// constant regardless of the group's own (possibly auto) size.
 const lengthSchema = z.union([z.string(), z.number()]).transform((raw, ctx): Dimension => {
   const dim = parseDimension(raw, false);
   if (!dim) {
