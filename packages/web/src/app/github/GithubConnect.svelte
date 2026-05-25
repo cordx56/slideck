@@ -2,6 +2,9 @@
   import { store } from "../store.svelte";
   import Spinner from "../Spinner.svelte";
 
+  // block: full-width trigger (welcome menu); compact otherwise (editor toolbar).
+  let { block = false }: { block?: boolean } = $props();
+
   let open = $state(false);
   let token = $state("");
   let error = $state("");
@@ -31,7 +34,7 @@
     <button class="ghbtn" onclick={() => store.disconnectGithub()}>Disconnect</button>
   </div>
 {:else}
-  <button class="ghbtn connect" onclick={() => (open = true)}>Connect GitHub</button>
+  <button class="ghbtn connect" class:block onclick={() => (open = true)}>Connect GitHub</button>
 {/if}
 
 {#if open}
@@ -83,6 +86,10 @@
   .connect {
     border-color: var(--accent);
     color: var(--accent);
+  }
+  .connect.block {
+    width: 100%;
+    padding: 10px 16px;
   }
   .connected {
     display: flex;

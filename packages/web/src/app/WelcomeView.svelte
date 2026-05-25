@@ -126,7 +126,7 @@
         {/if}
       </div>
       <div class="github">
-        <GithubConnect />
+        <GithubConnect block />
       </div>
     {:else if step === "projects"}
       <p>Select a project</p>
