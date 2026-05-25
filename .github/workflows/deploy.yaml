@@ -31,8 +31,11 @@ jobs:
 
       # Build the web app. Output goes to packages/web/dist (fully static).
       # Cloudflare Pages serves at the root, so the default VITE_BASE=/ is correct.
+      # VITE_SITE_URL is the canonical origin baked into the OGP/Twitter tags.
       - name: Build web
         run: pnpm --filter @slideck/web build
+        env:
+          VITE_SITE_URL: https://slideck.56.ax
 
       # Deploy via npx (npm), not pnpm/wrangler-action: npm runs wrangler's native
       # build scripts (sharp, workerd) without pnpm 11's build-approval gate, so
