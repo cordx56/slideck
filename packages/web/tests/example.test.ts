@@ -37,24 +37,34 @@ describe("examples/basic", () => {
     expect(compiled).toBeTruthy();
 
     const slides = compiled!.deck.slides;
-    expect(slides).toHaveLength(5);
+    expect(slides).toHaveLength(6);
 
     const svgs = slides.map((_, i) => renderSlideSvg(compiled!, i)!);
     for (const svg of svgs) expect(svg.startsWith("<svg")).toBe(true);
+
+    // multiline slide: |- block scalar -> three separate text lines, and inline
+    // code uses the unquoted "monospace" generic (so the browser uses a real
+    // monospace font and the following text does not overlap it).
+    const multiline = svgs[slides.findIndex((s) => s.id === "multiline")];
+    expect(multiline).toContain("Line breaks are written");
+    expect(multiline).toContain("Each line is laid out");
+    expect(multiline).toContain("still work");
+    expect(multiline).toContain('font-family="monospace"');
 
     // intro: title + subtitle + image + footer
     expect(svgs[0]).toContain("The World of YAML Slides");
     expect(svgs[0]).toContain("<image");
     // always:true footer base applies to all slides
     for (const svg of svgs) expect(svg).toContain("slideck — YAML Slides");
+    const byId = (id: string) => svgs[slides.findIndex((s) => s.id === id)];
     // page number from system variables (${slideNumber}/${slideCount} in footer base)
-    expect(svgs[0]).toContain("1 / 5");
-    expect(svgs[4]).toContain("5 / 5");
+    expect(svgs[0]).toContain("1 / 6");
+    expect(svgs[slides.length - 1]).toContain("6 / 6");
     // slide with the section theme (extends); title fits on one line at size 100
-    expect(svgs[2]).toContain("Background and Motivation");
+    expect(byId("section-1")).toContain("Background and Motivation");
     // closing: light preset (extends overriding only colors) bright background
-    expect(svgs[3]).toContain('fill="#f7f7fb"');
+    expect(byId("closing")).toContain('fill="#f7f7fb"');
     // feature: 3 rects in the row layout + footer line
-    expect((svgs[4].match(/<rect/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    expect((byId("feature").match(/<rect/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });
 });

@@ -40,7 +40,8 @@ export async function drawPrimitive(
   switch (prim.kind) {
     case "text": {
       for (const run of prim.runs) {
-        const font = fonts.byFamily.get(run.font.family) ?? fonts.fallback;
+        const generic = /mono/i.test(run.font.family) ? fonts.monoFallback : fonts.fallback;
+        const font = fonts.byFamily.get(run.font.family) ?? generic;
         try {
           page.drawText(run.text, {
             x: run.x,

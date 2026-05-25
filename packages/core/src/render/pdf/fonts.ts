@@ -7,6 +7,8 @@ export interface EmbeddedFonts {
   byFamily: Map<string, PDFFont>;
   // ASCII fallback (for families with no embedded font)
   fallback: PDFFont;
+  // Monospace fallback (for an unembedded "monospace" family, e.g. inline code).
+  monoFallback: PDFFont;
 }
 
 // Embed fonts as subsets. TTF(glyf) as-is; on failure, fall back to
@@ -22,7 +24,8 @@ export async function embedFonts(
     if (embedded) byFamily.set(family, embedded);
   }
   const fallback = await pdf.embedFont(StandardFonts.Helvetica);
-  return { byFamily, fallback };
+  const monoFallback = await pdf.embedFont(StandardFonts.Courier);
+  return { byFamily, fallback, monoFallback };
 }
 
 async function embedOne(

@@ -41,7 +41,7 @@ describe("renderPdf", () => {
     const header = new TextDecoder().decode(bytes.slice(0, 5));
     expect(header).toBe("%PDF-");
     const doc = await PDFDocument.load(bytes);
-    expect(doc.getPageCount()).toBe(5);
+    expect(doc.getPageCount()).toBe(6);
     expect(doc.getPage(0).getWidth()).toBe(1920);
     expect(doc.getPage(0).getHeight()).toBe(1080);
 

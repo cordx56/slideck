@@ -15,9 +15,27 @@ function num(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(3).replace(/\.?0+$/, "");
 }
 
-// Append sans-serif so previews stay readable even if the declared font is unloaded.
+// CSS generic family keywords must stay unquoted to select the browser's generic
+// font (a quoted "monospace" is read as a literal family name and falls through
+// to the fallback). Named families are quoted with a generic fallback so the
+// preview stays readable even if the declared font is unloaded.
+const GENERIC_FAMILIES = new Set([
+  "serif",
+  "sans-serif",
+  "monospace",
+  "cursive",
+  "fantasy",
+  "system-ui",
+  "ui-serif",
+  "ui-sans-serif",
+  "ui-monospace",
+  "math",
+]);
+
 function fontFamilyWithFallback(family: string): string {
-  return `'${family.replace(/'/g, "")}', sans-serif`;
+  if (GENERIC_FAMILIES.has(family)) return family;
+  const fallback = /mono/i.test(family) ? "monospace" : "sans-serif";
+  return `'${family.replace(/'/g, "")}', ${fallback}`;
 }
 
 function strokeAttrs(stroke: Stroke | undefined): string {

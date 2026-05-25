@@ -21,11 +21,15 @@ function isCJK(code: number): boolean {
 // Approximate metrics without a font file. fullwidth=1em, ASCII uses per-class
 // estimated widths. Makes wrapping work where no real font exists (tests/initial preview).
 export class ApproximateMetrics implements FontMetrics {
-  measure(text: string, _font: string, size: number): number {
+  measure(text: string, font: string, size: number): number {
+    // Monospace fonts advance every glyph equally; model that so the measured
+    // width matches what the browser/PDF renders for a generic monospace font
+    // (otherwise text after inline code is mispositioned and overlaps it).
+    const mono = /mono/i.test(font);
     let w = 0;
     for (const ch of text) {
       const code = ch.codePointAt(0) ?? 0;
-      w += charWidthRatio(ch, code) * size;
+      w += (mono ? monoWidthRatio(code) : charWidthRatio(ch, code)) * size;
     }
     return w;
   }
@@ -33,6 +37,11 @@ export class ApproximateMetrics implements FontMetrics {
   ascentRatio(): number {
     return 0.8;
   }
+}
+
+// Fixed advance for monospace: ~0.6em per glyph (typical), fullwidth = 2 cells.
+function monoWidthRatio(code: number): number {
+  return isCJK(code) ? 1.2 : 0.6;
 }
 
 function charWidthRatio(ch: string, code: number): number {
