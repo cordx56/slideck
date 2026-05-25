@@ -2,12 +2,17 @@ import { z } from "zod";
 import { ElementSchema } from "./element";
 import type { BaseHir } from "../ir/hir";
 
-// Conservative allowlist for font family names. These flow into CSS @font-face /
-// font-family in generated SVG, so disallow characters that could break out of
-// the CSS string or <style> element (the SVG is later injected with {@html}).
+// Font family names may contain arbitrary Unicode (letters, CJK, punctuation).
+// They flow into CSS @font-face / font-family in generated SVG that is later
+// injected with {@html}, so reject only control characters and the few that
+// could break out of the CSS string / <style> element. The renderer additionally
+// escapes these, so this is just an early, clear rejection (defense in depth).
 const FamilyName = z
   .string()
-  .regex(/^[\p{L}\p{N} ._-]+$/u, "font family may contain only letters, digits, spaces, . _ -");
+  .min(1)
+  .refine((s) => !/[\u0000-\u001f<>"&\\]/.test(s), {
+    message: 'font family must not contain control characters or any of < > " & \\',
+  });
 
 export const FontDeclSchema = z
   .object({

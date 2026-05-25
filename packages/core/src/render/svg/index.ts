@@ -30,11 +30,13 @@ export function renderSvgString(lir: SlideLir, options: SvgRenderOptions = {}): 
 
 // The generated SVG is injected with {@html}, so nothing deck-controlled may
 // break out of the CSS string / <style> element. Every value below is either
-// validated or stripped to a safe charset before interpolation.
+// validated or escaped before interpolation.
 const FONT_FORMATS = new Set(["truetype", "opentype", "woff", "woff2", "svg", "embedded-opentype"]);
 
-// Strip the family to the schema-allowed charset (defense in depth) and quote it.
-const cssFamily = (name: string): string => `"${name.replace(/[^\p{L}\p{N} ._-]/gu, "")}"`;
+// CSS-escape into a quoted string: neutralize the chars that could end the CSS
+// string or the surrounding style element (HTML/XML); all other Unicode is kept.
+const cssFamily = (name: string): string =>
+  `"${name.replace(/[\u0000-\u001f"\\<>&]/g, (c) => "\\" + c.codePointAt(0)!.toString(16) + " ")}"`;
 
 // Accept only a base64 data: URL; reject anything that could contain ")" or
 // whitespace and escape the url() context. Returns null to drop the src.

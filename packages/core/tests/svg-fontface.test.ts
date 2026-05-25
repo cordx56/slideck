@@ -4,7 +4,7 @@ import { renderSvgString } from "../src/render/svg";
 const slide = { id: "s", width: 1000, height: 1000, primitives: [] };
 
 describe("renderSvgString @font-face sanitization", () => {
-  it("strips characters that could break out of the CSS string / <style>", () => {
+  it("escapes characters that could break out of the CSS string / <style>", () => {
     const svg = renderSvgString(slide, {
       fontFaces: [
         {
@@ -16,14 +16,22 @@ describe("renderSvgString @font-face sanitization", () => {
         },
       ],
     });
-    // Only one legitimate closing tag; the style body has no markup or attribute syntax.
+    // Only the one legitimate closing tag; the style body has no raw markup.
     expect(svg.match(/<\/style>/g) ?? []).toHaveLength(1);
     expect(svg).not.toContain("<image");
     const style = svg.match(/<style>([\s\S]*)<\/style>/)?.[1] ?? "";
-    expect(style).not.toContain("<"); // no tag can be opened
-    expect(style).not.toContain("="); // no attribute (e.g. onerror=) can form
+    expect(style).not.toContain("<"); // every '<' is escaped -> no tag can open
+    expect(style).toContain("\\3c "); // '<' kept as a CSS hex escape (escaped, not stripped)
+    expect(style).toContain("\\22 "); // '"' escaped -> the CSS string can't be closed early
     expect(style).toContain("font-weight:700;font-style:italic;");
     expect(style).toContain('src:url(data:font/ttf;base64,AAAA) format("truetype");');
+  });
+
+  it("preserves Unicode family names (letters and punctuation)", () => {
+    const svg = renderSvgString(slide, {
+      fontFaces: [{ family: "メイリオ ヒラギノ角ゴ・W3", dataUrl: "data:font/ttf;base64,AAAA" }],
+    });
+    expect(svg).toContain('font-family:"メイリオ ヒラギノ角ゴ・W3"');
   });
 
   it("drops the src for a non-data: URL and ignores an unknown format", () => {
