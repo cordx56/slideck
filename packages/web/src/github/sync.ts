@@ -11,7 +11,7 @@ import {
   createTree,
   createCommit,
   updateBranch,
-  createRef,
+  putContents,
   type TreeChange,
   type TreeEntry,
 } from "./client";
@@ -273,9 +273,34 @@ export async function push(
   if (conflicts.length) return { pushed: [], deleted: [], conflicts };
 
   const baseline = await loadBaseline(vfs);
-  const changes: TreeChange[] = [];
   const pushed: string[] = [];
   const deleted: string[] = [];
+
+  // An empty repository (no initial commit) rejects the Git Data API with 409,
+  // so seed it through the Contents API instead (one commit per file). There are
+  // no remote files yet, hence nothing to delete.
+  const head = await getHeadCommit(token, owner, repo, branch);
+  if (!head) {
+    for (const [p, s] of status) {
+      if (s !== "localNew" && s !== "localModified") continue;
+      const { contentSha } = await putContents(
+        token,
+        owner,
+        repo,
+        p.slice(1),
+        await vfs.readBytes(p),
+        message,
+        branch,
+      );
+      baseline[p] = contentSha;
+      pushed.push(p);
+    }
+    if (pushed.length) await saveBaseline(vfs, baseline);
+    return { pushed, deleted, conflicts: [] };
+  }
+
+  // Non-empty repository: one commit for all changes via the Git Data API.
+  const changes: TreeChange[] = [];
   for (const [p, s] of status) {
     if (s === "localNew" || s === "localModified") {
       const sha = await createBlob(token, owner, repo, await vfs.readBytes(p));
@@ -291,13 +316,9 @@ export async function push(
   }
   if (changes.length === 0) return { pushed, deleted, conflicts: [] };
 
-  // Empty repository: build a root commit and create the branch ref instead of
-  // updating a head that does not exist yet (which 409s).
-  const head = await getHeadCommit(token, owner, repo, branch);
-  const treeSha = await createTree(token, owner, repo, head?.tree ?? null, changes);
-  const commit = await createCommit(token, owner, repo, message, treeSha, head?.commit ?? null);
-  if (head) await updateBranch(token, owner, repo, branch, commit);
-  else await createRef(token, owner, repo, branch, commit);
+  const treeSha = await createTree(token, owner, repo, head.tree, changes);
+  const commit = await createCommit(token, owner, repo, message, treeSha, head.commit);
+  await updateBranch(token, owner, repo, branch, commit);
   await saveBaseline(vfs, baseline);
   return { pushed, deleted, conflicts: [] };
 }

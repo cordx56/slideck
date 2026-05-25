@@ -10,6 +10,8 @@
 <style>
   .spinner {
     display: inline-block;
+    flex: none; /* never let a flex parent squash the circle into an oval */
+    box-sizing: border-box;
     width: var(--sp-size, 14px);
     height: var(--sp-size, 14px);
     border: 2px solid currentColor;

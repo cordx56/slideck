@@ -89,6 +89,7 @@
   }
   /* Clip only the name so the round spinner is never cut into a bar shape. */
   .repo-btn .name {
+    min-width: 0; /* allow the name (not the spinner) to shrink + ellipsize */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

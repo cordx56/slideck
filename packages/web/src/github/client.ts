@@ -138,6 +138,7 @@ export async function getBlob(
 }
 
 // Date of the last commit touching a path (for conflict "newer wins").
+// Returns undefined for an empty repository (no commits to compare against).
 export async function lastCommitDate(
   token: string,
   owner: string,
@@ -145,10 +146,16 @@ export async function lastCommitDate(
   branch: string,
   path: string,
 ): Promise<number | undefined> {
-  const res = await gh<{ commit: { committer: { date: string } } }[]>(
-    token,
-    `/repos/${enc(owner)}/${enc(repo)}/commits?sha=${enc(branch)}&path=${enc(path)}&per_page=1`,
-  );
+  let res: { commit: { committer: { date: string } } }[];
+  try {
+    res = await gh(
+      token,
+      `/repos/${enc(owner)}/${enc(repo)}/commits?sha=${enc(branch)}&path=${enc(path)}&per_page=1`,
+    );
+  } catch (e) {
+    if (isEmptyRepo(e)) return undefined;
+    throw e;
+  }
   const date = res[0]?.commit.committer.date;
   return date ? Date.parse(date) : undefined;
 }
@@ -193,38 +200,32 @@ export async function createBlob(
   return res.sha;
 }
 
-// baseTree null builds the tree from scratch (empty repo / initial commit); a
-// null change sha (deletion) is meaningless without a base tree, so drop it.
 export async function createTree(
   token: string,
   owner: string,
   repo: string,
-  baseTree: string | null,
+  baseTree: string,
   changes: TreeChange[],
 ): Promise<string> {
-  const tree = changes
-    .filter((c) => baseTree || c.sha != null)
-    .map((c) => ({ path: c.path, mode: "100644", type: "blob", sha: c.sha }));
-  const body = baseTree ? { base_tree: baseTree, tree } : { tree };
+  const tree = changes.map((c) => ({ path: c.path, mode: "100644", type: "blob", sha: c.sha }));
   const res = await gh<{ sha: string }>(token, `/repos/${enc(owner)}/${enc(repo)}/git/trees`, {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({ base_tree: baseTree, tree }),
   });
   return res.sha;
 }
 
-// parent null creates a root commit (no parents) for the initial push.
 export async function createCommit(
   token: string,
   owner: string,
   repo: string,
   message: string,
   tree: string,
-  parent: string | null,
+  parent: string,
 ): Promise<string> {
   const res = await gh<{ sha: string }>(token, `/repos/${enc(owner)}/${enc(repo)}/git/commits`, {
     method: "POST",
-    body: JSON.stringify({ message, tree, parents: parent ? [parent] : [] }),
+    body: JSON.stringify({ message, tree, parents: [parent] }),
   });
   return res.sha;
 }
@@ -242,16 +243,28 @@ export async function updateBranch(
   });
 }
 
-// Create the branch ref (used for the first commit of an empty repository).
-export async function createRef(
+// Encode a repo-relative path, keeping the slashes between segments.
+const encPath = (p: string): string => p.split("/").map(enc).join("/");
+
+// Create or update a single file via the Contents API. Unlike the Git Data API,
+// this works on an empty repository: it creates the branch and the initial
+// commit. content.sha is the git blob sha (usable as a baseline entry).
+export async function putContents(
   token: string,
   owner: string,
   repo: string,
+  path: string,
+  bytes: Uint8Array,
+  message: string,
   branch: string,
-  commit: string,
-): Promise<void> {
-  await gh(token, `/repos/${enc(owner)}/${enc(repo)}/git/refs`, {
-    method: "POST",
-    body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: commit }),
-  });
+  sha?: string,
+): Promise<{ contentSha: string; commitSha: string }> {
+  const body: Record<string, unknown> = { message, content: bytesToBase64(bytes), branch };
+  if (sha) body.sha = sha;
+  const res = await gh<{ content: { sha: string }; commit: { sha: string } }>(
+    token,
+    `/repos/${enc(owner)}/${enc(repo)}/contents/${encPath(path)}`,
+    { method: "PUT", body: JSON.stringify(body) },
+  );
+  return { contentSha: res.content.sha, commitSha: res.commit.sha };
 }
