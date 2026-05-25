@@ -1,18 +1,24 @@
 <script lang="ts">
   import { store } from "./store.svelte";
-  import { installSample, createEmptyProject } from "./sample";
+  import { createEmptyProject } from "./sample";
   import Spinner from "./Spinner.svelte";
   import GithubConnect from "./github/GithubConnect.svelte";
   import RepoPickerDialog from "./github/RepoPickerDialog.svelte";
   import type { VFS } from "../vfs";
 
-  type PendingKind = "empty" | "sample" | "zip" | "clone";
-  type Step = "menu" | "projects" | "name";
+  // The sample is a built-in template; a project template carries its name.
+  type TemplateRef = { sample: boolean; name?: string };
+  type PendingKind = "empty" | "zip" | "clone" | "template";
+  type Step = "menu" | "projects" | "templates" | "makeTemplate" | "name";
 
   let step = $state<Step>("menu");
-  let pending = $state<{ kind: PendingKind; file?: File; owner?: string; repo?: string } | null>(
-    null,
-  );
+  let pending = $state<{
+    kind: PendingKind;
+    file?: File;
+    owner?: string;
+    repo?: string;
+    template?: TemplateRef;
+  } | null>(null);
   let cloning = $state(false);
   let nameValue = $state("");
   let error = $state("");
@@ -22,24 +28,38 @@
   let zipInput: HTMLInputElement;
 
   const projects = $derived(store.projects);
+  // Projects that are not yet templates (candidates for "make a template").
+  const eligible = $derived(projects.filter((p) => !p.isTemplate));
 
-  function sampleBase() {
-    return `${import.meta.env.BASE_URL}examples/basic/`;
-  }
   function toEditor() {
     location.hash = "#editor";
   }
 
-  function startCreate(kind: PendingKind, file?: File) {
+  // A project name not already in use (base, base-1, base-2, ...).
+  function freshName(base: string): string {
+    if (!store.projectExists(base)) return base;
+    for (let i = 1; ; i++) {
+      if (!store.projectExists(`${base}-${i}`)) return `${base}-${i}`;
+    }
+  }
+
+  function startCreate(kind: "empty" | "zip", file?: File) {
     pending = { kind, file };
-    nameValue =
-      kind === "sample"
-        ? "sample"
-        : kind === "zip" && file
-          ? file.name.replace(/\.zip$/i, "")
-          : "untitled";
+    nameValue = kind === "zip" && file ? file.name.replace(/\.zip$/i, "") : "untitled";
     error = "";
     step = "name";
+  }
+
+  function startTemplate(template: TemplateRef, base: string) {
+    pending = { kind: "template", template };
+    nameValue = freshName(base);
+    error = "";
+    step = "name";
+  }
+
+  function makeTemplate(name: string) {
+    store.markTemplate(name);
+    step = "templates";
   }
 
   function onZip(e: Event) {
@@ -58,7 +78,6 @@
 
   function initializer(p: { kind: PendingKind; file?: File }): (v: VFS) => Promise<void> {
     if (p.kind === "empty") return (v) => createEmptyProject(v);
-    if (p.kind === "sample") return (v) => installSample(v, sampleBase());
     const file = p.file!;
     return (v) => v.importZip(file);
   }
@@ -70,6 +89,8 @@
     try {
       if (pending.kind === "clone") {
         await store.cloneProject(nameValue, pending.owner!, pending.repo!);
+      } else if (pending.kind === "template") {
+        await store.createFromTemplate(nameValue, pending.template!);
       } else {
         await store.createProject(nameValue, initializer(pending));
       }
@@ -119,7 +140,7 @@
           Open project
         </button>
         <button onclick={() => startCreate("empty")}>Create empty project</button>
-        <button onclick={() => startCreate("sample")}>Create from sample</button>
+        <button onclick={() => (step = "templates")}>Create from template</button>
         <button onclick={() => zipInput.click()}>Import from ZIP</button>
         {#if store.github.login}
           <button onclick={() => (cloning = true)}>Clone repository</button>
@@ -138,7 +159,9 @@
               {#if loading === `open:${p.name}`}
                 <Spinner />
               {:else}
-                <span class="pdate">{new Date(p.createdAt).toLocaleDateString()}</span>
+                <span class="pdate"
+                  >{p.isTemplate ? "template" : new Date(p.createdAt).toLocaleDateString()}</span
+                >
               {/if}
             </button>
             <button class="del" title="Delete" onclick={() => remove(p.name)}>✕</button>
@@ -147,6 +170,56 @@
       </ul>
       <div class="actions">
         <button onclick={() => (step = "menu")}>Back</button>
+      </div>
+    {:else if step === "templates"}
+      <p>Select a template</p>
+      <ul class="projects">
+        <li>
+          <button class="open" onclick={() => startTemplate({ sample: true }, "sample")}>
+            <span class="pname">Sample</span>
+            <span class="pdate">built-in</span>
+          </button>
+        </li>
+        {#each store.templates as t (t.name)}
+          <li>
+            <button
+              class="open"
+              onclick={() => startTemplate({ sample: false, name: t.name }, t.name)}
+            >
+              <span class="pname">{t.name}</span>
+              <span class="pdate">template</span>
+            </button>
+            <button
+              class="untag"
+              title="Remove from templates (keeps the project)"
+              onclick={() => store.unmarkTemplate(t.name)}>✕</button
+            >
+          </li>
+        {/each}
+      </ul>
+      <div class="actions">
+        <button onclick={() => (step = "makeTemplate")} disabled={eligible.length === 0}>
+          Use an existing project as a template
+        </button>
+        <button onclick={() => (step = "menu")}>Back</button>
+      </div>
+    {:else if step === "makeTemplate"}
+      <p>Pick a project to use as a template</p>
+      <ul class="projects">
+        {#each eligible as p (p.name)}
+          <li>
+            <button class="open" onclick={() => makeTemplate(p.name)}>
+              <span class="pname">{p.name}</span>
+              <span class="pdate">{new Date(p.createdAt).toLocaleDateString()}</span>
+            </button>
+          </li>
+        {/each}
+        {#if eligible.length === 0}
+          <li><span class="empty">No projects available.</span></li>
+        {/if}
+      </ul>
+      <div class="actions">
+        <button onclick={() => (step = "templates")}>Back</button>
       </div>
     {:else}
       <p>Enter a project name</p>
@@ -260,6 +333,18 @@
   .del {
     color: var(--error);
     padding: 0 10px;
+  }
+  /* Remove-from-templates: muted, not destructive (the project itself stays). */
+  .untag {
+    color: var(--fg-dim);
+    padding: 0 10px;
+  }
+  .empty {
+    display: block;
+    padding: 12px;
+    color: var(--fg-dim);
+    text-align: center;
+    font-size: 0.85rem;
   }
   form input {
     width: 100%;

@@ -5,6 +5,9 @@
 export interface ProjectMeta {
   name: string;
   createdAt: number;
+  // A template project: usable in "Create from template" while still being a
+  // normal, openable project.
+  isTemplate?: boolean;
 }
 
 const LIST_KEY = "slideck:projects";
@@ -33,6 +36,22 @@ export function listProjects(): ProjectMeta[] {
 
 export function projectExists(name: string): boolean {
   return read().some((p) => p.name === name);
+}
+
+// Projects flagged as templates, newest first.
+export function listTemplates(): ProjectMeta[] {
+  return read()
+    .filter((p) => p.isTemplate)
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export function setTemplate(name: string, isTemplate: boolean): void {
+  const list = read();
+  const p = list.find((x) => x.name === name);
+  if (!p) return;
+  if (isTemplate) p.isTemplate = true;
+  else delete p.isTemplate;
+  write(list);
 }
 
 export function registerProject(name: string): void {

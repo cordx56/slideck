@@ -10,10 +10,13 @@ import {
   unregisterProject,
   projectExists,
   listProjects,
+  listTemplates,
+  setTemplate,
   getLastProject,
   setLastProject,
   type ProjectMeta,
 } from "./projects";
+import { installSample, copyProjectFiles } from "./sample";
 import { compileDeck, recompileDeck, renderSlideSvg, type CompiledDeck } from "@slideck/core";
 import type { LowerCtx, LoadedFont } from "@slideck/core";
 import { PipelineError } from "@slideck/core";
@@ -335,6 +338,19 @@ export const store = {
     projectsVersion;
     return listProjects();
   },
+  // Template projects (for "Create from template").
+  get templates(): ProjectMeta[] {
+    projectsVersion;
+    return listTemplates();
+  },
+  markTemplate(name: string) {
+    setTemplate(name, true);
+    projectsVersion++;
+  },
+  unmarkTemplate(name: string) {
+    setTemplate(name, false);
+    projectsVersion++;
+  },
   projectExists(name: string): boolean {
     return projectExists(name);
   },
@@ -473,6 +489,24 @@ export const store = {
     registerProject(trimmed);
     projectsVersion++;
     await loadCurrentProject();
+  },
+
+  // Create a project from a template. The built-in sample installs from the
+  // bundled example; a project template copies its files (but not its GitHub
+  // repository settings, which are stored in meta and not copied).
+  async createFromTemplate(name: string, template: { sample: boolean; name?: string }) {
+    await this.createProject(name, async (dest) => {
+      if (template.sample) {
+        await installSample(dest, `${import.meta.env.BASE_URL}examples/basic/`);
+      } else if (template.name) {
+        const src = await openVfs(dbNameFor(template.name));
+        try {
+          await copyProjectFiles(src, dest);
+        } finally {
+          src.dispose();
+        }
+      }
+    });
   },
 
   // Delete a project (from the selection screen).

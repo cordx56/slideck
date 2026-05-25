@@ -52,3 +52,15 @@ export async function createEmptyProject(vfs: VFS): Promise<void> {
   await vfs.writeText("/deck.yaml", EMPTY_DECK);
   await vfs.writeText("/theme-base.yaml", EMPTY_BASE);
 }
+
+// Copy every file (and folder) from one project's VFS into another. Project meta
+// (e.g. the GitHub remote/baseline) is intentionally not copied, so a project
+// created from a template does not inherit the template's repository settings.
+export async function copyProjectFiles(src: VFS, dest: VFS): Promise<void> {
+  const entries = await src.list();
+  for (const e of entries) if (e.kind === "folder") await dest.createFolder(e.path);
+  for (const e of entries) {
+    if (e.kind !== "file") continue;
+    await dest.writeBlob(e.path, await src.readBlob(e.path), e.mimeType);
+  }
+}
