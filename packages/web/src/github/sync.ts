@@ -11,6 +11,7 @@ import {
   createTree,
   createCommit,
   updateBranch,
+  createRef,
   type TreeChange,
   type TreeEntry,
 } from "./client";
@@ -290,10 +291,13 @@ export async function push(
   }
   if (changes.length === 0) return { pushed, deleted, conflicts: [] };
 
+  // Empty repository: build a root commit and create the branch ref instead of
+  // updating a head that does not exist yet (which 409s).
   const head = await getHeadCommit(token, owner, repo, branch);
-  const treeSha = await createTree(token, owner, repo, head.tree, changes);
-  const commit = await createCommit(token, owner, repo, message, treeSha, head.commit);
-  await updateBranch(token, owner, repo, branch, commit);
+  const treeSha = await createTree(token, owner, repo, head?.tree ?? null, changes);
+  const commit = await createCommit(token, owner, repo, message, treeSha, head?.commit ?? null);
+  if (head) await updateBranch(token, owner, repo, branch, commit);
+  else await createRef(token, owner, repo, branch, commit);
   await saveBaseline(vfs, baseline);
   return { pushed, deleted, conflicts: [] };
 }

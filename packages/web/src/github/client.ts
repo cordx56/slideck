@@ -35,6 +35,16 @@ export interface TreeEntry {
   size?: number; // blob byte size (used for clone/pull preflight limits)
 }
 
+export class GithubError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "GithubError";
+  }
+}
+
 function authHeaders(token: string): Record<string, string> {
   return {
     Authorization: `Bearer ${token}`,
@@ -50,10 +60,18 @@ async function gh<T>(token: string, path: string, init?: RequestInit): Promise<T
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`GitHub ${init?.method ?? "GET"} ${path}: ${res.status} ${body.slice(0, 200)}`);
+    throw new GithubError(
+      res.status,
+      `GitHub ${init?.method ?? "GET"} ${path}: ${res.status} ${body.slice(0, 200)}`,
+    );
   }
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }
+
+// True when the failure is GitHub reporting that the repository has no commits
+// yet (409 on git-data reads, or a 404 ref lookup).
+const isEmptyRepo = (e: unknown): boolean =>
+  e instanceof GithubError && (e.status === 409 || e.status === 404);
 
 // --- base64 (binary-safe) ---
 export function bytesToBase64(bytes: Uint8Array): string {
@@ -87,17 +105,21 @@ export async function getRepo(token: string, owner: string, repo: string): Promi
   return gh(token, `/repos/${enc(owner)}/${enc(repo)}`);
 }
 
-// Recursive blob list of a ref. Throws if the tree is truncated (too large).
+// Recursive blob list of a ref. Empty repositories (no commits yet) return [].
+// Throws if the tree is truncated (too large).
 export async function listTree(
   token: string,
   owner: string,
   repo: string,
   branch: string,
 ): Promise<TreeEntry[]> {
-  const res = await gh<{ tree: TreeEntry[]; truncated: boolean }>(
-    token,
-    `/repos/${enc(owner)}/${enc(repo)}/git/trees/${enc(branch)}?recursive=1`,
-  );
+  let res: { tree: TreeEntry[]; truncated: boolean };
+  try {
+    res = await gh(token, `/repos/${enc(owner)}/${enc(repo)}/git/trees/${enc(branch)}?recursive=1`);
+  } catch (e) {
+    if (isEmptyRepo(e)) return [];
+    throw e;
+  }
   if (res.truncated) throw new Error("repository tree is too large (truncated)");
   return res.tree.filter((e) => e.type === "blob");
 }
@@ -137,16 +159,20 @@ export interface TreeChange {
   sha?: string | null; // null deletes; otherwise the new blob sha
 }
 
+// Head commit + its tree, or null when the repository is empty (no ref yet).
 export async function getHeadCommit(
   token: string,
   owner: string,
   repo: string,
   branch: string,
-): Promise<{ commit: string; tree: string }> {
-  const ref = await gh<{ object: { sha: string } }>(
-    token,
-    `/repos/${enc(owner)}/${enc(repo)}/git/ref/heads/${enc(branch)}`,
-  );
+): Promise<{ commit: string; tree: string } | null> {
+  let ref: { object: { sha: string } };
+  try {
+    ref = await gh(token, `/repos/${enc(owner)}/${enc(repo)}/git/ref/heads/${enc(branch)}`);
+  } catch (e) {
+    if (isEmptyRepo(e)) return null;
+    throw e;
+  }
   const commit = await gh<{ tree: { sha: string } }>(
     token,
     `/repos/${enc(owner)}/${enc(repo)}/git/commits/${enc(ref.object.sha)}`,
@@ -167,32 +193,38 @@ export async function createBlob(
   return res.sha;
 }
 
+// baseTree null builds the tree from scratch (empty repo / initial commit); a
+// null change sha (deletion) is meaningless without a base tree, so drop it.
 export async function createTree(
   token: string,
   owner: string,
   repo: string,
-  baseTree: string,
+  baseTree: string | null,
   changes: TreeChange[],
 ): Promise<string> {
-  const tree = changes.map((c) => ({ path: c.path, mode: "100644", type: "blob", sha: c.sha }));
+  const tree = changes
+    .filter((c) => baseTree || c.sha != null)
+    .map((c) => ({ path: c.path, mode: "100644", type: "blob", sha: c.sha }));
+  const body = baseTree ? { base_tree: baseTree, tree } : { tree };
   const res = await gh<{ sha: string }>(token, `/repos/${enc(owner)}/${enc(repo)}/git/trees`, {
     method: "POST",
-    body: JSON.stringify({ base_tree: baseTree, tree }),
+    body: JSON.stringify(body),
   });
   return res.sha;
 }
 
+// parent null creates a root commit (no parents) for the initial push.
 export async function createCommit(
   token: string,
   owner: string,
   repo: string,
   message: string,
   tree: string,
-  parent: string,
+  parent: string | null,
 ): Promise<string> {
   const res = await gh<{ sha: string }>(token, `/repos/${enc(owner)}/${enc(repo)}/git/commits`, {
     method: "POST",
-    body: JSON.stringify({ message, tree, parents: [parent] }),
+    body: JSON.stringify({ message, tree, parents: parent ? [parent] : [] }),
   });
   return res.sha;
 }
@@ -207,5 +239,19 @@ export async function updateBranch(
   await gh(token, `/repos/${enc(owner)}/${enc(repo)}/git/refs/heads/${enc(branch)}`, {
     method: "PATCH",
     body: JSON.stringify({ sha: commit }),
+  });
+}
+
+// Create the branch ref (used for the first commit of an empty repository).
+export async function createRef(
+  token: string,
+  owner: string,
+  repo: string,
+  branch: string,
+  commit: string,
+): Promise<void> {
+  await gh(token, `/repos/${enc(owner)}/${enc(repo)}/git/refs`, {
+    method: "POST",
+    body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: commit }),
   });
 }
