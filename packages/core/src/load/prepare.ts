@@ -1,8 +1,8 @@
-import type { MirDeck, MirElement } from "../ir/mir";
+import type { MirDeck, MirElement, MirText } from "../ir/mir";
 import type { AssetResolver } from "./assets";
+import { FontkitMetrics, createFkFont, type FkFont } from "../lower/fontkit-metrics";
 import type { FontMetrics } from "../lower/metrics";
 import { ApproximateMetrics } from "../lower/metrics";
-import { FontkitMetrics, createFkFont } from "../lower/fontkit-metrics";
 import type { LoadedImage, LoadedFont, LowerCtx } from "../lower/context";
 import { isTtc, extractFontFromTtc } from "./ttc";
 import { mimeFromPath } from "../lib/mime";
@@ -54,14 +54,34 @@ async function loadFonts(
   return fonts;
 }
 
-function buildMetrics(fonts: Map<string, LoadedFont>): FontMetrics {
-  if (fonts.size === 0) return new ApproximateMetrics();
-  const fk = new Map();
+function buildFkFonts(fonts: Map<string, LoadedFont>): Map<string, FkFont> {
+  const fk = new Map<string, FkFont>();
   for (const [family, lf] of fonts) {
     const font = createFkFont(lf.bytes);
     if (font) fk.set(family, font);
   }
+  return fk;
+}
+
+function buildMetrics(fk: Map<string, FkFont>): FontMetrics {
   return fk.size > 0 ? new FontkitMetrics(fk) : new ApproximateMetrics();
+}
+
+// First registered font whose post table declares fixed-pitch (monospace).
+// Used to default inline code to a real monospace font when one is available.
+function findMonoFamily(fk: Map<string, FkFont>): string {
+  for (const [family, f] of fk) {
+    if (f.isFixedPitch) return family;
+  }
+  return "";
+}
+
+function walkTextElements(els: MirElement[], visit: (t: MirText) => void): void {
+  for (const el of els) {
+    if (el.type === "text") visit(el);
+    else if (el.type === "group") walkTextElements(el.children, visit);
+    else if (el.type === "ul" || el.type === "ol") walkTextElements(el.items, visit);
+  }
 }
 
 // Asynchronously assemble the resources (images, fonts, metrics) passed to lower.
@@ -71,7 +91,19 @@ export async function prepare(
   errors: PipelineError[] = [],
 ): Promise<PreparedAssets> {
   const fonts = await loadFonts(deck, resolver, errors);
-  const metrics = buildMetrics(fonts);
+  const fk = buildFkFonts(fonts);
+  const metrics = buildMetrics(fk);
+
+  // If any registered font is monospace, adopt it as the default for inline code
+  // (only where the deck/theme did not explicitly declare defaults.mono.family).
+  const defaultMono = findMonoFamily(fk);
+  if (defaultMono) {
+    for (const s of deck.slides) {
+      walkTextElements(s.elements, (t) => {
+        if (t.rich && t.rich.monoFamily === "") t.rich.monoFamily = defaultMono;
+      });
+    }
+  }
 
   const images = new Map<string, LoadedImage>();
   for (const src of collectImageSrcs(deck)) {
