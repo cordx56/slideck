@@ -71,3 +71,25 @@ my-deck/
 ```
 
 Relative paths are resolved from the file that references them.
+
+## Development
+
+```bash
+pnpm install
+pnpm dev          # web dev server (= pnpm --filter @slideck/web dev)
+pnpm test         # all packages (vitest)
+pnpm check        # type-check all packages
+pnpm build        # build web + cli (the cli bundles the web build)
+pnpm build:web    # web only (for static hosting)
+```
+
+The sample project lives in `packages/web/public/examples/basic/`; pick it from
+the web app's start screen.
+
+## Deploy (web)
+
+`packages/web/dist/` is fully static. For sub-path hosting, set `VITE_BASE`:
+
+```bash
+VITE_BASE=/slideck/ pnpm --filter @slideck/web build
+```

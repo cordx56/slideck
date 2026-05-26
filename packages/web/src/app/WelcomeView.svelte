@@ -257,6 +257,10 @@
       onclose={() => (cloning = false)}
     />
   {/if}
+
+  <a class="repo-link" href="https://github.com/cordx56/slideck" target="_blank" rel="noopener">
+    GitHub Repo
+  </a>
 </div>
 
 <style>
@@ -365,5 +369,19 @@
     text-align: left;
     font-size: 0.85rem;
     margin: 0 0 12px;
+  }
+  /* Pinned to the very bottom of the viewport, outside the card frame. */
+  .repo-link {
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--fg-dim);
+    font-size: 0.85rem;
+    text-decoration: none;
+  }
+  .repo-link:hover {
+    color: var(--accent);
+    text-decoration: underline;
   }
 </style>
