@@ -35,9 +35,10 @@
 </script>
 
 <div class="right">
-  <!-- Always a single CodeMirror instance. Hidden for non-YAML, showing the preview instead. -->
-  <div class="cm" class:hidden={!store.isYamlOpen} bind:this={host}></div>
-  {#if !store.isYamlOpen}
+  <!-- A single CodeMirror instance for any text file (.yaml/.txt/.md/...); the
+       preview shows for binary files (images, fonts, ...). -->
+  <div class="cm" class:hidden={!store.isTextOpen} bind:this={host}></div>
+  {#if !store.isTextOpen}
     <FilePreview path={store.openPath} />
   {/if}
 </div>

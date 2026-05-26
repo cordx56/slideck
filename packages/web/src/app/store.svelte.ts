@@ -22,7 +22,7 @@ import type { LowerCtx, LoadedFont } from "@slideck/core";
 import { PipelineError } from "@slideck/core";
 import { debounce } from "@slideck/core";
 import { registerFonts } from "../lib/fonts-register";
-import { isImagePath } from "@slideck/core";
+import { isImagePath, isTextPath } from "@slideck/core";
 import { collectBrokenReferences, type Reference } from "@slideck/core";
 import {
   loadAuth,
@@ -79,6 +79,12 @@ let unsubscribe: (() => void) | null = null;
 function isYaml(path: string): boolean {
   const e = extname(path);
   return e === ".yaml" || e === ".yml";
+}
+
+// Files the editor opens in CodeMirror (read/save as text). Wider than isYaml:
+// covers .txt / .md / .json / .csv / .svg too. Only YAML drives live recompile.
+function isText(path: string): boolean {
+  return isTextPath(path);
 }
 
 function compileResolver(): AssetResolver {
@@ -146,7 +152,7 @@ async function recomputeRefs() {
 // already did a live recompile).
 let selfSaving = false;
 async function saveCurrent() {
-  if (!vfs || !dirty || !isYaml(openPath)) return;
+  if (!vfs || !dirty || !isText(openPath)) return;
   selfSaving = true;
   try {
     await vfs.writeText(openPath, yamlText);
@@ -170,8 +176,12 @@ async function refreshFiles() {
 function applyYaml(text: string) {
   yamlText = text;
   dirty = true;
-  scheduleLive();
-  scheduleRefs();
+  // Only YAML drives recompile / reference re-collection. Other text files
+  // (.txt, .md, .json, ...) still save and update the sync indicator.
+  if (isYaml(openPath)) {
+    scheduleLive();
+    scheduleRefs();
+  }
   scheduleSave(); // auto-save the change
   scheduleStatus(); // reflect unpushed changes in the sync indicator
 }
@@ -195,7 +205,7 @@ const scheduleStatus = debounce(() => void refreshSyncStatus(), 800);
 async function reloadOpen(): Promise<void> {
   if (!vfs) return;
   yamlText =
-    isYaml(openPath) && (await vfs.exists(openPath)) ? await vfs.readText(openPath) : yamlText;
+    isText(openPath) && (await vfs.exists(openPath)) ? await vfs.readText(openPath) : yamlText;
   dirty = false;
   await refreshFiles();
   cachedCtx = null;
@@ -294,6 +304,10 @@ export const store = {
   },
   get isYamlOpen() {
     return isYaml(openPath);
+  },
+  // Any text-editable file: drives whether CodeMirror is shown vs the preview.
+  get isTextOpen() {
+    return isText(openPath);
   },
   get isImageOpen() {
     return isImagePath(openPath);
@@ -528,9 +542,9 @@ export const store = {
   async openFile(path: string) {
     const v = vfs;
     if (!v) return;
-    if (dirty && isYaml(openPath)) await this.save();
+    if (dirty && isText(openPath)) await this.save();
     openPath = path;
-    yamlText = isYaml(path) ? await v.readText(path) : "";
+    yamlText = isText(path) ? await v.readText(path) : "";
     dirty = false;
   },
 
