@@ -39,6 +39,9 @@ interface Style {
   strike: boolean;
   link: boolean;
   href?: string;
+  // Explicit color from a ?[..](color=..) directive; overrides link / code /
+  // default precedence at run-emit time.
+  color?: string;
 }
 
 type Atom =
@@ -52,7 +55,8 @@ const sameStyle = (a: Style, b: Style): boolean =>
   a.code === b.code &&
   a.strike === b.strike &&
   a.link === b.link &&
-  a.href === b.href;
+  a.href === b.href &&
+  a.color === b.color;
 
 // Pick the family for a run based on its style. Each role (code/bold/italic/
 // boldItalic) maps to a separately-registered face declared in defaults.text
@@ -158,6 +162,7 @@ function buildAtoms(
         strike: seg.strike,
         link: seg.link,
         href: seg.href,
+        color: seg.color,
       },
       baseFont,
       size,
@@ -245,7 +250,8 @@ export function shapeRich(
         width: cur.w,
         font: fontFor(s, baseFont, rich),
         size,
-        color: s.link ? rich.linkColor : s.code ? rich.monoColor : color,
+        // Explicit ?[..](color=..) wins; otherwise link / code / default.
+        color: s.color ?? (s.link ? rich.linkColor : s.code ? rich.monoColor : color),
         underline: s.link && rich.linkUnderline,
         strike: s.strike,
         href: s.href,

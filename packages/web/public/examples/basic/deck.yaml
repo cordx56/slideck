@@ -97,6 +97,24 @@ slides:
           because it is the only monospace font registered.
           Examples: `const x = 42`, `git push origin main`, `<svg viewBox=…>`.
 
+  - id: directives
+    use: standard
+    vars:
+      title: "Inline Directives"
+    elements:
+      - type: text
+        position: { left: 12%, right: 12%, top: 42% }
+        size: 38
+        color: ${fg}
+        # ?[content](k=v, ...) is a generic inline directive. The only attribute
+        # implemented so far is `color`; markdown still works inside the content
+        # and directives nest (inner overrides outer). Variables (${...}) expand
+        # before parsing so theme colors can be reused.
+        text: |-
+          Default body color, ?[accent highlight](color=${accent}),
+          ?[**warning bold**](color=#f7768e), and
+          ?[outer red ?[inner blue](color=${accent}) back to red](color=#f7768e).
+
   - id: closing
     use: light
     vars:

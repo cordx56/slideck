@@ -131,7 +131,7 @@ const DESCRIPTIONS: Record<string, string> = {
   bottom: "Bottom edge.",
   width: "Width (or slide width under slide:).",
   height: "Height (or slide height under slide:).",
-  text: "Text content. Inline markdown (**bold**, `code`, ~~del~~, [link](url)) and math $...$ supported.",
+  text: "Text content. Inline markdown (**bold**, `code`, ~~del~~, [link](url)), math $...$, and per-run attributes ?[text](color=#hex) supported.",
   font: "Font key declared in fonts:.",
   size: "Font size in px.",
   color: "Text/fill color (${var} or literal).",
