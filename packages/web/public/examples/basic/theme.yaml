@@ -3,6 +3,9 @@ name: standard
 fonts:
   heading: { path: ./fonts/NotoSerif-Regular.ttf, family: "NotoSerif" }
   body: { path: ./fonts/NotoSans-Regular.ttf, family: "NotoSans" }
+  # A registered monospace font is auto-detected (via isFixedPitch) and used for
+  # inline `code` -- no defaults.mono.family entry needed.
+  code: { path: ./fonts/SourceCodePro-Regular.ttf, family: "SourceCodePro" }
 
 # colors are injected as variables (referenced via ${bg} etc.). Can be overridden by a slide's vars.
 colors:

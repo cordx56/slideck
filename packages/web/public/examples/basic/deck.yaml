@@ -80,6 +80,23 @@ slides:
           Each line is laid out on its own, and **markdown**,
           `inline code`, and math like $E = mc^2$ still work.
 
+  - id: code
+    use: standard
+    vars:
+      title: "Inline Code"
+    elements:
+      - type: text
+        position: { left: 12%, right: 12%, top: 42% }
+        size: 38
+        color: ${fg}
+        # SourceCodePro is the only monospace font registered (see theme.yaml).
+        # prepare detects it via the post table's isFixedPitch flag and adopts it
+        # as the default for inline `code`, no defaults.mono.family needed.
+        text: |-
+          Inline `code` renders in **Source Code Pro**, picked up automatically
+          because it is the only monospace font registered.
+          Examples: `const x = 42`, `git push origin main`, `<svg viewBox=…>`.
+
   - id: closing
     use: light
     vars:

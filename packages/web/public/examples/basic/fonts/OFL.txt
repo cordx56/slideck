@@ -1,7 +1,14 @@
-Noto fonts bundled with this example: NotoSans-Regular.ttf, NotoSerif-Regular.ttf
+Fonts bundled with this example:
+- NotoSans-Regular.ttf, NotoSerif-Regular.ttf
+- SourceCodePro-Regular.ttf
 
 Copyright 2015 Google LLC. All Rights Reserved.
 Noto is a trademark of Google LLC.
+
+Copyright 2010, 2012 Adobe Systems Incorporated (http://www.adobe.com/),
+with Reserved Font Name "Source". All Rights Reserved.
+Source is a trademark of Adobe Systems Incorporated in the United States
+and/or other countries.
 
 -----------------------------------------------------------
 

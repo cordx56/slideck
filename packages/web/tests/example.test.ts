@@ -37,19 +37,20 @@ describe("examples/basic", () => {
     expect(compiled).toBeTruthy();
 
     const slides = compiled!.deck.slides;
-    expect(slides).toHaveLength(6);
+    expect(slides).toHaveLength(7);
 
     const svgs = slides.map((_, i) => renderSlideSvg(compiled!, i)!);
     for (const svg of svgs) expect(svg.startsWith("<svg")).toBe(true);
 
-    // multiline slide: |- block scalar -> three separate text lines. Inline code
-    // (no declared mono font) uses the surrounding text font so its measured
-    // width matches the render (no overlap / gap); not a generic "monospace".
+    // multiline slide: |- block scalar -> three separate text lines.
     const multiline = svgs[slides.findIndex((s) => s.id === "multiline")];
     expect(multiline).toContain("Line breaks are written");
     expect(multiline).toContain("Each line is laid out");
     expect(multiline).toContain("inline code");
     expect(multiline).toContain("still work");
+    // theme.yaml registers SourceCodePro (a fixed-pitch font), so inline code is
+    // automatically rendered in it (not in a generic "monospace").
+    expect(multiline).toContain("SourceCodePro");
     expect(multiline).not.toContain('font-family="monospace"');
 
     // intro: title + subtitle + image + footer
@@ -59,8 +60,8 @@ describe("examples/basic", () => {
     for (const svg of svgs) expect(svg).toContain("slideck — YAML Slides");
     const byId = (id: string) => svgs[slides.findIndex((s) => s.id === id)];
     // page number from system variables (${slideNumber}/${slideCount} in footer base)
-    expect(svgs[0]).toContain("1 / 6");
-    expect(svgs[slides.length - 1]).toContain("6 / 6");
+    expect(svgs[0]).toContain("1 / 7");
+    expect(svgs[slides.length - 1]).toContain("7 / 7");
     // slide with the section theme (extends); title fits on one line at size 100
     expect(byId("section-1")).toContain("Background and Motivation");
     // closing: light preset (extends overriding only colors) bright background
