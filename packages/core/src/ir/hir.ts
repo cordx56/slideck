@@ -96,7 +96,6 @@ export type HirElement =
 
 export interface FontDecl {
   path: string;
-  family: string;
   index?: number; // font index within a .ttc
 }
 

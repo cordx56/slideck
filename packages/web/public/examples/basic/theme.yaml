@@ -1,12 +1,13 @@
 name: standard
 
 fonts:
-  # Each font entry is one face, registered under its own family. Role
-  # assignment (bold/italic/mono) lives in defaults.text / defaults.mono.
-  heading:    { path: ./fonts/NotoSerif-Regular.ttf,    family: "NotoSerif" }
-  body:       { path: ./fonts/NotoSans-Regular.ttf,     family: "NotoSans" }
-  body-bold:  { path: ./fonts/NotoSans-Bold.ttf,        family: "NotoSansBold" }
-  code:       { path: ./fonts/SourceCodePro-Regular.ttf, family: "SourceCodePro" }
+  # Each entry is one face. The YAML key IS the CSS family (so other fields and
+  # defaults.text reference it as-is). Role assignment (bold/italic/mono) lives
+  # in defaults.text / defaults.mono.
+  heading:    { path: ./fonts/NotoSerif-Regular.ttf }
+  body:       { path: ./fonts/NotoSans-Regular.ttf }
+  body-bold:  { path: ./fonts/NotoSans-Bold.ttf }
+  code:       { path: ./fonts/SourceCodePro-Regular.ttf }
 
 # colors are injected as variables (referenced via ${bg} etc.). Can be overridden by a slide's vars.
 colors:

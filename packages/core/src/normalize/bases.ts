@@ -66,17 +66,6 @@ export function mergeColors(applied: AppliedBase[]): Record<string, string> {
   return colors;
 }
 
-// Merge the fonts key -> family of the applied bases (last wins).
-export function mergeFontKeys(applied: AppliedBase[]): Map<string, string> {
-  const m = new Map<string, string>();
-  for (const { base } of applied) {
-    for (const [key, decl] of Object.entries(base.fonts ?? {})) {
-      m.set(key, decl.family);
-    }
-  }
-  return m;
-}
-
 // Take the background of the applied bases with last wins (frontmost base preferred).
 export function pickBackground(applied: AppliedBase[]): string | undefined {
   let bg: string | undefined;

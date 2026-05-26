@@ -15,7 +15,7 @@ slides:
 const base = `colors: { bg: "#000000" }
 slide: { width: 100, height: 100 }
 fonts:
-  body: { path: ./fonts/x.ttf, family: Body }
+  body: { path: ./fonts/x.ttf }
 layout:
   - { type: image, src: ./logo.png }
 `;

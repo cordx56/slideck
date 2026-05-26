@@ -48,11 +48,12 @@ describe("examples/basic", () => {
     expect(multiline).toContain("Each line is laid out");
     expect(multiline).toContain("inline code");
     expect(multiline).toContain("still work");
-    // Each face is its own family. SourceCodePro is auto-detected as the mono
-    // face (only fixed-pitch font in fonts:); NotoSansBold is declared as the
-    // bold face for the body family via defaults.text.bold.
-    expect(multiline).toContain("SourceCodePro");
-    expect(multiline).toContain("NotoSansBold");
+    // The YAML key under fonts: IS the CSS family. "code" is auto-detected as
+    // the mono face (only fixed-pitch font in fonts:); "body-bold" is declared
+    // as the bold face via defaults.text.bold = body-bold. The XML-escaped
+    // apostrophe is &apos; in the SVG output.
+    expect(multiline).toContain("&apos;code&apos;");
+    expect(multiline).toContain("&apos;body-bold&apos;");
     expect(multiline).not.toContain('font-family="monospace"');
     // Family alone encodes the role -- no font-weight/font-style attrs anywhere.
     expect(multiline).not.toContain("font-weight=");

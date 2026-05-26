@@ -24,7 +24,7 @@ describe("schemaDocs (generated from zod)", () => {
   it("object aliases expand to their fields", () => {
     expect(schemaDocs.aliases.Position).toContain("left?: string | number");
     expect(schemaDocs.aliases.BaseRef).toContain("id: string");
-    expect(schemaDocs.aliases.FontDecl).toContain("family: string");
+    expect(schemaDocs.aliases.FontDecl).toContain("path: string");
     expect(schemaDocs.aliases.Slide).toContain("elements?: Element[]");
   });
 

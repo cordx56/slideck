@@ -4,13 +4,7 @@ import type { MirDeck, MirElement, MirFont, MirSlide } from "../ir/mir";
 import { PipelineError } from "../lib/error";
 import { normalizeHex } from "../lib/color";
 import { buildVarContext, expandString, type VarContext } from "./variables";
-import {
-  resolveAppliedBases,
-  composeLayers,
-  mergeColors,
-  mergeFontKeys,
-  pickBackground,
-} from "./bases";
+import { resolveAppliedBases, composeLayers, mergeColors, pickBackground } from "./bases";
 import { mergeSchemas } from "./schema-merge";
 import { mergeDefaults, type MergedDefaults } from "./defaults-merge";
 import { buildSystemVars } from "./system-vars";
@@ -30,7 +24,6 @@ export interface NormalizeResult {
 
 interface ConvertCtx {
   vars: VarContext;
-  fontKeyToFamily: Map<string, string>;
   textDefaults: ResolvedTextDefaults;
   rich: RichStyle;
   errors: PipelineError[];
@@ -50,7 +43,6 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
     const mergedVars = mergeSchemas(applied, errors);
     const mergedDefaults = mergeDefaults(applied);
     const colors = mergeColors(applied);
-    const fontKeyToFamily = mergeFontKeys(applied);
 
     const systemVars = buildSystemVars({
       slideId,
@@ -67,11 +59,10 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
       errors,
     );
 
-    const textDefaults = resolveTextDefaultsFor(mergedDefaults.text, fontKeyToFamily, vars, errors);
-    const rich = resolveRichStyle(mergedDefaults, textDefaults, fontKeyToFamily, vars, errors);
+    const textDefaults = resolveTextDefaultsFor(mergedDefaults.text, vars, errors);
+    const rich = resolveRichStyle(mergedDefaults, textDefaults, vars, errors);
     const ctx: ConvertCtx = {
       vars,
-      fontKeyToFamily,
       textDefaults,
       rich,
       errors,
@@ -101,12 +92,10 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
 function buildFontRegistry(loaded: LoadedDeck): Map<string, MirFont> {
   const registry = new Map<string, MirFont>();
   for (const base of loaded.basesById.values()) {
-    for (const decl of Object.values(base.fonts ?? {})) {
-      registry.set(decl.family, {
-        family: decl.family,
-        path: decl.path,
-        index: decl.index,
-      });
+    for (const [key, decl] of Object.entries(base.fonts ?? {})) {
+      // The YAML key IS the CSS family. defaults.text.family / .bold etc.
+      // reference the same key. Last declaration wins for a given key.
+      registry.set(key, { family: key, path: decl.path, index: decl.index });
     }
   }
   return registry;
@@ -123,14 +112,13 @@ function pickSlideSize(loaded: LoadedDeck): { width: number; height: number } {
 
 function resolveTextDefaultsFor(
   text: TextDefaults,
-  fontKeyToFamily: Map<string, string>,
   vars: VarContext,
   errors: PipelineError[],
 ): ResolvedTextDefaults {
   const raw = resolveTextDefaults(text);
   return {
     ...raw,
-    family: fontKeyToFamily.get(raw.family) ?? raw.family,
+    // family is the fonts: key (= CSS family) as-is. No key->family translation.
     color: resolveColorLiteral(expandString(raw.color, vars, errors)),
   };
 }
@@ -145,7 +133,6 @@ function resolveColorLiteral(value: string): string {
 function resolveRichStyle(
   d: MergedDefaults,
   td: ResolvedTextDefaults,
-  fontKeyToFamily: Map<string, string>,
   vars: VarContext,
   errors: PipelineError[],
 ): RichStyle {
@@ -155,11 +142,7 @@ function resolveRichStyle(
   // any empty role with an auto-detected face (post.isFixedPitch / OS-2 weight /
   // italicAngle); if nothing matches, the role keeps "" and the run renders in
   // the surrounding text font so the measured width matches the render.
-  const fam = (s: string | undefined): string => {
-    if (!s) return "";
-    const e = expandString(s, vars, errors);
-    return fontKeyToFamily.get(e) ?? e;
-  };
+  const fam = (s: string | undefined): string => (s ? expandString(s, vars, errors) : "");
   return {
     linkColor: col(d.link.color, td.color),
     linkUnderline: d.link.underline ?? true,
@@ -174,7 +157,8 @@ function resolveRichStyle(
 function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
   const exp = (s: string) => expandString(s, ctx.vars, ctx.errors);
   const color = (s: string) => resolveColorLiteral(exp(s));
-  const resolveFont = (raw: string) => ctx.fontKeyToFamily.get(raw) ?? raw;
+  // Font references in elements are CSS family names (= fonts: keys), no translation.
+  const resolveFont = (raw: string) => raw;
 
   switch (hir.type) {
     case "text": {

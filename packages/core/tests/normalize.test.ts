@@ -27,7 +27,7 @@ function loaded(
 }
 
 const stdBase: BaseHir = {
-  fonts: { body: { path: "x.ttf", family: "Body" } },
+  fonts: { body: { path: "x.ttf" } },
   // colors are injected as variables.
   colors: { fg: "#ffffff", accent: "#7aa2f7" },
   slide: { width: 1000, height: 500 },
@@ -54,7 +54,7 @@ describe("normalize", () => {
     const el = deck!.slides[0].elements[0] as MirText;
     expect(el.type).toBe("text");
     expect(el.text).toBe("Hello");
-    expect(el.font).toBe("Body");
+    expect(el.font).toBe("body");
     expect(el.size).toBe(30);
     expect(el.color).toBe("#ffffff");
   });

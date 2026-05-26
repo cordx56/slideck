@@ -14,13 +14,13 @@ const FamilyName = z
     message: 'font family must not contain control characters or any of < > " & \\',
   });
 
-// A font entry is purely a face: a file path + the CSS family name that this
-// face registers under. Each face is its own family; roles (bold/italic/mono)
-// are assigned in defaults.text / defaults.mono, not via weight/style here.
+// A font entry is purely a face: a file path (+ optional .ttc index). The YAML
+// key the entry is declared under IS the CSS family it registers as -- so
+// users name faces freely (body / bold / mono / heading-jp ...) and reference
+// the same key from defaults.text / defaults.mono.
 export const FontDeclSchema = z
   .object({
     path: z.string(),
-    family: FamilyName,
     // Font index used for a .ttc (TrueType Collection) (default 0).
     index: z.number().int().nonnegative().optional(),
   })
@@ -65,7 +65,9 @@ export const BaseSchema: z.ZodType<BaseHir> = z
   .object({
     name: z.string().optional(),
     extends: z.string().optional(),
-    fonts: z.record(z.string(), FontDeclSchema).optional(),
+    // The font key (the YAML record key) becomes the CSS family, so apply the
+    // same conservative validation as a family name.
+    fonts: z.record(FamilyName, FontDeclSchema).optional(),
     colors: z.record(z.string(), z.string()).optional(),
     slide: z
       .object({ width: z.number().positive(), height: z.number().positive() })
