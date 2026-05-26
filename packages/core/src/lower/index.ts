@@ -93,8 +93,12 @@ function richStyleOf(el: MirText): RichStyle {
     el.rich ?? {
       linkColor: el.color,
       linkUnderline: true,
-      monoFamily: "", // empty: inline code uses the element's own font
+      monoFamily: "",
       monoColor: el.color,
+      // empty: bold/italic/boldItalic fall back to the element's own font
+      boldFamily: "",
+      italicFamily: "",
+      boldItalicFamily: "",
     }
   );
 }

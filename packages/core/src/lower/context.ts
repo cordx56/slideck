@@ -19,9 +19,8 @@ export interface LowerCtx {
 }
 
 // Loaded font bytes used for PDF embedding and SVG preview registration.
+// One LoadedFont per declared face; the family identifies the face uniquely.
 export interface LoadedFont {
   family: string;
   bytes: Uint8Array;
-  weight?: number;
-  style?: "normal" | "italic";
 }

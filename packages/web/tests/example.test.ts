@@ -48,13 +48,15 @@ describe("examples/basic", () => {
     expect(multiline).toContain("Each line is laid out");
     expect(multiline).toContain("inline code");
     expect(multiline).toContain("still work");
-    // theme.yaml registers SourceCodePro (a fixed-pitch font), so inline code is
-    // automatically rendered in it (not in a generic "monospace").
+    // Each face is its own family. SourceCodePro is auto-detected as the mono
+    // face (only fixed-pitch font in fonts:); NotoSansBold is declared as the
+    // bold face for the body family via defaults.text.bold.
     expect(multiline).toContain("SourceCodePro");
+    expect(multiline).toContain("NotoSansBold");
     expect(multiline).not.toContain('font-family="monospace"');
-    // NotoSans-Bold is registered as a weight-700 variant of NotoSans, so
-    // **markdown** is emitted with font-weight (measured against the bold face).
-    expect(multiline).toContain('font-weight="700"');
+    // Family alone encodes the role -- no font-weight/font-style attrs anywhere.
+    expect(multiline).not.toContain("font-weight=");
+    expect(multiline).not.toContain("font-style=");
 
     // intro: title + subtitle + image + footer
     expect(svgs[0]).toContain("The World of YAML Slides");

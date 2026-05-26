@@ -52,11 +52,7 @@ export function renderPrimitive(p: Primitive): string {
           (r) =>
             `<text x="${num(r.x)}" y="${num(r.y)}" font-family="${escapeXml(
               fontFamilyWithFallback(r.font.family),
-            )}" font-size="${num(r.size)}" fill="${escapeXml(r.color)}"${
-              r.font.weight ? ` font-weight="${r.font.weight}"` : ""
-            }${
-              r.font.style === "italic" ? ` font-style="italic"` : ""
-            }>${escapeXml(r.text)}</text>`,
+            )}" font-size="${num(r.size)}" fill="${escapeXml(r.color)}">${escapeXml(r.text)}</text>`,
         )
         .join("");
     case "image":

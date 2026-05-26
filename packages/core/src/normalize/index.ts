@@ -14,7 +14,6 @@ import {
 import { mergeSchemas } from "./schema-merge";
 import { mergeDefaults, type MergedDefaults } from "./defaults-merge";
 import { buildSystemVars } from "./system-vars";
-import { fontVariantKey } from "../lib/font-variant";
 import {
   DEFAULT_SLIDE,
   DEFAULT_FIT,
@@ -95,18 +94,17 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
   };
 }
 
-// Aggregate font declarations from all bases. Keyed by (family|weight|style) so
-// multiple variants per family (e.g. NotoSans + NotoSans-Bold) can coexist;
-// later declarations override earlier ones for the same variant.
+// Aggregate font declarations from all bases. One entry per declared face,
+// keyed by family (later declarations override earlier ones for the same
+// family). Bold/italic faces are separate families and referenced from
+// defaults.text.bold / .italic / .boldItalic.
 function buildFontRegistry(loaded: LoadedDeck): Map<string, MirFont> {
   const registry = new Map<string, MirFont>();
   for (const base of loaded.basesById.values()) {
     for (const decl of Object.values(base.fonts ?? {})) {
-      registry.set(fontVariantKey(decl.family, decl.weight, decl.style), {
+      registry.set(decl.family, {
         family: decl.family,
         path: decl.path,
-        weight: decl.weight,
-        style: decl.style,
         index: decl.index,
       });
     }
@@ -153,21 +151,23 @@ function resolveRichStyle(
 ): RichStyle {
   const col = (s: string | undefined, fallback: string) =>
     s ? resolveColorLiteral(expandString(s, vars, errors)) : fallback;
-  // Empty: inline code uses the surrounding text's font. A generic like
-  // "monospace" cannot be measured (no glyph metrics), so its rendered width
-  // would not match the layout and the following text would mis-align. Set
-  // defaults.mono.family to a declared (loaded) font for a true monospace look.
-  const monoFamily = d.mono.family
-    ? (() => {
-        const f = expandString(d.mono.family, vars, errors);
-        return fontKeyToFamily.get(f) ?? f;
-      })()
-    : "";
+  // Each role family is "" when not explicitly declared. prepare will back-fill
+  // any empty role with an auto-detected face (post.isFixedPitch / OS-2 weight /
+  // italicAngle); if nothing matches, the role keeps "" and the run renders in
+  // the surrounding text font so the measured width matches the render.
+  const fam = (s: string | undefined): string => {
+    if (!s) return "";
+    const e = expandString(s, vars, errors);
+    return fontKeyToFamily.get(e) ?? e;
+  };
   return {
     linkColor: col(d.link.color, td.color),
     linkUnderline: d.link.underline ?? true,
-    monoFamily,
+    monoFamily: fam(d.mono.family),
     monoColor: col(d.mono.color, td.color),
+    boldFamily: fam(d.text.bold),
+    italicFamily: fam(d.text.italic),
+    boldItalicFamily: fam(d.text.boldItalic),
   };
 }
 

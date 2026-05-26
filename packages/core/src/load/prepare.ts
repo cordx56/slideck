@@ -29,27 +29,20 @@ function collectImageSrcs(deck: MirDeck): Set<string> {
   return srcs;
 }
 
-// Both the LoadedFont map (used by the web FontFace API + PDF embedding) and
-// the fontkit map (used by metrics + PDF font lookup) are keyed by the same
-// composite variant key (family|weight|style), so the lookups line up.
+// Each LoadedFont is one declared face, keyed by family.
 async function loadFonts(
   deck: MirDeck,
   resolver: AssetResolver,
   errors: PipelineError[],
 ): Promise<Map<string, LoadedFont>> {
   const fonts = new Map<string, LoadedFont>();
-  for (const [key, decl] of deck.fonts) {
+  for (const [family, decl] of deck.fonts) {
     if (!decl.path) continue;
     try {
       let bytes = await resolver.readBytes(decl.path);
       // .ttc expands the font at the given index into a standalone SFNT.
       if (isTtc(bytes)) bytes = extractFontFromTtc(bytes, decl.index ?? 0);
-      fonts.set(key, {
-        family: decl.family,
-        bytes,
-        weight: decl.weight,
-        style: decl.style,
-      });
+      fonts.set(family, { family, bytes });
     } catch (e) {
       errors.push(new PipelineError(`failed to load font: ${decl.path} (${String(e)})`));
     }
@@ -57,20 +50,32 @@ async function loadFonts(
   return fonts;
 }
 
-// Build the fontkit map and detect a default mono family in a single pass.
-function buildFkAndMono(fonts: Map<string, LoadedFont>): {
+interface AutoRoles {
+  mono: string;
+  bold: string;
+  italic: string;
+  boldItalic: string;
+}
+
+// Build the fontkit map and auto-detect mono / bold / italic / boldItalic role
+// faces in a single pass. The first matching face for each role wins; explicit
+// defaults.text.* / defaults.mono.family entries override this in normalize.
+function buildFkAndRoles(fonts: Map<string, LoadedFont>): {
   fk: Map<string, FkFont>;
-  defaultMono: string;
+  auto: AutoRoles;
 } {
   const fk = new Map<string, FkFont>();
-  let defaultMono = "";
-  for (const [key, lf] of fonts) {
+  const auto: AutoRoles = { mono: "", bold: "", italic: "", boldItalic: "" };
+  for (const [family, lf] of fonts) {
     const f = createFkFont(lf.bytes);
     if (!f) continue;
-    fk.set(key, f);
-    if (!defaultMono && f.isFixedPitch) defaultMono = lf.family;
+    fk.set(family, f);
+    if (!auto.mono && f.isFixedPitch) auto.mono = family;
+    if (!auto.boldItalic && f.isBold && f.isItalic) auto.boldItalic = family;
+    else if (!auto.bold && f.isBold && !f.isItalic) auto.bold = family;
+    else if (!auto.italic && f.isItalic && !f.isBold) auto.italic = family;
   }
-  return { fk, defaultMono };
+  return { fk, auto };
 }
 
 function buildMetrics(fk: Map<string, FkFont>): FontMetrics {
@@ -92,17 +97,22 @@ export async function prepare(
   errors: PipelineError[] = [],
 ): Promise<PreparedAssets> {
   const fonts = await loadFonts(deck, resolver, errors);
-  const { fk, defaultMono } = buildFkAndMono(fonts);
+  const { fk, auto } = buildFkAndRoles(fonts);
   const metrics = buildMetrics(fk);
 
-  // If any registered font is monospace, adopt it as the default for inline code
-  // (only where the deck/theme did not explicitly declare defaults.mono.family).
-  if (defaultMono) {
-    for (const s of deck.slides) {
-      walkTextElements(s.elements, (t) => {
-        if (t.rich && t.rich.monoFamily === "") t.rich.monoFamily = defaultMono;
-      });
-    }
+  // Back-fill role families that the theme did not declare with the auto-
+  // detected face for that role (mono, bold, italic, boldItalic). Without a
+  // matching face the role stays "" and rich-shaping uses the surrounding text
+  // font, so the rendered glyphs always match the measured width.
+  for (const s of deck.slides) {
+    walkTextElements(s.elements, (t) => {
+      const r = t.rich;
+      if (!r) return;
+      if (!r.monoFamily) r.monoFamily = auto.mono;
+      if (!r.boldFamily) r.boldFamily = auto.bold;
+      if (!r.italicFamily) r.italicFamily = auto.italic;
+      if (!r.boldItalicFamily) r.boldItalicFamily = auto.boldItalic;
+    });
   }
 
   const images = new Map<string, LoadedImage>();

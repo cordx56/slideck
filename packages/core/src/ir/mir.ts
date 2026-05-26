@@ -88,8 +88,6 @@ export type MirElement = MirText | MirImage | MirRect | MirLine | MirPath | MirG
 export interface MirFont {
   family: string;
   path?: string;
-  weight?: number;
-  style?: "normal" | "italic";
   index?: number; // font index within a .ttc
 }
 

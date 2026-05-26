@@ -12,14 +12,11 @@ export async function registerFonts(fonts: Map<string, LoadedFont>): Promise<voi
     const cache = `${variantKey}:${lf.bytes.byteLength}`;
     if (registered.has(cache)) continue;
     try {
-      // FontFace family is the CSS name; weight/style descriptors let the
-      // browser pick the right loaded face per CSS font-weight / font-style.
-      // Pass explicit "normal" defaults so the matching algorithm is never
-      // ambiguous (otherwise a single registered bold face can end up being
-      // matched for every weight).
+      // Each declared face is its own CSS family, so weight/style stay "normal"
+      // and the family alone selects the right face for any text run.
       const face = new FontFace(lf.family, lf.bytes as BufferSource, {
-        weight: lf.weight ? String(lf.weight) : "normal",
-        style: lf.style ?? "normal",
+        weight: "normal",
+        style: "normal",
       });
       await face.load();
       document.fonts.add(face);

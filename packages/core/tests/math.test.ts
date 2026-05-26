@@ -109,12 +109,11 @@ describe("lower of rich text (native expansion)", () => {
     expect(ps[0].kind).toBe("text");
   });
 
-  it("bold is suppressed when no bold variant is loaded (matches measure)", () => {
-    // With ApproximateMetrics no exact variants are loaded, so the bold run is
-    // emitted without font-weight to keep the rendered glyphs in sync with the
-    // measured width (otherwise the following text would mis-align).
+  it("bold falls back to the surrounding font when no bold face is declared", () => {
+    // No defaults.text.bold and no auto-detect candidate, so the bold run uses
+    // the element's own family (baseFont). The family alone encodes the role.
     const run = allRuns(prims("this is **bold** text")).find((r) => r.text === "bold");
-    expect(run?.font.weight).toBeUndefined();
+    expect(run?.font.family).toBe("body");
   });
 
   it("code uses the surrounding text font when no mono font is declared", () => {

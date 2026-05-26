@@ -97,8 +97,6 @@ export type HirElement =
 export interface FontDecl {
   path: string;
   family: string;
-  weight?: number;
-  style?: "normal" | "italic";
   index?: number; // font index within a .ttc
 }
 
@@ -118,6 +116,11 @@ export interface TextDefaults {
   align?: Align;
   lineHeight?: number;
   letterSpacing?: number;
+  // Role slots for inline **bold** / *italic*. Reference a fonts: key or a
+  // family. Unspecified roles are auto-detected from loaded fonts.
+  bold?: string;
+  italic?: string;
+  boldItalic?: string;
 }
 
 // inline Markdown link/code(mono) styles.
@@ -130,12 +133,16 @@ export interface MonoDefaults {
   color?: string;
 }
 
-// resolved richtext (link/code) styles.
+// Resolved richtext styles. Each *Family is the CSS family for that role; empty
+// string means "fall back to the surrounding text font" (no real variant).
 export interface RichStyle {
   linkColor: string;
   linkUnderline: boolean;
   monoFamily: string;
   monoColor: string;
+  boldFamily: string;
+  italicFamily: string;
+  boldItalicFamily: string;
 }
 
 // Base: a composable layer merging theme and overlay.

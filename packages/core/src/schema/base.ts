@@ -14,12 +14,13 @@ const FamilyName = z
     message: 'font family must not contain control characters or any of < > " & \\',
   });
 
+// A font entry is purely a face: a file path + the CSS family name that this
+// face registers under. Each face is its own family; roles (bold/italic/mono)
+// are assigned in defaults.text / defaults.mono, not via weight/style here.
 export const FontDeclSchema = z
   .object({
     path: z.string(),
     family: FamilyName,
-    weight: z.number().optional(),
-    style: z.enum(["normal", "italic"]).optional(),
     // Font index used for a .ttc (TrueType Collection) (default 0).
     index: z.number().int().nonnegative().optional(),
   })
@@ -42,6 +43,12 @@ const TextDefaultsSchema = z
     align: z.enum(["left", "center", "right"]).optional(),
     lineHeight: z.number().positive().optional(),
     letterSpacing: z.number().optional(),
+    // Role slots: the face to use for **bold** / *italic* / both. Reference a
+    // fonts: key or a CSS family. Unspecified roles are auto-detected from the
+    // loaded fonts (post.isFixedPitch / OS/2 weight / italicAngle).
+    bold: FamilyName.optional(),
+    italic: FamilyName.optional(),
+    boldItalic: FamilyName.optional(),
   })
   .strict();
 

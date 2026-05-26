@@ -54,25 +54,16 @@ const sameStyle = (a: Style, b: Style): boolean =>
   a.link === b.link &&
   a.href === b.href;
 
-// Code uses the mono family if one is declared; otherwise the surrounding text's
-// font, so the measured width matches the rendered glyphs exactly.
+// Pick the family for a run based on its style. Each role (code/bold/italic/
+// boldItalic) maps to a separately-registered face declared in defaults.text
+// (or auto-detected in prepare). Roles with no declared face fall back to the
+// surrounding text font so the measured and rendered widths always match.
 function fontFor(style: Style, baseFont: string, rich: RichStyle): string {
-  return style.code && rich.monoFamily ? rich.monoFamily : baseFont;
-}
-
-// Resolve a run's effective (weight, style) variant. If the exact variant is
-// loaded in `metrics`, use it for both measurement and the emitted run; if not,
-// fall back to the family's regular variant (no synthetic bold/italic), so the
-// rendered text never diverges from the measured width.
-function variantFor(
-  metrics: FontMetrics,
-  family: string,
-  bold: boolean,
-  italic: boolean,
-): { weight?: 700; style?: "italic" } {
-  const w: number | undefined = bold ? 700 : undefined;
-  const s: "italic" | undefined = italic ? "italic" : undefined;
-  return metrics.has(family, w, s) ? { weight: w as 700 | undefined, style: s } : {};
+  if (style.code) return rich.monoFamily || baseFont;
+  if (style.bold && style.italic) return rich.boldItalicFamily || rich.boldFamily || baseFont;
+  if (style.bold) return rich.boldFamily || baseFont;
+  if (style.italic) return rich.italicFamily || baseFont;
+  return baseFont;
 }
 
 function pushText(
@@ -85,12 +76,10 @@ function pushText(
   metrics: FontMetrics,
   rich: RichStyle,
 ): void {
+  // The chosen family already encodes the variant (each face is its own
+  // family), so a single-arg measure() call yields the correct width.
   const font = fontFor(style, baseFont, rich);
-  // Measure with the actually-loaded variant (bold/italic if available, else
-  // regular). variantFor returns the same emit shape used in the run output.
-  const v = variantFor(metrics, font, style.bold, style.italic);
-  const measure = (s: string): number =>
-    metrics.measure(s, font, size, v.weight, v.style) + ls * [...s].length;
+  const measure = (s: string): number => metrics.measure(s, font, size) + ls * [...s].length;
   let word = "";
   const flushWord = (): void => {
     if (word) {
@@ -241,11 +230,7 @@ export function shapeRich(
         x: cur.x,
         baseline,
         width: cur.w,
-        font: ((): { family: string; weight?: 700; style?: "italic" } => {
-          const family = fontFor(s, baseFont, rich);
-          const v = variantFor(metrics, family, s.bold, s.italic);
-          return { family, weight: v.weight, style: v.style };
-        })(),
+        font: { family: fontFor(s, baseFont, rich) },
         size,
         color: s.link ? rich.linkColor : s.code ? rich.monoColor : color,
         underline: s.link && rich.linkUnderline,

@@ -124,8 +124,11 @@ describe("normalize", () => {
     expect(el.rich).toEqual({
       linkColor: "#7aa2f7",
       linkUnderline: false,
-      monoFamily: "", // no mono font declared -> inline code uses the text font
-      monoColor: "#999999",
+      monoFamily: "", // no mono / bold / italic faces declared -> roles fall
+      monoColor: "#999999", // through to the surrounding text font in rich-shaping
+      boldFamily: "",
+      italicFamily: "",
+      boldItalicFamily: "",
     });
   });
 

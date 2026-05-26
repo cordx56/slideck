@@ -40,7 +40,7 @@ export async function drawPrimitive(
   switch (prim.kind) {
     case "text": {
       for (const run of prim.runs) {
-        const font = pickFont(fonts, run.font.family, run.font.weight, run.font.style);
+        const font = pickFont(fonts, run.font.family);
         try {
           page.drawText(run.text, {
             x: run.x,

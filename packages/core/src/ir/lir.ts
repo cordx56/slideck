@@ -3,10 +3,10 @@
 // inline markdown/math are expanded to text/line/path in lower (no dedicated primitive).
 import type { Align } from "./hir";
 
+// Each face is registered under its own CSS family, so the family alone fully
+// identifies which face to render. No weight/style attrs are emitted in SVG.
 export interface FontRef {
   family: string;
-  weight?: number;
-  style?: "normal" | "italic";
 }
 
 // A shaped text fragment. x,y are absolute coordinates relative to the baseline.
