@@ -1,5 +1,6 @@
 import fontkit from "@pdf-lib/fontkit";
-import { ApproximateMetrics, type FontMetrics } from "./metrics";
+import { ApproximateMetrics, type FontMetrics, type FontStyle } from "./metrics";
+import { fontVariantKey } from "../lib/font-variant";
 
 // Type only the parts of fontkit's Font that we need.
 export interface FkFont {
@@ -39,14 +40,24 @@ export function createFkFont(bytes: Uint8Array): FkFont | undefined {
 }
 
 // Metrics that measure with real font glyph advances. Key to making SVG and PDF
-// wrapping results match. Unloaded families fall back to approximation.
+// wrapping results match. The font map is keyed by composite variant
+// (family|weight|style); unknown variants fall back to the family's regular
+// variant, and unloaded families fall back to approximation.
 export class FontkitMetrics implements FontMetrics {
   private approx = new ApproximateMetrics();
 
   constructor(private fonts: Map<string, FkFont>) {}
 
-  measure(text: string, family: string, size: number): number {
-    const f = this.fonts.get(family);
+  // Lookup the exact variant; if missing, the family's regular variant.
+  private pick(family: string, weight?: number, style?: FontStyle): FkFont | undefined {
+    return (
+      this.fonts.get(fontVariantKey(family, weight, style)) ??
+      this.fonts.get(fontVariantKey(family))
+    );
+  }
+
+  measure(text: string, family: string, size: number, weight?: number, style?: FontStyle): number {
+    const f = this.pick(family, weight, style);
     if (!f) return this.approx.measure(text, family, size);
     try {
       return (f.layout(text).advanceWidth / f.unitsPerEm) * size;
@@ -56,8 +67,13 @@ export class FontkitMetrics implements FontMetrics {
   }
 
   ascentRatio(family: string): number {
-    const f = this.fonts.get(family);
+    const f = this.pick(family);
     if (!f) return this.approx.ascentRatio();
     return f.ascent / f.unitsPerEm;
+  }
+
+  // Exact-variant existence (no fallback): drives the bold/italic emit decision.
+  has(family: string, weight?: number, style?: FontStyle): boolean {
+    return this.fonts.has(fontVariantKey(family, weight, style));
   }
 }

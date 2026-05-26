@@ -3,6 +3,10 @@ name: standard
 fonts:
   heading: { path: ./fonts/NotoSerif-Regular.ttf, family: "NotoSerif" }
   body: { path: ./fonts/NotoSans-Regular.ttf, family: "NotoSans" }
+  # Bold variant for the same family: **markdown** picks this up automatically
+  # because the bold variant exists in fonts:; without it, bold falls back to
+  # the regular face (so the rendered width still matches the measured width).
+  body-bold: { path: ./fonts/NotoSans-Bold.ttf, family: "NotoSans", weight: 700 }
   # A registered monospace font is auto-detected (via isFixedPitch) and used for
   # inline `code` -- no defaults.mono.family entry needed.
   code: { path: ./fonts/SourceCodePro-Regular.ttf, family: "SourceCodePro" }

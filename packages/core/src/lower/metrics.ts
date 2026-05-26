@@ -4,10 +4,17 @@
 
 export interface FontMetrics {
   // advance width (px) when text is drawn at font/size.
-  measure(text: string, font: string, size: number): number;
+  // weight/style select the exact variant; missing variant falls back to regular.
+  measure(text: string, font: string, size: number, weight?: number, style?: FontStyle): number;
   // ratio by which the baseline drops from the text line box top (px = ratio * size).
   ascentRatio(font: string): number;
+  // True iff the exact variant is loaded (no fallback). Used by rich-shaping to
+  // decide whether to emit bold/italic on a run (only when an exact face exists,
+  // so the measured width matches the rendered glyphs).
+  has(font: string, weight?: number, style?: FontStyle): boolean;
 }
+
+export type FontStyle = "normal" | "italic";
 
 function isCJK(code: number): boolean {
   return (
@@ -36,6 +43,11 @@ export class ApproximateMetrics implements FontMetrics {
 
   ascentRatio(): number {
     return 0.8;
+  }
+
+  // No fonts are loaded for the approximate path -> no exact variant exists.
+  has(): boolean {
+    return false;
   }
 }
 

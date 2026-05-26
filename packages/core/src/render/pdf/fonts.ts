@@ -1,10 +1,11 @@
 import { type PDFDocument, type PDFFont, StandardFonts } from "pdf-lib";
 import type { LoadedFont } from "../../lower/context";
 import { PipelineError } from "../../lib/error";
+import { fontVariantKey } from "../../lib/font-variant";
 
 export interface EmbeddedFonts {
-  // family -> embedded PDFFont
-  byFamily: Map<string, PDFFont>;
+  // (family|weight|style) -> embedded PDFFont. Same compositing as in prepare.
+  byKey: Map<string, PDFFont>;
   // ASCII fallback (for families with no embedded font)
   fallback: PDFFont;
   // Monospace fallback (for an unembedded "monospace" family, e.g. inline code).
@@ -18,14 +19,29 @@ export async function embedFonts(
   fonts: Map<string, LoadedFont>,
   errors: PipelineError[] = [],
 ): Promise<EmbeddedFonts> {
-  const byFamily = new Map<string, PDFFont>();
-  for (const [family, lf] of fonts) {
+  const byKey = new Map<string, PDFFont>();
+  for (const [key, lf] of fonts) {
     const embedded = await embedOne(pdf, lf, errors);
-    if (embedded) byFamily.set(family, embedded);
+    if (embedded) byKey.set(key, embedded);
   }
   const fallback = await pdf.embedFont(StandardFonts.Helvetica);
   const monoFallback = await pdf.embedFont(StandardFonts.Courier);
-  return { byFamily, fallback, monoFallback };
+  return { byKey, fallback, monoFallback };
+}
+
+// Pick the embedded variant for a run; missing variant falls back to the
+// family's regular variant; missing family falls back to the generic.
+export function pickFont(
+  fonts: EmbeddedFonts,
+  family: string,
+  weight?: number,
+  style?: string,
+): PDFFont {
+  return (
+    fonts.byKey.get(fontVariantKey(family, weight, style as "normal" | "italic" | undefined)) ??
+    fonts.byKey.get(fontVariantKey(family)) ??
+    (/mono/i.test(family) ? fonts.monoFallback : fonts.fallback)
+  );
 }
 
 async function embedOne(

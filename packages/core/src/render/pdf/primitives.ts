@@ -2,7 +2,7 @@ import { type PDFDocument, type PDFPage, type PDFImage, rgb, type Color, PDFStri
 import type { Primitive } from "../../ir/lir";
 import { hexToRgb01 } from "../../lib/color";
 import { rectY, flipY } from "./coords";
-import type { EmbeddedFonts } from "./fonts";
+import { type EmbeddedFonts, pickFont } from "./fonts";
 import { PipelineError } from "../../lib/error";
 
 function toColor(hex: string): Color {
@@ -40,8 +40,7 @@ export async function drawPrimitive(
   switch (prim.kind) {
     case "text": {
       for (const run of prim.runs) {
-        const generic = /mono/i.test(run.font.family) ? fonts.monoFallback : fonts.fallback;
-        const font = fonts.byFamily.get(run.font.family) ?? generic;
+        const font = pickFont(fonts, run.font.family, run.font.weight, run.font.style);
         try {
           page.drawText(run.text, {
             x: run.x,

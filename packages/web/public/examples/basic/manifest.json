@@ -7,6 +7,7 @@
     "overlays/footer.yaml",
     "img/cover.png",
     "fonts/NotoSans-Regular.ttf",
+    "fonts/NotoSans-Bold.ttf",
     "fonts/NotoSerif-Regular.ttf",
     "fonts/SourceCodePro-Regular.ttf",
     "fonts/OFL.txt"

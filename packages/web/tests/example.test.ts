@@ -52,6 +52,9 @@ describe("examples/basic", () => {
     // automatically rendered in it (not in a generic "monospace").
     expect(multiline).toContain("SourceCodePro");
     expect(multiline).not.toContain('font-family="monospace"');
+    // NotoSans-Bold is registered as a weight-700 variant of NotoSans, so
+    // **markdown** is emitted with font-weight (measured against the bold face).
+    expect(multiline).toContain('font-weight="700"');
 
     // intro: title + subtitle + image + footer
     expect(svgs[0]).toContain("The World of YAML Slides");

@@ -14,6 +14,7 @@ import {
 import { mergeSchemas } from "./schema-merge";
 import { mergeDefaults, type MergedDefaults } from "./defaults-merge";
 import { buildSystemVars } from "./system-vars";
+import { fontVariantKey } from "../lib/font-variant";
 import {
   DEFAULT_SLIDE,
   DEFAULT_FIT,
@@ -94,12 +95,14 @@ export function normalize(loaded: LoadedDeck): NormalizeResult {
   };
 }
 
-// Aggregate font declarations from all bases by family name (deck-wide font registry).
+// Aggregate font declarations from all bases. Keyed by (family|weight|style) so
+// multiple variants per family (e.g. NotoSans + NotoSans-Bold) can coexist;
+// later declarations override earlier ones for the same variant.
 function buildFontRegistry(loaded: LoadedDeck): Map<string, MirFont> {
   const registry = new Map<string, MirFont>();
   for (const base of loaded.basesById.values()) {
     for (const decl of Object.values(base.fonts ?? {})) {
-      registry.set(decl.family, {
+      registry.set(fontVariantKey(decl.family, decl.weight, decl.style), {
         family: decl.family,
         path: decl.path,
         weight: decl.weight,

@@ -1,5 +1,5 @@
 Fonts bundled with this example:
-- NotoSans-Regular.ttf, NotoSerif-Regular.ttf
+- NotoSans-Regular.ttf, NotoSans-Bold.ttf, NotoSerif-Regular.ttf
 - SourceCodePro-Regular.ttf
 
 Copyright 2015 Google LLC. All Rights Reserved.

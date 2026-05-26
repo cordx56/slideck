@@ -60,6 +60,21 @@ function fontFor(style: Style, baseFont: string, rich: RichStyle): string {
   return style.code && rich.monoFamily ? rich.monoFamily : baseFont;
 }
 
+// Resolve a run's effective (weight, style) variant. If the exact variant is
+// loaded in `metrics`, use it for both measurement and the emitted run; if not,
+// fall back to the family's regular variant (no synthetic bold/italic), so the
+// rendered text never diverges from the measured width.
+function variantFor(
+  metrics: FontMetrics,
+  family: string,
+  bold: boolean,
+  italic: boolean,
+): { weight?: 700; style?: "italic" } {
+  const w: number | undefined = bold ? 700 : undefined;
+  const s: "italic" | undefined = italic ? "italic" : undefined;
+  return metrics.has(family, w, s) ? { weight: w as 700 | undefined, style: s } : {};
+}
+
 function pushText(
   atoms: Atom[],
   text: string,
@@ -71,7 +86,11 @@ function pushText(
   rich: RichStyle,
 ): void {
   const font = fontFor(style, baseFont, rich);
-  const measure = (s: string): number => metrics.measure(s, font, size) + ls * [...s].length;
+  // Measure with the actually-loaded variant (bold/italic if available, else
+  // regular). variantFor returns the same emit shape used in the run output.
+  const v = variantFor(metrics, font, style.bold, style.italic);
+  const measure = (s: string): number =>
+    metrics.measure(s, font, size, v.weight, v.style) + ls * [...s].length;
   let word = "";
   const flushWord = (): void => {
     if (word) {
@@ -222,11 +241,11 @@ export function shapeRich(
         x: cur.x,
         baseline,
         width: cur.w,
-        font: {
-          family: fontFor(s, baseFont, rich),
-          weight: s.bold ? 700 : undefined,
-          style: s.italic ? "italic" : undefined,
-        },
+        font: ((): { family: string; weight?: 700; style?: "italic" } => {
+          const family = fontFor(s, baseFont, rich);
+          const v = variantFor(metrics, family, s.bold, s.italic);
+          return { family, weight: v.weight, style: v.style };
+        })(),
         size,
         color: s.link ? rich.linkColor : s.code ? rich.monoColor : color,
         underline: s.link && rich.linkUnderline,

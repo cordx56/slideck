@@ -8,17 +8,19 @@ const registered = new Set<string>();
 // keeping metrics (line wrapping) and appearance consistent.
 export async function registerFonts(fonts: Map<string, LoadedFont>): Promise<void> {
   if (typeof FontFace === "undefined" || typeof document === "undefined") return;
-  for (const [family, lf] of fonts) {
-    const key = `${family}:${lf.bytes.byteLength}`;
-    if (registered.has(key)) continue;
+  for (const [variantKey, lf] of fonts) {
+    const cache = `${variantKey}:${lf.bytes.byteLength}`;
+    if (registered.has(cache)) continue;
     try {
-      const face = new FontFace(family, lf.bytes as BufferSource, {
+      // FontFace family is the CSS name; weight/style descriptors let the
+      // browser pick the right loaded face per CSS font-weight / font-style.
+      const face = new FontFace(lf.family, lf.bytes as BufferSource, {
         weight: lf.weight ? String(lf.weight) : undefined,
         style: lf.style,
       });
       await face.load();
       document.fonts.add(face);
-      registered.add(key);
+      registered.add(cache);
     } catch {
       // On registration failure, defer to the system fallback.
     }
