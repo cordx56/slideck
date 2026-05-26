@@ -3,7 +3,7 @@ import type { Primitive, SlideLir, TextRun, Stroke } from "../ir/lir";
 import type { Dimension } from "../schema/position";
 import { type Box, type Intrinsic, resolveAxis, resolveBox, toPx } from "./position";
 import { applyPadding } from "./groups";
-import { computeAutoLayout, listGutter, listContentBox } from "./auto-layout";
+import { computeAutoLayout, listGutter, listContentBox, stackedHeight } from "./auto-layout";
 import { shapeText } from "./text-shaping";
 import { shapeRich, type RichLayout, type RichRun } from "./rich-shaping";
 import { hasRichMarkup } from "../lib/richtext";
@@ -49,6 +49,18 @@ function lowerElement(el: MirElement, parentBox: Box, ctx: LowerCtx, out: Primit
   }
   if (el.type === "image") {
     placeElement(el, imageBox(el, parentBox, ctx), ctx, out);
+    return;
+  }
+  // For group / ul / ol, compute the intrinsic height (stacked content size)
+  // before resolving the vertical axis. This way `position: { bottom: 2% }`
+  // (or `top:` alone, or no Y at all) places the element at its natural
+  // height instead of stretching it to fill the parent.
+  if (el.type === "group" || el.type === "ul" || el.type === "ol") {
+    const p = el.position;
+    const hx = resolveAxis(p?.left, p?.right, p?.width, parentBox.x, parentBox.w);
+    const intrH = stackedHeight(el, hx.size, ctx);
+    const vy = resolveAxis(p?.top, p?.bottom, p?.height, parentBox.y, parentBox.h, intrH);
+    placeElement(el, { x: hx.pos, y: vy.pos, w: hx.size, h: vy.size }, ctx, out);
     return;
   }
   const box = resolveBox("position" in el ? el.position : undefined, parentBox);

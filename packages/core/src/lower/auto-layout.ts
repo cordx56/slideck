@@ -23,7 +23,7 @@ export function listContentBox(el: MirList, box: Box, ctx: LowerCtx): Box {
 }
 
 // Stacked height of an element when placed in a column of the given width.
-function stackedHeight(el: MirElement, width: number, ctx: LowerCtx): number {
+export function stackedHeight(el: MirElement, width: number, ctx: LowerCtx): number {
   switch (el.type) {
     case "text":
       return shapeText(

@@ -234,6 +234,35 @@ describe("computeAutoLayout", () => {
     expect(lir.primitives[0]).toMatchObject({ kind: "rect", x: 100, y: 100, w: 800, h: 800 });
   });
 
+  it("group with only `bottom:` sits at the bottom at its intrinsic height", () => {
+    // Two stacked rects (300px + 200px) => intrinsic group height = 500.
+    // With position.bottom=2% (= 20px on a 1000-tall slide) the group's top
+    // should land at slide.h - groupH - bottom = 1000 - 500 - 20 = 480 and the
+    // last rect should end at 1000 - 20 = 980.
+    const rect = (h: number) => ({
+      type: "rect" as const,
+      position: { height: { kind: "px" as const, value: h } },
+      strokeWidth: 0,
+      rx: 0,
+    });
+    const group: MirGroup = {
+      type: "group",
+      position: { bottom: pct(2) },
+      children: [rect(300), rect(200)],
+      layout: "column",
+      gap: pct(0),
+      align: "stretch",
+      justify: "start",
+      padding: pct(0),
+    };
+    const deck = deckWith([group]);
+    const lir = lower(deck.slides[0], deck, ctx);
+    const first = lir.primitives[0] as { y: number };
+    const last = lir.primitives.at(-1) as { y: number; h: number };
+    expect(first.y).toBeCloseTo(480);
+    expect(last.y + last.h).toBeCloseTo(980);
+  });
+
   it("flex distributes the main-axis remainder by ratio", () => {
     const rect = (flex: number) => ({
       type: "rect" as const,
