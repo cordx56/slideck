@@ -82,6 +82,12 @@
   }
 
   function present() {
+    // Enter real browser fullscreen first while still inside the click's user
+    // gesture window, then route to #present. Failure (e.g. on browsers that
+    // refuse the API) is silently ignored so the in-viewport present still works.
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
     location.hash = "#present";
   }
 </script>

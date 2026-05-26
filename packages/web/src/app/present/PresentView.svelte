@@ -32,6 +32,10 @@
         store.prev();
         break;
       case "Escape":
+        // Browsers consume the first Escape to exit fullscreen but still fire
+        // keydown to JS, so call exit (no-op if already out) and navigate back
+        // -- always a one-press exit from present mode.
+        if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
         location.hash = "#editor";
         break;
       case "f":
