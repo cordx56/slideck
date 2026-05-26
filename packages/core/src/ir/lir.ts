@@ -3,10 +3,13 @@
 // inline markdown/math are expanded to text/line/path in lower (no dedicated primitive).
 import type { Align } from "./hir";
 
-// Each face is registered under its own CSS family, so the family alone fully
-// identifies which face to render. No weight/style attrs are emitted in SVG.
+// Each face is registered under its own CSS family. italic=true asks the
+// renderer to apply a fixed-angle skewX as "synthetic italic" (when no real
+// italic face was declared / detected); horizontal advances are unchanged so
+// the measured layout still matches the rendered output.
 export interface FontRef {
   family: string;
+  italic?: boolean;
 }
 
 // A shaped text fragment. x,y are absolute coordinates relative to the baseline.

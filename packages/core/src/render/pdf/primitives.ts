@@ -1,9 +1,23 @@
-import { type PDFDocument, type PDFPage, type PDFImage, rgb, type Color, PDFString } from "pdf-lib";
+import {
+  type PDFDocument,
+  type PDFPage,
+  type PDFImage,
+  rgb,
+  type Color,
+  PDFString,
+  pushGraphicsState,
+  popGraphicsState,
+  concatTransformationMatrix,
+} from "pdf-lib";
 import type { Primitive } from "../../ir/lir";
 import { hexToRgb01 } from "../../lib/color";
 import { rectY, flipY } from "./coords";
 import { type EmbeddedFonts, pickFont } from "./fonts";
 import { PipelineError } from "../../lib/error";
+
+// Synthetic italic: ~14 deg skew, applied around the run's baseline so the
+// horizontal advance is unchanged and the measured layout still matches.
+const ITALIC_SKEW = Math.tan((14 * Math.PI) / 180);
 
 function toColor(hex: string): Color {
   const { r, g, b } = hexToRgb01(hex);
@@ -41,14 +55,23 @@ export async function drawPrimitive(
     case "text": {
       for (const run of prim.runs) {
         const font = pickFont(fonts, run.font.family);
+        const pdfY = flipY(run.y, ph);
         try {
+          if (run.font.italic) {
+            // SkewX around the baseline in PDF coords (y grows upward).
+            page.pushOperators(
+              pushGraphicsState(),
+              concatTransformationMatrix(1, 0, ITALIC_SKEW, 1, -ITALIC_SKEW * pdfY, 0),
+            );
+          }
           page.drawText(run.text, {
             x: run.x,
-            y: flipY(run.y, ph),
+            y: pdfY,
             size: run.size,
             font,
             color: toColor(run.color),
           });
+          if (run.font.italic) page.pushOperators(popGraphicsState());
         } catch (e) {
           // Font missing a glyph, etc. Skip this line and continue.
           errors.push(new PipelineError(`PDF text draw failed: "${run.text}" (${String(e)})`));

@@ -121,6 +121,12 @@ describe("lower of rich text (native expansion)", () => {
     expect(run?.font.family).toBe("body");
   });
 
+  it("italic with no italic face falls back to base font + synthetic-italic flag", () => {
+    const run = allRuns(prims("read *quickly* now")).find((r) => r.text === "quickly");
+    expect(run?.font.family).toBe("body");
+    expect(run?.font.italic).toBe(true);
+  });
+
   it("strikethrough produces a line primitive", () => {
     expect(prims("this is ~~struck~~ out").some((p) => p.kind === "line")).toBe(true);
   });

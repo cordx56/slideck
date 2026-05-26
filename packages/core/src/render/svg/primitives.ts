@@ -43,6 +43,17 @@ function strokeAttrs(stroke: Stroke | undefined): string {
   return ` stroke="${escapeXml(stroke.color)}" stroke-width="${num(stroke.width)}"`;
 }
 
+// CSS / browsers use ~14 deg for synthetic italic; horizontal advance is
+// unaffected so the measured layout still matches.
+const ITALIC_SKEW = Math.tan((14 * Math.PI) / 180);
+
+// SkewX around the baseline (y = baselineY). The transform sends
+// (x, y) -> (x - K*(y - baselineY), y), keeping the baseline fixed and tilting
+// the top of the glyph to the right (italic appearance).
+function italicSkewAttr(baselineY: number): string {
+  return ` transform="matrix(1 0 ${num(-ITALIC_SKEW)} 1 ${num(ITALIC_SKEW * baselineY)} 0)"`;
+}
+
 // Turn a single LIR primitive into an SVG markup string.
 export function renderPrimitive(p: Primitive): string {
   switch (p.kind) {
@@ -52,7 +63,9 @@ export function renderPrimitive(p: Primitive): string {
           (r) =>
             `<text x="${num(r.x)}" y="${num(r.y)}" font-family="${escapeXml(
               fontFamilyWithFallback(r.font.family),
-            )}" font-size="${num(r.size)}" fill="${escapeXml(r.color)}">${escapeXml(r.text)}</text>`,
+            )}" font-size="${num(r.size)}" fill="${escapeXml(r.color)}"${
+              r.font.italic ? italicSkewAttr(r.y) : ""
+            }>${escapeXml(r.text)}</text>`,
         )
         .join("");
     case "image":

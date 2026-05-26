@@ -57,13 +57,26 @@ const sameStyle = (a: Style, b: Style): boolean =>
 // Pick the family for a run based on its style. Each role (code/bold/italic/
 // boldItalic) maps to a separately-registered face declared in defaults.text
 // (or auto-detected in prepare). Roles with no declared face fall back to the
-// surrounding text font so the measured and rendered widths always match.
-function fontFor(style: Style, baseFont: string, rich: RichStyle): string {
-  if (style.code) return rich.monoFamily || baseFont;
-  if (style.bold && style.italic) return rich.boldItalicFamily || rich.boldFamily || baseFont;
-  if (style.bold) return rich.boldFamily || baseFont;
-  if (style.italic) return rich.italicFamily || baseFont;
-  return baseFont;
+// surrounding text font; for italic that fallback also marks the run for
+// synthetic italic (skewX in the renderer) so it still leans visually.
+function fontFor(
+  style: Style,
+  baseFont: string,
+  rich: RichStyle,
+): { family: string; italic: boolean } {
+  if (style.code) return { family: rich.monoFamily || baseFont, italic: false };
+  if (style.bold && style.italic) {
+    if (rich.boldItalicFamily) return { family: rich.boldItalicFamily, italic: false };
+    if (rich.boldFamily) return { family: rich.boldFamily, italic: true }; // synth italic on bold
+    if (rich.italicFamily) return { family: rich.italicFamily, italic: false };
+    return { family: baseFont, italic: true };
+  }
+  if (style.bold) return { family: rich.boldFamily || baseFont, italic: false };
+  if (style.italic) {
+    if (rich.italicFamily) return { family: rich.italicFamily, italic: false };
+    return { family: baseFont, italic: true };
+  }
+  return { family: baseFont, italic: false };
 }
 
 function pushText(
@@ -78,8 +91,8 @@ function pushText(
 ): void {
   // The chosen family already encodes the variant (each face is its own
   // family), so a single-arg measure() call yields the correct width.
-  const font = fontFor(style, baseFont, rich);
-  const measure = (s: string): number => metrics.measure(s, font, size) + ls * [...s].length;
+  const { family } = fontFor(style, baseFont, rich);
+  const measure = (s: string): number => metrics.measure(s, family, size) + ls * [...s].length;
   let word = "";
   const flushWord = (): void => {
     if (word) {
@@ -230,7 +243,7 @@ export function shapeRich(
         x: cur.x,
         baseline,
         width: cur.w,
-        font: { family: fontFor(s, baseFont, rich) },
+        font: fontFor(s, baseFont, rich),
         size,
         color: s.link ? rich.linkColor : s.code ? rich.monoColor : color,
         underline: s.link && rich.linkUnderline,
