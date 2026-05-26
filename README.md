@@ -33,41 +33,6 @@ exactly the same layout. What you see in the editor is what you get in the PDF.
 - **Images**: intrinsic size is parsed from the file header (PNG/JPEG/GIF/WebP/
   BMP), so aspect ratio is correct in every environment, including headless.
 
-## Monorepo layout (pnpm workspace)
-
-```
-packages/
-  core/   @slideck/core — browser-independent pipeline (library)
-  web/    @slideck/web  — Svelte editor / presenter (browser)
-  cli/    @slideck/cli  — Node CLI (scaffold / edit server / YAML -> PDF/SVG)
-```
-
-- **core**: schema (zod) / ir (HIR, MIR, LIR) / load (parse, base resolution,
-  prepare) / normalize / lower / render (svg, pdf) / edit (YAML AST) / pipeline.
-  It depends only on the `AssetResolver` and `VFS` abstractions, never on a
-  concrete implementation (IndexedDB, disk, ...). The heavy PDF renderer is split
-  out under `@slideck/core/pdf`.
-- **web**: an IndexedDB-backed VFS, a file-tree UI, CodeMirror, live SVG preview,
-  presentation mode, ZIP import/export, and client-side PDF export. When launched
-  by the CLI edit server it uses an HTTP-backed VFS instead of IndexedDB.
-- **cli**: a `DiskVfs` that treats a project directory as the source of truth. It
-  serves the bundled web editor and bridges the browser to disk over an HTTP VFS
-  API + SSE (`serve`), and renders PDF/SVG headlessly with `core` (`export`).
-
-## Development
-
-```bash
-pnpm install
-pnpm dev          # web dev server (= pnpm --filter @slideck/web dev)
-pnpm test         # all packages (vitest)
-pnpm check        # type-check all packages
-pnpm build        # build web + cli (the cli bundles the web build)
-pnpm build:web    # web only (for static hosting)
-```
-
-The sample project lives in `packages/web/public/examples/basic/`; pick it from
-the web app's start screen.
-
 ## CLI (`@slideck/cli`)
 
 Install globally:
@@ -92,20 +57,6 @@ slideck export ./my-deck/deck.yaml -o out.pdf --svg ./svg-out
 HTTP VFS API + SSE; edits made outside the editor are reflected in the browser as
 well. Internal state such as the file-tree expansion is kept under `.slideck/`.
 
-Inside the repository you can use `pnpm cli` (= `pnpm --filter @slideck/cli
-start`). Note that pnpm runs the script from `packages/cli`, so relative paths are
-resolved from there (pass an absolute path, or `cd` into the target first):
-
-```bash
-pnpm cli serve "$PWD/packages/web/public/examples/basic"
-```
-
-### Publishing (npm)
-
-`@slideck/cli` ships a single bundled file (cli + core via esbuild) plus the
-bundled web build under `dist/`. It is built by `prepublishOnly`, so publishing is
-just `npm publish` from `packages/cli` (`publishConfig.access: public`).
-
 ## Project structure
 
 A slideck project is a directory:
@@ -120,11 +71,3 @@ my-deck/
 ```
 
 Relative paths are resolved from the file that references them.
-
-## Deploy (web)
-
-`packages/web/dist/` is fully static. For sub-path hosting, set `VITE_BASE`:
-
-```bash
-VITE_BASE=/slideck/ pnpm --filter @slideck/web build
-```
