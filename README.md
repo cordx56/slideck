@@ -1,4 +1,9 @@
-# slideck
+<div align="center">
+  <h1>slideck</h1>
+  <p>
+    <img src="packages/web/public/slideck-ogp.png">
+  </p>
+</div>
 
 Write slides declaratively in YAML and author, edit, present, and export them to
 PDF — entirely in the browser, or headlessly from the command line.
