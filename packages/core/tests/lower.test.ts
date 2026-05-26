@@ -180,6 +180,36 @@ describe("computeAutoLayout", () => {
     expect(placed[2].box.x).toBeCloseTo(360); // last is at the right edge
   });
 
+  it("child position.left/right/width indents within the assigned cell (column)", () => {
+    // The parent group spans the whole slide; its column-layout child carries
+    // position.left=10%, so its rendered rect should start 10% (= 100px on a
+    // 1000-wide slide) in and fill the rest of the inner width.
+    const group: MirGroup = {
+      type: "group",
+      position: { left: pct(0), top: pct(0), width: pct(100), height: pct(100) },
+      children: [
+        {
+          type: "rect",
+          position: { left: pct(10) },
+          strokeWidth: 0,
+          rx: 0,
+          fill: "#fff",
+        },
+      ],
+      layout: "column",
+      gap: pct(0),
+      align: "stretch",
+      justify: "start",
+      padding: pct(0),
+    };
+    const deck = deckWith([group]);
+    const lir = lower(deck.slides[0], deck, ctx);
+    // 1000px slide, parent inner width = 1000. Child left = 10% of 1000 = 100,
+    // width = 900 (fills the rest). Height comes from auto-layout (rect is
+    // intrinsic 0 height since no height set; assert x/w only).
+    expect(lir.primitives[0]).toMatchObject({ kind: "rect", x: 100, w: 900 });
+  });
+
   it("padding shrinks the inner box", () => {
     const group: MirGroup = {
       type: "group",

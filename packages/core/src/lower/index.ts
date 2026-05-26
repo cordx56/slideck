@@ -230,8 +230,9 @@ function placeElement(el: MirElement, box: Box, ctx: LowerCtx, out: Primitive[])
     case "group": {
       const inner = applyPadding(box, el.padding, ctx);
       if (el.layout) {
+        const isRow = el.layout === "row";
         for (const placed of computeAutoLayout(el, inner, ctx)) {
-          placeAtBox(placed.el, placed.box, ctx, out);
+          placeAtBox(placed.el, placed.box, isRow, ctx, out);
         }
       } else {
         for (const child of el.children) lowerElement(child, inner, ctx, out);
@@ -308,13 +309,36 @@ function placeList(
         ],
       });
     }
-    placeAtBox(p.el, p.box, ctx, out);
+    // List items are stacked in a column, so position.left/right/width on an
+    // item indents/shrinks it within the list's content box.
+    placeAtBox(p.el, p.box, false, ctx, out);
   });
 }
 
-// Place a child into the box assigned by auto-layout (the child's own position is ignored).
-function placeAtBox(el: MirElement, box: Box, ctx: LowerCtx, out: Primitive[]): void {
-  placeElement(el, box, ctx, out);
+// Place a child into the box assigned by auto-layout. The main-axis size is
+// already decided by the layout (flex/intrinsic), so only the child's cross-
+// axis position fields (left/right/width for column, top/bottom/height for row)
+// are honored -- as a sub-box within the assigned cell. This is how you indent
+// or shrink a child within an auto-layout group.
+function placeAtBox(
+  el: MirElement,
+  box: Box,
+  isRow: boolean,
+  ctx: LowerCtx,
+  out: Primitive[],
+): void {
+  placeElement(el, applyCrossPosition(el, box, isRow), ctx, out);
+}
+
+function applyCrossPosition(el: MirElement, box: Box, isRow: boolean): Box {
+  const p = "position" in el ? el.position : undefined;
+  if (!p) return box;
+  if (isRow) {
+    const r = resolveAxis(p.top, p.bottom, p.height, box.y, box.h);
+    return { x: box.x, y: r.pos, w: box.w, h: r.size };
+  }
+  const r = resolveAxis(p.left, p.right, p.width, box.x, box.w);
+  return { x: r.pos, y: box.y, w: r.size, h: box.h };
 }
 
 // Expand the shapeRich result into text(runs) + line(underline/strike) + path(math).
