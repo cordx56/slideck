@@ -1,9 +1,56 @@
-import type { MirElement, MirGroup } from "../ir/mir";
-import type { LayoutDir } from "../ir/hir";
+import type { MirElement, MirGroup, MirText } from "../ir/mir";
+import type { LayoutDir, RichStyle } from "../ir/hir";
 import { type Box, toPx } from "./position";
 import { shapeText } from "./text-shaping";
+import { shapeRich } from "./rich-shaping";
+import { hasRichMarkup } from "../lib/richtext";
 import { applyPadding } from "./groups";
 import type { LowerCtx } from "./context";
+
+// Inline markdown / math / directives collapse to glyph widths, not the raw
+// "$tex$" / "**bold**" source -- so plain shapeText() over-counts characters
+// for rich text and wraps to too many lines. Use shapeRich for the intrinsic
+// height of rich text so auto-layout cells match the rendered text height.
+function textIntrinsicHeight(el: MirText, width: number, ctx: LowerCtx): number {
+  if (hasRichMarkup(el.text)) {
+    return shapeRich(
+      el.text,
+      el.font,
+      el.size,
+      width,
+      el.align,
+      el.lineHeight,
+      el.letterSpacing,
+      ctx.metrics,
+      richOf(el),
+      el.color,
+    ).height;
+  }
+  return shapeText(
+    el.text,
+    el.font,
+    el.size,
+    width,
+    el.align,
+    el.lineHeight,
+    el.letterSpacing,
+    ctx.metrics,
+  ).height;
+}
+
+function richOf(el: MirText): RichStyle {
+  return (
+    el.rich ?? {
+      linkColor: el.color,
+      linkUnderline: true,
+      monoFamily: "",
+      monoColor: el.color,
+      boldFamily: "",
+      italicFamily: "",
+      boldItalicFamily: "",
+    }
+  );
+}
 
 type MirList = Extract<MirElement, { type: "ul" | "ol" }>;
 
@@ -26,16 +73,7 @@ export function listContentBox(el: MirList, box: Box, ctx: LowerCtx): Box {
 export function stackedHeight(el: MirElement, width: number, ctx: LowerCtx): number {
   switch (el.type) {
     case "text":
-      return shapeText(
-        el.text,
-        el.font,
-        el.size,
-        width,
-        el.align,
-        el.lineHeight,
-        el.letterSpacing,
-        ctx.metrics,
-      ).height;
+      return textIntrinsicHeight(el, width, ctx);
     case "image": {
       const img = ctx.images.get(el.src);
       const aspect = img && img.height > 0 ? img.width / img.height : 16 / 9;
@@ -220,17 +258,8 @@ function childIntrinsic(
         );
         return { main: w, cross: sh.height };
       }
-      const sh = shapeText(
-        el.text,
-        el.font,
-        el.size,
-        crossExtent,
-        el.align,
-        el.lineHeight,
-        el.letterSpacing,
-        ctx.metrics,
-      );
-      return { main: sh.height, cross: crossExtent };
+      // column: cross = box width, main = text's intrinsic height (rich-aware).
+      return { main: textIntrinsicHeight(el, crossExtent, ctx), cross: crossExtent };
     }
     case "image": {
       const img = ctx.images.get(el.src);
