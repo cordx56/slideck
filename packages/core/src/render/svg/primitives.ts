@@ -58,10 +58,14 @@ function italicSkewAttr(baselineY: number): string {
 export function renderPrimitive(p: Primitive): string {
   switch (p.kind) {
     case "text":
+      // xml:space="preserve" keeps the leading / trailing whitespace inside a
+      // run intact -- otherwise browsers collapse spaces around inline math /
+      // directive boundaries and the gap to the right of $...$ disappears,
+      // even though the measured cursor advanced over it.
       return p.runs
         .map(
           (r) =>
-            `<text x="${num(r.x)}" y="${num(r.y)}" font-family="${escapeXml(
+            `<text xml:space="preserve" x="${num(r.x)}" y="${num(r.y)}" font-family="${escapeXml(
               fontFamilyWithFallback(r.font.family),
             )}" font-size="${num(r.size)}" fill="${escapeXml(r.color)}"${
               r.font.italic ? italicSkewAttr(r.y) : ""
