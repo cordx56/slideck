@@ -71,14 +71,14 @@
   .present {
     position: fixed;
     inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     background: #000;
   }
+  /* Fill the viewport; the SVG's default preserveAspectRatio="xMidYMid meet"
+     centers the slide content and letterboxes on the non-matching axis. */
   .present :global(svg) {
-    max-width: 100vw;
-    max-height: 100vh;
+    display: block;
+    width: 100%;
+    height: 100%;
   }
   .jump {
     position: fixed;
