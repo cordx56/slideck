@@ -18,7 +18,7 @@ import {
 } from "./projects";
 import { installSample, copyProjectFiles } from "./sample";
 import { compileDeck, recompileDeck, renderSlideSvg, type CompiledDeck } from "@slideck/core";
-import type { LowerCtx, LoadedFont } from "@slideck/core";
+import type { LowerCtx, LoadedFont, MirDeck, MirElement } from "@slideck/core";
 import { PipelineError } from "@slideck/core";
 import { debounce } from "@slideck/core";
 import { registerFonts } from "../lib/fonts-register";
@@ -129,13 +129,42 @@ async function liveRecompile() {
   try {
     const result = await recompileDeck(compileResolver(), ENTRY);
     errors = result.errors;
-    if (result.deck) {
-      compiled = { deck: result.deck, ctx: cachedCtx, fonts: cachedFonts };
-      clampSlide();
+    if (!result.deck) return;
+    // If the new deck references an image src or font key that we haven't
+    // loaded yet (typed-in src, a fix to a previous typo, a new font), fall
+    // through to a full compile so prepare loads them. Otherwise typed asset
+    // edits would not reflect until something else triggered a full reload.
+    if (hasMissingAssets(result.deck)) {
+      await fullCompile();
+      return;
     }
+    compiled = { deck: result.deck, ctx: cachedCtx, fonts: cachedFonts };
+    clampSlide();
   } catch (e) {
     errors = [new PipelineError(`update failed: ${String(e)}`)];
   }
+}
+
+// True iff the new deck mentions an image src or font key not in the prepared
+// caches. Walks the element tree once; assumes cachedCtx / cachedFonts exist.
+function hasMissingAssets(deck: MirDeck): boolean {
+  if (!cachedCtx || !cachedFonts) return true;
+  for (const key of deck.fonts.keys()) {
+    if (!cachedFonts.has(key)) return true;
+  }
+  for (const s of deck.slides) {
+    if (anyMissingImage(s.elements)) return true;
+  }
+  return false;
+}
+
+function anyMissingImage(els: MirElement[]): boolean {
+  for (const el of els) {
+    if (el.type === "image" && !cachedCtx!.images.has(el.src)) return true;
+    if (el.type === "group" && anyMissingImage(el.children)) return true;
+    if ((el.type === "ul" || el.type === "ol") && anyMissingImage(el.items)) return true;
+  }
+  return false;
 }
 
 async function recomputeRefs() {
