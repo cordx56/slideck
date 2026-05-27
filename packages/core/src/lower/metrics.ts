@@ -25,7 +25,11 @@ export class ApproximateMetrics implements FontMetrics {
     // Monospace fonts advance every glyph equally; model that so the measured
     // width matches what the browser/PDF renders for a generic monospace font
     // (otherwise text after inline code is mispositioned and overlaps it).
-    const mono = /mono/i.test(font);
+    // Only the actual CSS generic keyword triggers monospace widths -- a named
+    // family like "mono" or "JetBrainsMono" might not be a monospace font (or
+    // might not be loaded at all, in which case the browser falls back to
+    // sans-serif and our measured widths would not match what is rendered).
+    const mono = font === "monospace";
     let w = 0;
     for (const ch of text) {
       const code = ch.codePointAt(0) ?? 0;

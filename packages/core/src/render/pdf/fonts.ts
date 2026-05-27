@@ -29,9 +29,13 @@ export async function embedFonts(
 }
 
 // Pick the embedded face for a family; missing family falls back to a generic
-// (Courier for mono-looking families, Helvetica otherwise).
+// (Courier only for the actual "monospace" CSS keyword, Helvetica otherwise --
+// a named family with "mono" in it might not be monospace at all, in which case
+// picking Courier here would mismatch the (likely sans-serif) browser render).
 export function pickFont(fonts: EmbeddedFonts, family: string): PDFFont {
-  return fonts.byFamily.get(family) ?? (/mono/i.test(family) ? fonts.monoFallback : fonts.fallback);
+  return (
+    fonts.byFamily.get(family) ?? (family === "monospace" ? fonts.monoFallback : fonts.fallback)
+  );
 }
 
 async function embedOne(
