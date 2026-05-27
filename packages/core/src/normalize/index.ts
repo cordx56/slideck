@@ -2,7 +2,7 @@ import type { LoadedDeck } from "../load/resolve-refs";
 import type { HirElement, TextDefaults, RichStyle } from "../ir/hir";
 import type { MirDeck, MirElement, MirFont, MirSlide } from "../ir/mir";
 import { PipelineError } from "../lib/error";
-import { normalizeHex } from "../lib/color";
+import { toHex } from "../lib/color";
 import { buildVarContext, expandString, type VarContext } from "./variables";
 import { resolveAppliedBases, composeLayers, mergeColors, pickBackground } from "./bases";
 import { mergeSchemas } from "./schema-merge";
@@ -125,8 +125,11 @@ function resolveTextDefaultsFor(
 
 // Final resolution of color fields: normalize hex, pass others (CSS names etc.) through.
 // Palette key resolution is removed. Colors are specified by variable (${...}) or literal string.
+// Normalize hex / CSS named colors to canonical "#rrggbb" so renderers
+// (especially PDF, which only takes rgb) always get a hex. Unknown strings
+// pass through unchanged (the SVG renderer will still try its luck).
 function resolveColorLiteral(value: string): string {
-  return normalizeHex(value) ?? value;
+  return toHex(value) ?? value;
 }
 
 // Resolve the render style for links and code from defaults.link / defaults.mono.

@@ -127,6 +127,17 @@ describe("lower of rich text (native expansion)", () => {
     expect(run?.font.italic).toBe(true);
   });
 
+  it("math paths only use M / L / C / Z (pdf-lib converts Q via the wrong PDF op)", () => {
+    const paths = prims("$\\alpha$").filter((p) => p.kind === "path") as { d: string }[];
+    expect(paths.length).toBeGreaterThan(0);
+    for (const { d } of paths) {
+      // No Q/T/S/H/V should survive transformPath; otherwise pdf-lib mis-converts
+      // them (notably Q -> v) and the rendered glyphs go fuzzy in the PDF.
+      expect(d).not.toMatch(/\b[QTSHV]\b/);
+      expect(d).toMatch(/\bC\b/); // alpha has many curves -> at least one C
+    }
+  });
+
   it("strikethrough produces a line primitive", () => {
     expect(prims("this is ~~struck~~ out").some((p) => p.kind === "line")).toBe(true);
   });
