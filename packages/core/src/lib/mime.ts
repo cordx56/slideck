@@ -23,7 +23,11 @@ export function mimeFromPath(path: string): string {
   return MIME_BY_EXT[ext] ?? "application/octet-stream";
 }
 
-const TEXT_EXTS = new Set(["yaml", "yml", "json", "txt", "md", "svg", "csv"]);
+// Note: .svg is intentionally NOT here. It is XML so could in principle be
+// edited as text, but in slideck it is consumed as an image asset, so it
+// previews as <img> via isImagePath (and its aspect ratio is parsed from the
+// root <svg viewBox=...> in imageSize).
+const TEXT_EXTS = new Set(["yaml", "yml", "json", "txt", "md", "csv"]);
 export function isTextPath(path: string): boolean {
   return TEXT_EXTS.has(path.slice(path.lastIndexOf(".") + 1).toLowerCase());
 }

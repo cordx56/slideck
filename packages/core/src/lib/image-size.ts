@@ -64,5 +64,48 @@ export function imageSize(data: Uint8Array): { width: number; height: number } {
     }
   }
 
+  // SVG: text-based; intrinsic size from the root <svg> viewBox or width/height
+  // attrs. Returning the SVG's viewBox dimensions lets the deck infer aspect
+  // ratio for an image element that only specifies one of width/height.
+  const svg = svgSize(data);
+  if (svg) return svg;
+
   return { width: 0, height: 0 };
+}
+
+// Parse the first <svg ...> tag. Prefer viewBox; fall back to width/height
+// attributes (any absolute unit -- %-width can't form an aspect, so skip).
+function svgSize(data: Uint8Array): { width: number; height: number } | null {
+  // SVG files start with <?xml ...?> or directly <svg ...>. Sniff the first
+  // 2 KiB as UTF-8; if there's no <svg tag, it isn't SVG.
+  const head = new TextDecoder("utf-8", { fatal: false }).decode(data.subarray(0, 2048));
+  const tag = head.match(/<svg\b[^>]*>/i)?.[0];
+  if (!tag) return null;
+
+  const viewBox = tag.match(/\bviewBox\s*=\s*"([^"]+)"|\bviewBox\s*=\s*'([^']+)'/i);
+  if (viewBox) {
+    const parts = (viewBox[1] ?? viewBox[2])
+      .trim()
+      .split(/[\s,]+/)
+      .map(Number);
+    if (parts.length >= 4 && parts[2] > 0 && parts[3] > 0) {
+      return { width: parts[2], height: parts[3] };
+    }
+  }
+
+  const wAttr = tag.match(/\bwidth\s*=\s*"([^"]+)"|\bwidth\s*=\s*'([^']+)'/i);
+  const hAttr = tag.match(/\bheight\s*=\s*"([^"]+)"|\bheight\s*=\s*'([^']+)'/i);
+  const w = wAttr ? parseAbsoluteLength(wAttr[1] ?? wAttr[2]) : null;
+  const h = hAttr ? parseAbsoluteLength(hAttr[1] ?? hAttr[2]) : null;
+  if (w !== null && h !== null) return { width: w, height: h };
+  return null;
+}
+
+// Parse "100", "100.5", "100px", "100pt" -> 100. Returns null for "%"-relative
+// values or anything that doesn't start with a positive number.
+function parseAbsoluteLength(s: string): number | null {
+  const t = s.trim();
+  if (t.endsWith("%")) return null;
+  const v = parseFloat(t);
+  return Number.isFinite(v) && v > 0 ? v : null;
 }
