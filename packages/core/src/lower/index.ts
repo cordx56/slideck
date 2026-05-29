@@ -51,14 +51,17 @@ function lowerElement(el: MirElement, parentBox: Box, ctx: LowerCtx, out: Primit
     placeElement(el, imageBox(el, parentBox, ctx), ctx, out);
     return;
   }
-  // For group / ul / ol, compute the intrinsic height (stacked content size)
-  // before resolving the vertical axis. This way `position: { bottom: 2% }`
-  // (or `top:` alone, or no Y at all) places the element at its natural
-  // height instead of stretching it to fill the parent.
+  // For auto-layout groups (column / row) and lists (ul / ol), compute the
+  // intrinsic stacked-content height before resolving the vertical axis so
+  // `position: { bottom: 2% }` lands them at their natural size at the bottom.
+  // A *no-layout* group is an absolute-positioning canvas: when its parent
+  // height isn't pinned, fall back to filling the parent (the default
+  // resolveAxis behavior) so children's `%` positions stay measurable.
   if (el.type === "group" || el.type === "ul" || el.type === "ol") {
     const p = el.position;
     const hx = resolveAxis(p?.left, p?.right, p?.width, parentBox.x, parentBox.w);
-    const intrH = stackedHeight(el, hx.size, ctx);
+    const wantsIntrinsic = el.type !== "group" || el.layout !== undefined;
+    const intrH = wantsIntrinsic ? stackedHeight(el, hx.size, ctx) : undefined;
     const vy = resolveAxis(p?.top, p?.bottom, p?.height, parentBox.y, parentBox.h, intrH);
     placeElement(el, { x: hx.pos, y: vy.pos, w: hx.size, h: vy.size }, ctx, out);
     return;
