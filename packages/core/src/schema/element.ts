@@ -56,9 +56,13 @@ const ImageSchema = z
 // type: figure is one shape primitive (rect / line / circle / arrow). Fields
 // are all optional and only the ones relevant to the chosen shape are read:
 //   rect:   fill / stroke / strokeWidth / rx
-//   line:   from / to / stroke / strokeWidth
+//   line:   from / to / stroke / strokeWidth (+ fill = label background)
 //   circle: fill / stroke / strokeWidth  (inscribed in position box)
-//   arrow:  from / to / stroke / strokeWidth / arrowSize
+//   arrow:  from / to / stroke / strokeWidth / arrowSize (+ fill = label bg)
+// text / textSize / textColor / textFont / textPadding render a label centred
+// on the shape (box centre for rect/circle, line midpoint for line/arrow).
+// The label background colour is `fill` -- for rect/circle that is the figure
+// fill itself; for line/arrow a small backing rect is drawn behind the text.
 const FigureSchema = z
   .object({
     type: z.literal("figure"),
@@ -71,6 +75,11 @@ const FigureSchema = z
     from: PointSchema.optional(),
     to: PointSchema.optional(),
     arrowSize: z.number().positive().optional(),
+    text: z.string().optional(),
+    textSize: z.number().positive().optional(),
+    textColor: z.string().optional(),
+    textFont: z.string().optional(),
+    textPadding: z.number().nonnegative().optional(),
   })
   .strict();
 

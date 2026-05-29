@@ -37,6 +37,9 @@ export type FigureShape = "rect" | "line" | "circle" | "arrow";
 
 // One element type for all shape primitives. Only fields relevant to the chosen
 // shape are read by lower; the rest are accepted but ignored.
+// Optional label: text centred on the figure (box centre for rect/circle, line
+// midpoint for line/arrow). Background colour is `fill`; for line/arrow it
+// becomes a small backing rect drawn under the text (omitted when fill unset).
 export interface FigureElement extends BaseElement {
   type: "figure";
   shape: FigureShape;
@@ -47,6 +50,11 @@ export interface FigureElement extends BaseElement {
   from?: Point;
   to?: Point;
   arrowSize?: number;
+  text?: string;
+  textSize?: number;
+  textColor?: string;
+  textFont?: string;
+  textPadding?: number;
 }
 
 export interface PathElement extends BaseElement {

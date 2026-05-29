@@ -78,5 +78,11 @@ describe("examples/basic", () => {
     expect(byId("closing")).toContain('fill="#f7f7fb"');
     // feature: 3 rects in the row layout + footer line
     expect((byId("feature").match(/<rect/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    // shapes: each shape carries a label centred on it (text content visible in the SVG).
+    const shapes = byId("shapes");
+    expect(shapes).toContain(">rect<");
+    expect(shapes).toContain(">circle<");
+    expect(shapes).toContain(">line<");
+    expect(shapes).toContain(">arrow<");
   });
 });

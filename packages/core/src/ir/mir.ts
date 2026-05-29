@@ -27,6 +27,17 @@ export interface MirImage {
   fit: Fit;
 }
 
+// Optional label centred on a figure. `padding` is the inset between the text
+// and the backing rect drawn behind it (used only by line/arrow; rect/circle
+// rely on the figure fill as the background).
+export interface FigureLabel {
+  content: string;
+  font: string;
+  size: number;
+  color: string;
+  padding: number;
+}
+
 export interface MirRect {
   type: "rect";
   position?: Position;
@@ -35,6 +46,7 @@ export interface MirRect {
   stroke?: string;
   strokeWidth: number;
   rx: number;
+  label?: FigureLabel;
 }
 
 export interface MirLine {
@@ -44,6 +56,9 @@ export interface MirLine {
   to: Point;
   stroke: string;
   strokeWidth: number;
+  // Background colour for the label's backing rect; no backing drawn when unset.
+  fill?: string;
+  label?: FigureLabel;
 }
 
 export interface MirPath {
@@ -64,6 +79,7 @@ export interface MirCircle {
   fill?: string;
   stroke?: string;
   strokeWidth: number;
+  label?: FigureLabel;
 }
 
 // Line with a filled-triangle arrowhead at `to`.
@@ -75,6 +91,8 @@ export interface MirArrow {
   stroke: string;
   strokeWidth: number;
   arrowSize: number;
+  fill?: string;
+  label?: FigureLabel;
 }
 
 export interface MirGroup {

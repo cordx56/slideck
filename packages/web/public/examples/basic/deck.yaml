@@ -121,7 +121,9 @@ slides:
       title: "Shape Primitives"
     elements:
       # type: figure with shape: rect | line | circle | arrow. Fields not used
-      # by the chosen shape are simply ignored.
+      # by the chosen shape are simply ignored. A `text` field draws a label
+      # centred on the figure (box centre for rect/circle, line midpoint for
+      # line/arrow). For line/arrow the `fill` becomes the label background.
       - type: group
         position: { left: 10%, right: 10%, top: 42%, height: 40% }
         layout: row
@@ -135,12 +137,18 @@ slides:
             stroke: ${accent}
             strokeWidth: 4
             rx: 24
+            text: "rect"
+            textColor: ${accent}
+            textSize: 32
           - type: figure
             shape: circle
             flex: 1
             fill: ${panel}
             stroke: ${accent}
             strokeWidth: 4
+            text: "circle"
+            textColor: ${accent}
+            textSize: 32
           - type: figure
             shape: line
             flex: 1
@@ -148,6 +156,10 @@ slides:
             to: { x: 90%, y: 10% }
             stroke: ${accent}
             strokeWidth: 6
+            fill: ${bg}
+            text: "line"
+            textColor: ${accent}
+            textSize: 28
           - type: figure
             shape: arrow
             flex: 1
@@ -156,6 +168,10 @@ slides:
             stroke: ${accent}
             strokeWidth: 6
             arrowSize: 32
+            fill: ${bg}
+            text: "arrow"
+            textColor: ${accent}
+            textSize: 28
 
   - id: closing
     use: light

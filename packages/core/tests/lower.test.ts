@@ -404,3 +404,96 @@ describe("lower image aspect", () => {
     }
   });
 });
+
+describe("lower figure label", () => {
+  // Rect: the rect fill is the background, so no extra backing rect is emitted;
+  // the label text sits at the box centre.
+  it("rect with label emits rect + centred text (no backing rect)", () => {
+    const deck = deckWith([
+      {
+        type: "rect",
+        position: { left: pct(10), top: pct(10), width: pct(20), height: pct(20) },
+        fill: "#222",
+        strokeWidth: 0,
+        rx: 0,
+        label: {
+          content: "Hi",
+          font: "body",
+          size: 40,
+          color: "#fff",
+          padding: 8,
+        },
+      },
+    ]);
+    const prims = lower(deck.slides[0], deck, ctx).primitives;
+    expect(prims.map((p) => p.kind)).toEqual(["rect", "text"]);
+    const text = prims[1];
+    if (text.kind === "text") {
+      // Box: x=100,y=100,w=200,h=200 -> centre (200,200). One line, ascent ~ 0.8*40 = 32,
+      // lineBox = 48 -> top = 200 - 24, baseline = top + 32 = 208.
+      expect(text.runs).toHaveLength(1);
+      expect(text.runs[0].text).toBe("Hi");
+      expect(text.runs[0].y).toBeCloseTo(208, 3);
+      // The run x is centred: cx - lineWidth/2; lineWidth ~ measure("Hi") < 200.
+      expect(text.runs[0].x).toBeLessThan(200);
+    }
+  });
+
+  // Line: `fill` becomes the label's backing rect drawn under the text so the
+  // line is visually interrupted at the label.
+  it("line with label + fill emits line + backing rect + text", () => {
+    const deck = deckWith([
+      {
+        type: "line",
+        from: { x: pct(0), y: pct(50) },
+        to: { x: pct(100), y: pct(50) },
+        stroke: "#000",
+        strokeWidth: 4,
+        fill: "#fff",
+        label: {
+          content: "edge",
+          font: "body",
+          size: 30,
+          color: "#000",
+          padding: 6,
+        },
+      },
+    ]);
+    const prims = lower(deck.slides[0], deck, ctx).primitives;
+    // Top-level line has no position -> parent is the whole slide (1000x1000).
+    // Line from (0,500) to (1000,500), midpoint (500,500).
+    expect(prims.map((p) => p.kind)).toEqual(["line", "rect", "text"]);
+    const bg = prims[1];
+    if (bg.kind === "rect") {
+      // Centred on (500, 500), fill = label background.
+      expect(bg.fill).toBe("#fff");
+      expect(bg.x + bg.w / 2).toBeCloseTo(500, 3);
+      expect(bg.y + bg.h / 2).toBeCloseTo(500, 3);
+    }
+  });
+
+  // No `fill` means "draw the label without a backing rect" -- useful when the
+  // line passes over an area that already has the right background colour.
+  it("arrow without fill emits no backing rect for the label", () => {
+    const deck = deckWith([
+      {
+        type: "arrow",
+        from: { x: pct(0), y: pct(50) },
+        to: { x: pct(100), y: pct(50) },
+        stroke: "#000",
+        strokeWidth: 4,
+        arrowSize: 12,
+        label: {
+          content: "go",
+          font: "body",
+          size: 24,
+          color: "#000",
+          padding: 4,
+        },
+      },
+    ]);
+    const prims = lower(deck.slides[0], deck, ctx).primitives;
+    // line (shortened) + arrowhead path + text. No rect.
+    expect(prims.map((p) => p.kind)).toEqual(["line", "path", "text"]);
+  });
+});

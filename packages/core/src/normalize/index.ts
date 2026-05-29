@@ -1,6 +1,6 @@
 import type { LoadedDeck } from "../load/resolve-refs";
-import type { HirElement, TextDefaults, RichStyle } from "../ir/hir";
-import type { MirDeck, MirElement, MirFont, MirSlide } from "../ir/mir";
+import type { FigureElement, HirElement, TextDefaults, RichStyle } from "../ir/hir";
+import type { FigureLabel, MirDeck, MirElement, MirFont, MirSlide } from "../ir/mir";
 import { PipelineError } from "../lib/error";
 import { toHex } from "../lib/color";
 import { buildVarContext, expandString, type VarContext } from "./variables";
@@ -157,6 +157,28 @@ function resolveRichStyle(
   };
 }
 
+// Resolve a figure's label fields against ctx.textDefaults. Returns undefined
+// when no `text` is set, so the label is opt-in per figure.
+function buildFigureLabel(
+  hir: FigureElement,
+  ctx: ConvertCtx,
+  exp: (s: string) => string,
+  color: (s: string) => string,
+  resolveFont: (raw: string) => string,
+): FigureLabel | undefined {
+  if (hir.text === undefined) return undefined;
+  const size = hir.textSize ?? ctx.textDefaults.size;
+  return {
+    content: exp(hir.text),
+    font: hir.textFont ? resolveFont(exp(hir.textFont)) : ctx.textDefaults.family,
+    size,
+    color: hir.textColor ? color(hir.textColor) : ctx.textDefaults.color,
+    // Sensible default proportional to size; user can override for tighter or
+    // looser breaks around the text when it sits on a line/arrow.
+    padding: hir.textPadding ?? size * 0.4,
+  };
+}
+
 function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
   const exp = (s: string) => expandString(s, ctx.vars, ctx.errors);
   const color = (s: string) => resolveColorLiteral(exp(s));
@@ -193,6 +215,7 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
       const stroke = hir.stroke ? color(hir.stroke) : undefined;
       const lineStroke = () => (hir.stroke ? color(hir.stroke) : ctx.textDefaults.color);
       const lineWidth = () => hir.strokeWidth ?? DEFAULT_STROKE_WIDTH;
+      const label = buildFigureLabel(hir, ctx, exp, color, resolveFont);
       switch (hir.shape) {
         case "rect":
           return {
@@ -203,6 +226,7 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
             stroke,
             strokeWidth: hir.strokeWidth ?? (stroke ? DEFAULT_STROKE_WIDTH : 0),
             rx: hir.rx ?? 0,
+            label,
           };
         case "circle":
           return {
@@ -212,6 +236,7 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
             fill: hir.fill ? color(hir.fill) : undefined,
             stroke,
             strokeWidth: hir.strokeWidth ?? (stroke ? DEFAULT_STROKE_WIDTH : 0),
+            label,
           };
         case "line":
           return {
@@ -227,6 +252,8 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
             },
             stroke: lineStroke(),
             strokeWidth: lineWidth(),
+            fill: hir.fill ? color(hir.fill) : undefined,
+            label,
           };
         case "arrow":
           return {
@@ -243,9 +270,10 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
             stroke: lineStroke(),
             strokeWidth: lineWidth(),
             arrowSize: hir.arrowSize ?? 3 * lineWidth(),
+            fill: hir.fill ? color(hir.fill) : undefined,
+            label,
           };
       }
-      break;
     }
     case "path": {
       const stroke = hir.stroke ? color(hir.stroke) : undefined;
