@@ -37,7 +37,7 @@ describe("examples/basic", () => {
     expect(compiled).toBeTruthy();
 
     const slides = compiled!.deck.slides;
-    expect(slides).toHaveLength(8);
+    expect(slides).toHaveLength(9);
 
     const svgs = slides.map((_, i) => renderSlideSvg(compiled!, i)!);
     for (const svg of svgs) expect(svg.startsWith("<svg")).toBe(true);
@@ -66,8 +66,8 @@ describe("examples/basic", () => {
     for (const svg of svgs) expect(svg).toContain("slideck — YAML Slides");
     const byId = (id: string) => svgs[slides.findIndex((s) => s.id === id)];
     // page number from system variables (${slideNumber}/${slideCount} in footer base)
-    expect(svgs[0]).toContain("1 / 8");
-    expect(svgs[slides.length - 1]).toContain("8 / 8");
+    expect(svgs[0]).toContain("1 / 9");
+    expect(svgs[slides.length - 1]).toContain("9 / 9");
     // directives slide: the accent color comes from a ?[..](color=${accent}).
     const directives = svgs[slides.findIndex((s) => s.id === "directives")];
     expect(directives).toContain('fill="#7aa2f7"'); // ${accent}

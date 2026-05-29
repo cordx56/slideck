@@ -115,6 +115,48 @@ slides:
           ?[**warning bold**](color=#f7768e), and
           ?[outer red ?[inner blue](color=${accent}) back to red](color=#f7768e).
 
+  - id: shapes
+    use: standard
+    vars:
+      title: "Shape Primitives"
+    elements:
+      # type: figure with shape: rect | line | circle | arrow. Fields not used
+      # by the chosen shape are simply ignored.
+      - type: group
+        position: { left: 10%, right: 10%, top: 42%, height: 40% }
+        layout: row
+        gap: 5%
+        align: stretch
+        children:
+          - type: figure
+            shape: rect
+            flex: 1
+            fill: ${panel}
+            stroke: ${accent}
+            strokeWidth: 4
+            rx: 24
+          - type: figure
+            shape: circle
+            flex: 1
+            fill: ${panel}
+            stroke: ${accent}
+            strokeWidth: 4
+          - type: figure
+            shape: line
+            flex: 1
+            from: { x: 10%, y: 90% }
+            to: { x: 90%, y: 10% }
+            stroke: ${accent}
+            strokeWidth: 6
+          - type: figure
+            shape: arrow
+            flex: 1
+            from: { x: 10%, y: 50% }
+            to: { x: 90%, y: 50% }
+            stroke: ${accent}
+            strokeWidth: 6
+            arrowSize: 32
+
   - id: closing
     use: light
     vars:
@@ -133,19 +175,22 @@ slides:
         gap: 3%
         align: stretch
         children:
-          - type: rect
+          - type: figure
+            shape: rect
             flex: 1
             fill: ${panel}
             stroke: ${accent}
             strokeWidth: 2
             rx: 16
-          - type: rect
+          - type: figure
+            shape: rect
             flex: 2
             fill: ${panel}
             stroke: ${muted}
             strokeWidth: 2
             rx: 16
-          - type: rect
+          - type: figure
+            shape: rect
             flex: 1
             fill: ${accent}
             rx: 16

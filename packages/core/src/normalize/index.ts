@@ -188,26 +188,65 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
         src: exp(hir.src),
         fit: hir.fit ?? DEFAULT_FIT,
       };
-    case "rect": {
+    case "figure": {
+      // One HIR shape primitive -> a specific MIR variant per shape.
       const stroke = hir.stroke ? color(hir.stroke) : undefined;
-      return {
-        type: "rect",
-        position: hir.position,
-        flex: hir.flex,
-        fill: hir.fill ? color(hir.fill) : undefined,
-        stroke,
-        strokeWidth: hir.strokeWidth ?? (stroke ? DEFAULT_STROKE_WIDTH : 0),
-        rx: hir.rx ?? 0,
-      };
+      const lineStroke = () => (hir.stroke ? color(hir.stroke) : ctx.textDefaults.color);
+      const lineWidth = () => hir.strokeWidth ?? DEFAULT_STROKE_WIDTH;
+      switch (hir.shape) {
+        case "rect":
+          return {
+            type: "rect",
+            position: hir.position,
+            flex: hir.flex,
+            fill: hir.fill ? color(hir.fill) : undefined,
+            stroke,
+            strokeWidth: hir.strokeWidth ?? (stroke ? DEFAULT_STROKE_WIDTH : 0),
+            rx: hir.rx ?? 0,
+          };
+        case "circle":
+          return {
+            type: "circle",
+            position: hir.position,
+            flex: hir.flex,
+            fill: hir.fill ? color(hir.fill) : undefined,
+            stroke,
+            strokeWidth: hir.strokeWidth ?? (stroke ? DEFAULT_STROKE_WIDTH : 0),
+          };
+        case "line":
+          return {
+            type: "line",
+            flex: hir.flex,
+            from: hir.from ?? {
+              x: { kind: "percent", value: 0 },
+              y: { kind: "percent", value: 0 },
+            },
+            to: hir.to ?? {
+              x: { kind: "percent", value: 100 },
+              y: { kind: "percent", value: 100 },
+            },
+            stroke: lineStroke(),
+            strokeWidth: lineWidth(),
+          };
+        case "arrow":
+          return {
+            type: "arrow",
+            flex: hir.flex,
+            from: hir.from ?? {
+              x: { kind: "percent", value: 0 },
+              y: { kind: "percent", value: 0 },
+            },
+            to: hir.to ?? {
+              x: { kind: "percent", value: 100 },
+              y: { kind: "percent", value: 100 },
+            },
+            stroke: lineStroke(),
+            strokeWidth: lineWidth(),
+            arrowSize: hir.arrowSize ?? 3 * lineWidth(),
+          };
+      }
+      break;
     }
-    case "line":
-      return {
-        type: "line",
-        from: hir.from,
-        to: hir.to,
-        stroke: hir.stroke ? color(hir.stroke) : ctx.textDefaults.color,
-        strokeWidth: hir.strokeWidth ?? DEFAULT_STROKE_WIDTH,
-      };
     case "path": {
       const stroke = hir.stroke ? color(hir.stroke) : undefined;
       return {

@@ -33,20 +33,20 @@ export interface ImageElement extends BaseElement {
   fit?: Fit;
 }
 
-export interface RectElement extends BaseElement {
-  type: "rect";
+export type FigureShape = "rect" | "line" | "circle" | "arrow";
+
+// One element type for all shape primitives. Only fields relevant to the chosen
+// shape are read by lower; the rest are accepted but ignored.
+export interface FigureElement extends BaseElement {
+  type: "figure";
+  shape: FigureShape;
   fill?: string;
   stroke?: string;
   strokeWidth?: number;
   rx?: number;
-}
-
-export interface LineElement extends BaseElement {
-  type: "line";
-  from: Point;
-  to: Point;
-  stroke?: string;
-  strokeWidth?: number;
+  from?: Point;
+  to?: Point;
+  arrowSize?: number;
 }
 
 export interface PathElement extends BaseElement {
@@ -86,8 +86,7 @@ export interface ListElement extends BaseElement {
 export type HirElement =
   | TextElement
   | ImageElement
-  | RectElement
-  | LineElement
+  | FigureElement
   | PathElement
   | GroupElement
   | ListElement;

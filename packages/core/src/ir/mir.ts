@@ -56,6 +56,27 @@ export interface MirPath {
   strokeWidth: number;
 }
 
+// Circle inscribed in the position box (centred, r = min(w, h) / 2).
+export interface MirCircle {
+  type: "circle";
+  position?: Position;
+  flex?: number;
+  fill?: string;
+  stroke?: string;
+  strokeWidth: number;
+}
+
+// Line with a filled-triangle arrowhead at `to`.
+export interface MirArrow {
+  type: "arrow";
+  flex?: number;
+  from: Point;
+  to: Point;
+  stroke: string;
+  strokeWidth: number;
+  arrowSize: number;
+}
+
 export interface MirGroup {
   type: "group";
   position?: Position;
@@ -83,7 +104,16 @@ export interface MirList {
   start: number;
 }
 
-export type MirElement = MirText | MirImage | MirRect | MirLine | MirPath | MirGroup | MirList;
+export type MirElement =
+  | MirText
+  | MirImage
+  | MirRect
+  | MirLine
+  | MirCircle
+  | MirArrow
+  | MirPath
+  | MirGroup
+  | MirList;
 
 export interface MirFont {
   family: string;

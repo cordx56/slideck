@@ -231,6 +231,56 @@ function placeElement(el: MirElement, box: Box, ctx: LowerCtx, out: Primitive[])
       });
       break;
     }
+    case "circle":
+      // Inscribed: centred in the box, r = min(w, h) / 2.
+      out.push({
+        kind: "circle",
+        cx: box.x + box.w / 2,
+        cy: box.y + box.h / 2,
+        r: Math.min(box.w, box.h) / 2,
+        fill: el.fill,
+        stroke: makeStroke(el.stroke, el.strokeWidth),
+      });
+      break;
+    case "arrow": {
+      const x1 = box.x + toPx(el.from.x, box.w);
+      const y1 = box.y + toPx(el.from.y, box.h);
+      const x2 = box.x + toPx(el.to.x, box.w);
+      const y2 = box.y + toPx(el.to.y, box.h);
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len = Math.hypot(dx, dy);
+      if (len > 0) {
+        // Unit vector along the line and its perpendicular.
+        const ux = dx / len;
+        const uy = dy / len;
+        const px = -uy;
+        const py = ux;
+        const a = el.arrowSize;
+        // Shorten the line so its end sits at the arrowhead's base.
+        out.push({
+          kind: "line",
+          x1,
+          y1,
+          x2: x2 - ux * a,
+          y2: y2 - uy * a,
+          stroke: { color: el.stroke, width: el.strokeWidth },
+        });
+        // Filled-triangle arrowhead at the tip (fill = stroke color).
+        const bx = x2 - ux * a;
+        const by = y2 - uy * a;
+        const s1x = bx + px * (a / 2);
+        const s1y = by + py * (a / 2);
+        const s2x = bx - px * (a / 2);
+        const s2y = by - py * (a / 2);
+        out.push({
+          kind: "path",
+          d: `M ${x2} ${y2} L ${s1x} ${s1y} L ${s2x} ${s2y} Z`,
+          fill: el.stroke,
+        });
+      }
+      break;
+    }
     case "path":
       out.push({
         kind: "path",

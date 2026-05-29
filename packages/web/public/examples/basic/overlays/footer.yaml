@@ -2,7 +2,8 @@
 # layout is a standard field of base files. ${slideNumber}/${slideCount} are
 # system variables (injected automatically by normalize).
 layout:
-  - type: line
+  - type: figure
+    shape: line
     from: { x: 4%, y: 94% }
     to: { x: 96%, y: 94% }
     stroke: ${muted}

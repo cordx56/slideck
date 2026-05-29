@@ -53,25 +53,24 @@ const ImageSchema = z
   })
   .strict();
 
-const RectSchema = z
+// type: figure is one shape primitive (rect / line / circle / arrow). Fields
+// are all optional and only the ones relevant to the chosen shape are read:
+//   rect:   fill / stroke / strokeWidth / rx
+//   line:   from / to / stroke / strokeWidth
+//   circle: fill / stroke / strokeWidth  (inscribed in position box)
+//   arrow:  from / to / stroke / strokeWidth / arrowSize
+const FigureSchema = z
   .object({
-    type: z.literal("rect"),
+    type: z.literal("figure"),
+    shape: z.enum(["rect", "line", "circle", "arrow"]),
     ...baseFields,
     fill: z.string().optional(),
     stroke: z.string().optional(),
     strokeWidth: z.number().nonnegative().optional(),
     rx: z.number().nonnegative().optional(),
-  })
-  .strict();
-
-const LineSchema = z
-  .object({
-    type: z.literal("line"),
-    ...baseFields,
-    from: PointSchema,
-    to: PointSchema,
-    stroke: z.string().optional(),
-    strokeWidth: z.number().nonnegative().optional(),
+    from: PointSchema.optional(),
+    to: PointSchema.optional(),
+    arrowSize: z.number().positive().optional(),
   })
   .strict();
 
@@ -121,17 +120,26 @@ const OlSchema = z.object({ type: z.literal("ol"), ...listFields }).strict();
 function inferType(raw: unknown): unknown {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return raw;
   const o = raw as Record<string, unknown>;
-  if (o.type !== undefined) return raw;
   const has = (k: string) => o[k] !== undefined;
+  // A bare `shape:` implies type: figure.
+  if (o.type === undefined && has("shape")) return { ...o, type: "figure" };
+  if (o.type !== undefined) return raw;
   let type: string | undefined;
   if (has("text")) type = "text";
   else if (has("src")) type = "image";
   else if (has("d")) type = "path";
-  else if (has("from") || has("to")) type = "line";
   else if (has("children")) type = "group";
   else if (has("items")) type = has("start") ? "ol" : "ul";
-  else if (has("fill") || has("stroke") || has("strokeWidth") || has("rx")) type = "rect";
-  return type === undefined ? raw : { ...o, type };
+  else if (has("from") || has("to") || has("arrowSize")) type = "figure";
+  else if (has("fill") || has("stroke") || has("strokeWidth") || has("rx")) type = "figure";
+  if (type === undefined) return raw;
+  const result: Record<string, unknown> = { ...o, type };
+  // For figure, default the shape when the user didn't pick one: from/to ->
+  // line; otherwise rect. Arrow / circle must be opted in explicitly.
+  if (type === "figure" && result.shape === undefined) {
+    result.shape = has("from") || has("to") ? "line" : "rect";
+  }
+  return result;
 }
 
 // Recursive element union. lazy because children references ElementSchema.
@@ -143,8 +151,7 @@ export const ElementSchema: z.ZodType<HirElement> = z.lazy(() =>
     z.discriminatedUnion("type", [
       TextSchema,
       ImageSchema,
-      RectSchema,
-      LineSchema,
+      FigureSchema,
       PathSchema,
       GroupSchema,
       UlSchema,
