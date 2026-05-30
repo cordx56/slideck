@@ -179,11 +179,17 @@ function wrap(atoms: Atom[], maxWidth: number): Atom[][] {
   const lines: Atom[][] = [];
   let line: Atom[] = [];
   let w = 0;
+  // Tracks how the current empty line came to be: a soft wrap is overflow-induced
+  // and we drop its leading space (so the previous line's trailing space doesn't
+  // bleed in); a hard break is user-written ("\n") and we keep the leading space
+  // because the indent is intentional (e.g. code blocks with `    foo`).
+  let openedByWrap = false;
   for (const a of atoms) {
     if (a.kind === "break") {
       lines.push(line);
       line = [];
       w = 0;
+      openedByWrap = false;
       continue;
     }
     const isSpace = a.kind === "text" && a.space;
@@ -191,8 +197,9 @@ function wrap(atoms: Atom[], maxWidth: number): Atom[][] {
       lines.push(line);
       line = [];
       w = 0;
+      openedByWrap = true;
     }
-    if (line.length === 0 && isSpace) continue; // drop leading space
+    if (line.length === 0 && isSpace && openedByWrap) continue;
     line.push(a);
     w += a.w;
   }

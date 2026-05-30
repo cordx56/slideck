@@ -45,4 +45,22 @@ describe("shapeText", () => {
     const r = shape("a", 1000);
     expect(r.lines[0].baseline).toBeCloseTo(40 * 0.8);
   });
+
+  // A line opened by a user-written "\n" (or by start-of-text) keeps its
+  // leading whitespace because the indent was typed deliberately. Only
+  // wrap-induced lines drop leading space (to avoid prev-line trailing-space
+  // bleed). Regression for indented code-style content like "    println!()".
+  it("preserves leading whitespace after a hard newline", () => {
+    const r = shape("fn main {\n    body\n}", 10000);
+    expect(r.lines.map((l) => l.text)).toEqual(["fn main {", "    body", "}"]);
+  });
+
+  it("still drops the leading-space bleed on wrap-induced lines", () => {
+    // "word " is ~ 4*0.5 + 0.28 = 2.28em wide at size 40 -> ~91px; limit 200
+    // fits ~2 words per line. The space between words must not appear at the
+    // start of the next wrapped line.
+    const r = shape("word word word word", 200);
+    expect(r.lines.length).toBeGreaterThan(1);
+    for (const l of r.lines) expect(l.text.startsWith(" ")).toBe(false);
+  });
 });

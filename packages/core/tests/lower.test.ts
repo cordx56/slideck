@@ -405,6 +405,35 @@ describe("lower image aspect", () => {
   });
 });
 
+describe("lower rich text indent", () => {
+  // Inline code spans on consecutive lines: the indent inside the second `code`
+  // span sits right after a hard \n and must survive into the rendered run.
+  // Regression for "    println!(\"…\")" losing its 4-space leading indent.
+  it("keeps leading whitespace inside code after a newline", () => {
+    const deck = deckWith([
+      {
+        type: "text",
+        position: { left: pct(0), top: pct(0), width: pct(100) },
+        text: "`fn main() {`\n`    println!(\"hi\")`\n`}`",
+        font: "body",
+        size: 30,
+        color: "#000",
+        align: "left",
+        lineHeight: 1.2,
+        letterSpacing: 0,
+      },
+    ]);
+    const prims = lower(deck.slides[0], deck, ctx).primitives;
+    // Every text/line/path primitive belongs to the shaped layout. Find the
+    // text primitive whose runs collectively contain "println".
+    const flat = prims
+      .filter((p): p is Extract<typeof p, { kind: "text" }> => p.kind === "text")
+      .flatMap((p) => p.runs.map((r) => r.text))
+      .join("|");
+    expect(flat).toContain("    println");
+  });
+});
+
 describe("lower figure label", () => {
   // Rect: the rect fill is the background, so no extra backing rect is emitted;
   // the label text sits at the box centre.

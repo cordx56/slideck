@@ -76,6 +76,10 @@ function wrapParagraph(
   const lines: string[] = [];
   let line = "";
   let lineW = 0;
+  // First line keeps a leading-space token (the user typed it after a hard \n
+  // or at start-of-text -- indent matters). Wrap-induced lines drop their
+  // leading space so the prev line's trailing space doesn't bleed in.
+  let openedByWrap = false;
   const tokenW = (t: Token) =>
     metrics.measure(t.text, font, size) + letterSpacing * [...t.text].length;
 
@@ -85,8 +89,9 @@ function wrapParagraph(
       lines.push(line.replace(/\s+$/, ""));
       line = "";
       lineW = 0;
+      openedByWrap = true;
     }
-    if (line === "" && t.kind === "space") continue; // drop leading space
+    if (line === "" && t.kind === "space" && openedByWrap) continue;
     line += t.text;
     lineW += w;
   }
