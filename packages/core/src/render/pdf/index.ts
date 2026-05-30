@@ -8,6 +8,7 @@ import { embedFonts } from "./fonts";
 import { drawPrimitive } from "./primitives";
 import { PipelineError } from "../../lib/error";
 import { browserSvgRasterizer, type SvgRasterizer } from "./svg-raster";
+import { injectFontCmaps } from "./font-postprocess";
 
 export type { SvgRasterizer } from "./svg-raster";
 export { browserSvgRasterizer } from "./svg-raster";
@@ -62,5 +63,10 @@ export async function renderPdf(
   }
 
   const bytes = await pdf.save();
-  return { bytes, errors };
+  // pdf-lib's subset embedder omits the font cmap table, which macOS Preview
+  // requires to load embedded TrueType. Patch the saved PDF so every subset
+  // FontFile2 has a minimal cmap -- the rendering itself still goes through
+  // CIDToGIDMap, the cmap is just there to keep the sfnt loader happy.
+  const patched = await injectFontCmaps(bytes);
+  return { bytes: patched, errors };
 }

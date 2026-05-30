@@ -56,18 +56,51 @@ describe("renderPdf", () => {
     // "AAAAAA+OriginalName" (six uppercase letters + "+" tag). Without the
     // tag, macOS Preview renders garbled ASCII even when the font program is
     // present (other viewers tolerate it).
-    // We full-embed (subset: false) so macOS Preview gets a complete font with
-    // cmap/name/post/OS-2 tables. The BaseFont is the bare PostScript name --
-    // no "+" subset tag, since the font isn't a subset.
+    // Subset embed: BaseFont must follow PDF 9.6.4's "AAAAAA+PSName" form so
+    // macOS Preview's font-name lookup doesn't kick in (see fonts.ts).
     const baseFonts = [...new Set(raw.match(/\/BaseFont\s+\/[^\s>]+/g) ?? [])];
     const customEmbedded = baseFonts.filter(
       (n) => !/\/(Helvetica|Courier|Times|Symbol|ZapfDingbats)/.test(n),
     );
     expect(customEmbedded.length).toBeGreaterThan(0);
     for (const name of customEmbedded) {
-      // PSName: letters/digits and a few punctuation chars; no "+" tag.
-      expect(name).toMatch(/^\/BaseFont \/[A-Za-z0-9._-]+$/);
-      expect(name).not.toMatch(/\+/);
+      expect(name).toMatch(/^\/BaseFont \/[A-Z]{6}\+[A-Za-z0-9._-]+$/);
     }
+
+    // Every embedded TrueType subset must carry a cmap table -- the
+    // post-process injection in font-postprocess.ts is what teaches macOS
+    // Preview's sfnt loader the font is valid. We re-walk the saved PDF
+    // streams looking for sfnt-headered raw streams and confirm "cmap" is in
+    // each one's table directory.
+    const { default: pakoModule } = await import("pdf-lib");
+    // pdf-lib re-exports utilities we need to decode the FlateDecode streams.
+    const { decodePDFRawStream, PDFRawStream } = pakoModule as unknown as {
+      decodePDFRawStream: (s: unknown) => { decode: () => Uint8Array };
+      PDFRawStream: new (...args: unknown[]) => unknown;
+    };
+    let subsetsChecked = 0;
+    for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+      if (!(obj instanceof PDFRawStream)) continue;
+      let decoded: Uint8Array;
+      try {
+        decoded = decodePDFRawStream(obj).decode();
+      } catch {
+        continue;
+      }
+      if (decoded.length < 4) continue;
+      const isSfnt =
+        (decoded[0] === 0x00 && decoded[1] === 0x01 && decoded[2] === 0x00 && decoded[3] === 0x00) ||
+        (decoded[0] === 0x74 && decoded[1] === 0x72 && decoded[2] === 0x75 && decoded[3] === 0x65);
+      if (!isSfnt) continue;
+      const numTables = (decoded[4] << 8) | decoded[5];
+      const tags: string[] = [];
+      for (let i = 0; i < numTables; i++) {
+        const off = 12 + i * 16;
+        tags.push(String.fromCharCode(decoded[off], decoded[off + 1], decoded[off + 2], decoded[off + 3]).trim());
+      }
+      expect(tags).toContain("cmap");
+      subsetsChecked++;
+    }
+    expect(subsetsChecked).toBeGreaterThan(0);
   });
 });
