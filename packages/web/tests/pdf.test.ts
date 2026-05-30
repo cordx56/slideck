@@ -56,14 +56,18 @@ describe("renderPdf", () => {
     // "AAAAAA+OriginalName" (six uppercase letters + "+" tag). Without the
     // tag, macOS Preview renders garbled ASCII even when the font program is
     // present (other viewers tolerate it).
+    // We full-embed (subset: false) so macOS Preview gets a complete font with
+    // cmap/name/post/OS-2 tables. The BaseFont is the bare PostScript name --
+    // no "+" subset tag, since the font isn't a subset.
     const baseFonts = [...new Set(raw.match(/\/BaseFont\s+\/[^\s>]+/g) ?? [])];
-    // At least one embedded subset besides the standard 14 fonts.
-    const subsetEmbedded = baseFonts.filter(
+    const customEmbedded = baseFonts.filter(
       (n) => !/\/(Helvetica|Courier|Times|Symbol|ZapfDingbats)/.test(n),
     );
-    expect(subsetEmbedded.length).toBeGreaterThan(0);
-    for (const name of subsetEmbedded) {
-      expect(name).toMatch(/^\/BaseFont \/[A-Z]{6}\+[A-Za-z0-9._-]+$/);
+    expect(customEmbedded.length).toBeGreaterThan(0);
+    for (const name of customEmbedded) {
+      // PSName: letters/digits and a few punctuation chars; no "+" tag.
+      expect(name).toMatch(/^\/BaseFont \/[A-Za-z0-9._-]+$/);
+      expect(name).not.toMatch(/\+/);
     }
   });
 });

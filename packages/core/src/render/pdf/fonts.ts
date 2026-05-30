@@ -45,30 +45,25 @@ async function embedOne(
   errors: PipelineError[],
 ): Promise<PDFFont | undefined> {
   const bytes = lf.bytes as ArrayBuffer & Uint8Array;
-  // Read PostScript name up front so we can hand pdf-lib a spec-compliant
-  // BaseFont. pdf-lib's default is "<PSName>-<random digits>", which violates
-  // PDF 1.7 9.6.4 for subset fonts (the spec wants "AAAAAA+PSName"). macOS
-  // Preview reads the name strictly: when it doesn't see the "+" tag it tries
-  // to look up the font by literal name, fails, and renders garbled ASCII
-  // even though Chrome/Firefox PDF viewers tolerate the bug. Pre-tagging the
-  // name avoids the post-process dance.
+  // Full embed (subset: false) on purpose: pdf-lib's subsetter (via fontkit's
+  // TTFSubset) drops cmap/name/post/OS-2 from the output, leaving only the
+  // outline-bearing tables (head/hhea/maxp/loca/glyf/hmtx/cvt/prep/fpgm).
+  // The PDF spec allows that for CIDFontType2 with Identity-H -- the renderer
+  // is supposed to use CIDToGIDMap, not the font's cmap -- and Chrome/Firefox
+  // viewers do the right thing. macOS Preview (Core Graphics) is strict:
+  // missing cmap makes it fall back to a system font and render the raw GIDs
+  // as Unicode codepoints, producing consecutive ASCII like ",-./0123...".
+  // Full embed keeps every table so every viewer renders correctly. The cost
+  // is PDF size (one full TTF per face), acceptable for slide decks.
   const psName = readPostscriptName(bytes) ?? lf.family;
   try {
     return await pdf.embedFont(bytes, {
-      subset: true,
-      customName: `${subsetTag(lf.family, bytes)}+${sanitizePsName(psName)}`,
+      subset: false,
+      customName: sanitizePsName(psName),
     });
-  } catch {
-    try {
-      // Full embeds keep the original PostScript name (no "+" tag needed).
-      return await pdf.embedFont(bytes, {
-        subset: false,
-        customName: sanitizePsName(psName),
-      });
-    } catch (e) {
-      errors.push(new PipelineError(`Font embed failed: ${lf.family} (${String(e)})`));
-      return undefined;
-    }
+  } catch (e) {
+    errors.push(new PipelineError(`Font embed failed: ${lf.family} (${String(e)})`));
+    return undefined;
   }
 }
 
@@ -89,29 +84,4 @@ function readPostscriptName(bytes: Uint8Array): string | undefined {
 // PDF names (#$%(){}[]<>/) -- strip them so the BaseFont remains a valid name.
 function sanitizePsName(name: string): string {
   return name.replace(/[\s\0\t\n\f\r#%/()<>[\]{}]/g, "");
-}
-
-// PDF 9.6.4: six uppercase letters acting as a unique tag. Deterministic per
-// (family, bytes) so the same input always yields the same tag (helpful for
-// diffing PDF output between runs).
-function subsetTag(family: string, bytes: Uint8Array): string {
-  // Mix family name and a few bytes from the font header for variety. The hash
-  // doesn't need to be cryptographic -- only stable.
-  let h = 0x811c9dc5; // FNV-1a 32-bit
-  for (let i = 0; i < family.length; i++) {
-    h ^= family.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  const sampleEnd = Math.min(64, bytes.length);
-  for (let i = 0; i < sampleEnd; i++) {
-    h ^= bytes[i];
-    h = Math.imul(h, 0x01000193);
-  }
-  let tag = "";
-  let v = h >>> 0;
-  for (let i = 0; i < 6; i++) {
-    tag += String.fromCharCode(65 + (v % 26));
-    v = Math.floor(v / 26);
-  }
-  return tag;
 }
