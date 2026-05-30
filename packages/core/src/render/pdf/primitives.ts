@@ -14,6 +14,7 @@ import { hexToRgb01 } from "../../lib/color";
 import { rectY, flipY } from "./coords";
 import { type EmbeddedFonts, pickFont } from "./fonts";
 import { PipelineError } from "../../lib/error";
+import type { SvgRasterizer } from "./svg-raster";
 
 // Synthetic italic: ~14 deg skew, applied around the run's baseline so the
 // horizontal advance is unchanged and the measured layout still matches.
@@ -24,11 +25,17 @@ function toColor(hex: string): Color {
   return rgb(r, g, b);
 }
 
-// Embed each image only once per data reference.
+// Embed each image only once per data reference. SVG sources are rasterized
+// to PNG via the supplied rasterizer (browser default uses canvas, callers in
+// Node pass their own). Display width/height seed the raster scale so the
+// PNG resolution matches how big the image actually appears in the PDF.
 async function embedImage(
   pdf: PDFDocument,
   data: Uint8Array,
   mime: string,
+  displayW: number,
+  displayH: number,
+  rasterizeSvg: SvgRasterizer,
   cache: Map<Uint8Array, PDFImage>,
 ): Promise<PDFImage | undefined> {
   const cached = cache.get(data);
@@ -37,6 +44,10 @@ async function embedImage(
   const bytes = data as ArrayBuffer & Uint8Array;
   if (mime === "image/png") img = await pdf.embedPng(bytes);
   else if (mime === "image/jpeg") img = await pdf.embedJpg(bytes);
+  else if (mime === "image/svg+xml") {
+    const png = await rasterizeSvg(data, displayW, displayH);
+    if (png) img = await pdf.embedPng(png as ArrayBuffer & Uint8Array);
+  }
   if (img) cache.set(data, img);
   return img;
 }
@@ -48,6 +59,7 @@ export async function drawPrimitive(
   prim: Primitive,
   fonts: EmbeddedFonts,
   images: Map<Uint8Array, PDFImage>,
+  rasterizeSvg: SvgRasterizer,
   errors: PipelineError[],
 ): Promise<void> {
   const ph = page.getHeight();
@@ -132,9 +144,13 @@ export async function drawPrimitive(
       break;
     }
     case "image": {
-      const img = await embedImage(pdf, prim.data, prim.mime, images);
+      const img = await embedImage(pdf, prim.data, prim.mime, prim.w, prim.h, rasterizeSvg, images);
       if (!img) {
-        errors.push(new PipelineError(`PDF image embed: unsupported format: ${prim.mime}`));
+        const detail =
+          prim.mime === "image/svg+xml"
+            ? "SVG rasterization unavailable (no canvas in this runtime, or rasterizer failed)"
+            : `unsupported format: ${prim.mime}`;
+        errors.push(new PipelineError(`PDF image embed: ${detail}`));
         break;
       }
       page.drawImage(img, {
