@@ -2,6 +2,7 @@ import { type PDFDocument, type PDFFont, StandardFonts } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import type { LoadedFont } from "../../lower/context";
 import { PipelineError } from "../../lib/error";
+import { readCffName } from "./cff-name";
 
 export interface EmbeddedFonts {
   // CSS family -> embedded PDFFont. Each declared face is its own family.
@@ -51,7 +52,14 @@ async function embedOne(
   // patches the saved PDF afterwards: a minimal cmap is added back so every
   // viewer can load the font program -- see ttf-cmap.ts for the format.
   // BaseFont uses the spec-mandated "AAAAAA+PSName" form for subset fonts.
-  const psName = readPostscriptName(bytes) ?? lf.family;
+  //
+  // For CFF-based sources (.otf / .ttc Hiragino-class fonts) the embedded
+  // CFF Name INDEX disagrees with the OT name table -- the OT side calls it
+  // "HiraginoSans-W7" while the CFF inside says "HiraKakuStdN-W7". Preview
+  // matches BaseFont against the *CFF* name, so we read that up front and
+  // use it as the PSName; TTF sources have no CFF and fall back to the OT
+  // name via fontkit.
+  const psName = readCffName(bytes) ?? readPostscriptName(bytes) ?? lf.family;
   try {
     return await pdf.embedFont(bytes, {
       subset: true,
