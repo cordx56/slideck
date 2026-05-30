@@ -8,3 +8,5 @@ coverage
 
 # user-generated PDFs at the repo root
 /*.pdf
+/*.ttc
+/*.ttf
