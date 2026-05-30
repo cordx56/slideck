@@ -14,6 +14,7 @@
 // PDF load/save cycle.
 
 import {
+  PDFDict,
   PDFDocument,
   PDFName,
   PDFRawStream,
@@ -21,39 +22,67 @@ import {
 } from "pdf-lib";
 import { ensureCmap } from "./ttf-cmap";
 
-// Return either the input bytes (when no font needed cmap injection -- save
-// the second serialisation) or a freshly saved PDF with patched streams.
+// Return either the input bytes (when no fixes are needed -- saves the second
+// serialisation) or a freshly saved PDF with patched streams. Two passes:
+//   - TTF FontFile2 streams: add a minimal cmap (see ttf-cmap.ts).
+//   - CIDFontType0 dicts: strip /CIDToGIDMap, which pdf-lib emits on every
+//     descendant CIDFont but which PDF 1.7 Table 117 reserves for Type 2
+//     (TrueType) only. macOS Preview is strict about Type 0 (CFF) dicts and
+//     rejects them when the entry is present, falling back to a system font
+//     and rendering subset CIDs 1..N as the fallback's first N glyphs.
 export async function injectFontCmaps(bytes: Uint8Array): Promise<Uint8Array> {
   const doc = await PDFDocument.load(bytes);
   let changed = false;
 
   for (const [ref, obj] of doc.context.enumerateIndirectObjects()) {
-    if (!(obj instanceof PDFRawStream)) continue;
-
-    let decoded: Uint8Array;
-    try {
-      decoded = decodePDFRawStream(obj).decode();
-    } catch {
-      continue; // can't decode (unknown filter etc.) -- leave it alone
+    if (obj instanceof PDFRawStream) {
+      if (patchFontFile2Cmap(doc, ref, obj)) changed = true;
+    } else if (obj instanceof PDFDict) {
+      if (stripCidToGidMapFromCidType0(obj)) changed = true;
     }
-    if (!isTrueType(decoded)) continue;
-
-    const fixed = ensureCmap(decoded);
-    if (fixed === decoded) continue; // already has cmap
-
-    // Re-encode with FlateDecode (pdf-lib's default for new streams). Length1
-    // is the uncompressed sfnt size; required by PDF 9.9 for FontFile2, but
-    // pdf-lib's embedder omits it. Setting it on the replacement is more
-    // spec-correct and harmless when missing.
-    const newStream = doc.context.flateStream(fixed, { Length1: fixed.length });
-    // Preserve other dict entries the embedder might have set (e.g. Subtype).
-    copyExtraEntries(obj, newStream);
-    doc.context.assign(ref, newStream);
-    changed = true;
   }
 
   if (!changed) return bytes;
   return await doc.save();
+}
+
+// Add a cmap to an embedded TrueType subset if it's missing one. Returns true
+// when the stream was replaced.
+function patchFontFile2Cmap(
+  doc: PDFDocument,
+  ref: import("pdf-lib").PDFRef,
+  obj: PDFRawStream,
+): boolean {
+  let decoded: Uint8Array;
+  try {
+    decoded = decodePDFRawStream(obj).decode();
+  } catch {
+    return false;
+  }
+  if (!isTrueType(decoded)) return false;
+  const fixed = ensureCmap(decoded);
+  if (fixed === decoded) return false;
+
+  // Re-encode with FlateDecode (pdf-lib's default for new streams). Length1
+  // is the uncompressed sfnt size; PDF 9.9 requires it for FontFile2 but
+  // pdf-lib's embedder omits it.
+  const newStream = doc.context.flateStream(fixed, { Length1: fixed.length });
+  copyExtraEntries(obj, newStream);
+  doc.context.assign(ref, newStream);
+  return true;
+}
+
+// Remove /CIDToGIDMap from CIDFontType0 dicts (CFF-backed descendant CIDFonts).
+// pdf-lib unconditionally writes "/CIDToGIDMap /Identity" on every descendant
+// CIDFont it embeds; the entry is fine on CIDFontType2 (TrueType) but spec-
+// invalid on CIDFontType0 (CFF, which routes CID->glyph through the CFF's own
+// charset/CharStrings instead). Returns true when the dict was modified.
+function stripCidToGidMapFromCidType0(dict: PDFDict): boolean {
+  if (dict.lookup(PDFName.of("Type"))?.toString() !== "/Font") return false;
+  if (dict.lookup(PDFName.of("Subtype"))?.toString() !== "/CIDFontType0") return false;
+  if (!dict.has(PDFName.of("CIDToGIDMap"))) return false;
+  dict.delete(PDFName.of("CIDToGIDMap"));
+  return true;
 }
 
 function isTrueType(bytes: Uint8Array): boolean {

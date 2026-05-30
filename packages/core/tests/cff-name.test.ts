@@ -68,3 +68,54 @@ describe("readCffName", () => {
     expect(readCffName(new Uint8Array(2))).toBeUndefined();
   });
 });
+
+// Separate describe for the CIDFontType0 CIDToGIDMap strip in font-postprocess.
+// pdf-lib unconditionally writes /CIDToGIDMap /Identity on every descendant
+// CIDFont it embeds, but PDF 1.7 Table 117 says the entry is for CIDFontType2
+// only. macOS Preview rejects CIDFontType0 (CFF) dicts that carry it and
+// falls back to a system font, producing the garbled output the user saw.
+import { describe as desc2 } from "vitest";
+import { PDFDocument } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
+import { injectFontCmaps } from "../src/render/pdf/font-postprocess";
+import { readFileSync } from "node:fs";
+
+const OTF_PATH = "/usr/share/fonts/truetype/adf/AccanthisADFStdNo3-Italic.otf";
+
+// Only run when the system happens to have a CFF-bearing OTF available;
+// rebuilding one from scratch would mean writing a full CFF encoder.
+const otfBytes: Uint8Array | undefined = (() => {
+  try {
+    return new Uint8Array(readFileSync(OTF_PATH));
+  } catch {
+    return undefined;
+  }
+})();
+
+desc2.skipIf(!otfBytes)("injectFontCmaps: CIDFontType0 CIDToGIDMap strip", () => {
+  it("removes /CIDToGIDMap when /Subtype is /CIDFontType0", async () => {
+    const pdf = await PDFDocument.create();
+    pdf.registerFontkit(fontkit as never);
+    const font = await pdf.embedFont(otfBytes!, { subset: true });
+    const page = pdf.addPage();
+    page.drawText("Hi", { font });
+    const beforeBytes = await pdf.save({ useObjectStreams: false });
+
+    // Sanity: pdf-lib wrote the bogus CIDToGIDMap. (Use a substring check
+    // instead of a balanced-dict regex -- the dict has a nested <<...>> for
+    // CIDSystemInfo, which JS regex can't bracket.)
+    const before = new TextDecoder("latin1").decode(beforeBytes);
+    expect(before).toMatch(/\/Subtype \/CIDFontType0\b/);
+    expect(before).toMatch(/\/CIDToGIDMap \/Identity/);
+
+    // After post-processing the entry is gone but the CIDFontType0 dict
+    // itself is still there (we only deleted that one key).
+    const patched = await injectFontCmaps(beforeBytes);
+    const reloaded = await PDFDocument.load(patched);
+    const after = new TextDecoder("latin1").decode(
+      await reloaded.save({ useObjectStreams: false }),
+    );
+    expect(after).toMatch(/\/Subtype \/CIDFontType0\b/);
+    expect(after).not.toMatch(/\/CIDToGIDMap/);
+  });
+});
