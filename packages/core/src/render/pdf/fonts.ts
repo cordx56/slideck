@@ -1,4 +1,5 @@
 import { type PDFDocument, type PDFFont, StandardFonts } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 import type { LoadedFont } from "../../lower/context";
 import { PipelineError } from "../../lib/error";
 
@@ -43,19 +44,74 @@ async function embedOne(
   lf: LoadedFont,
   errors: PipelineError[],
 ): Promise<PDFFont | undefined> {
+  const bytes = lf.bytes as ArrayBuffer & Uint8Array;
+  // Read PostScript name up front so we can hand pdf-lib a spec-compliant
+  // BaseFont. pdf-lib's default is "<PSName>-<random digits>", which violates
+  // PDF 1.7 9.6.4 for subset fonts (the spec wants "AAAAAA+PSName"). macOS
+  // Preview reads the name strictly: when it doesn't see the "+" tag it tries
+  // to look up the font by literal name, fails, and renders garbled ASCII
+  // even though Chrome/Firefox PDF viewers tolerate the bug. Pre-tagging the
+  // name avoids the post-process dance.
+  const psName = readPostscriptName(bytes) ?? lf.family;
   try {
-    return await pdf.embedFont(lf.bytes as ArrayBuffer & Uint8Array, {
+    return await pdf.embedFont(bytes, {
       subset: true,
+      customName: `${subsetTag(lf.family, bytes)}+${sanitizePsName(psName)}`,
     });
   } catch {
     try {
-      // Fonts that fail subsetting (some CFF) get full embed.
-      return await pdf.embedFont(lf.bytes as ArrayBuffer & Uint8Array, {
+      // Full embeds keep the original PostScript name (no "+" tag needed).
+      return await pdf.embedFont(bytes, {
         subset: false,
+        customName: sanitizePsName(psName),
       });
     } catch (e) {
       errors.push(new PipelineError(`Font embed failed: ${lf.family} (${String(e)})`));
       return undefined;
     }
   }
+}
+
+// Open the font file once via fontkit to read its postscriptName. Returns
+// undefined when the file isn't a font fontkit recognises -- the caller falls
+// back to the family name, which is good enough for PDF lookup.
+function readPostscriptName(bytes: Uint8Array): string | undefined {
+  try {
+    // Cast through unknown: @pdf-lib/fontkit's typings expose .create
+    const f = (fontkit as unknown as { create: (b: Uint8Array) => { postscriptName?: string } }).create(bytes);
+    return f.postscriptName ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// PostScript names may not contain whitespace or any of the delimiters used in
+// PDF names (#$%(){}[]<>/) -- strip them so the BaseFont remains a valid name.
+function sanitizePsName(name: string): string {
+  return name.replace(/[\s\0\t\n\f\r#%/()<>[\]{}]/g, "");
+}
+
+// PDF 9.6.4: six uppercase letters acting as a unique tag. Deterministic per
+// (family, bytes) so the same input always yields the same tag (helpful for
+// diffing PDF output between runs).
+function subsetTag(family: string, bytes: Uint8Array): string {
+  // Mix family name and a few bytes from the font header for variety. The hash
+  // doesn't need to be cryptographic -- only stable.
+  let h = 0x811c9dc5; // FNV-1a 32-bit
+  for (let i = 0; i < family.length; i++) {
+    h ^= family.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  const sampleEnd = Math.min(64, bytes.length);
+  for (let i = 0; i < sampleEnd; i++) {
+    h ^= bytes[i];
+    h = Math.imul(h, 0x01000193);
+  }
+  let tag = "";
+  let v = h >>> 0;
+  for (let i = 0; i < 6; i++) {
+    tag += String.fromCharCode(65 + (v % 26));
+    v = Math.floor(v / 26);
+  }
+  return tag;
 }

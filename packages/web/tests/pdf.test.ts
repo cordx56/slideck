@@ -51,5 +51,19 @@ describe("renderPdf", () => {
     const raw = new TextDecoder("latin1").decode(inspectable);
     expect(raw).toContain("FontFile2");
     expect(raw).toContain("Type0"); // composite font for CJK
+
+    // Every embedded subset BaseFont must follow PDF 9.6.4:
+    // "AAAAAA+OriginalName" (six uppercase letters + "+" tag). Without the
+    // tag, macOS Preview renders garbled ASCII even when the font program is
+    // present (other viewers tolerate it).
+    const baseFonts = [...new Set(raw.match(/\/BaseFont\s+\/[^\s>]+/g) ?? [])];
+    // At least one embedded subset besides the standard 14 fonts.
+    const subsetEmbedded = baseFonts.filter(
+      (n) => !/\/(Helvetica|Courier|Times|Symbol|ZapfDingbats)/.test(n),
+    );
+    expect(subsetEmbedded.length).toBeGreaterThan(0);
+    for (const name of subsetEmbedded) {
+      expect(name).toMatch(/^\/BaseFont \/[A-Z]{6}\+[A-Za-z0-9._-]+$/);
+    }
   });
 });
