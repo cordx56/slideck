@@ -5,3 +5,6 @@ dist-ssr
 .DS_Store
 .vite
 coverage
+
+# user-generated PDFs at the repo root
+/*.pdf
