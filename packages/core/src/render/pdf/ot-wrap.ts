@@ -30,8 +30,9 @@ import { buildSfnt } from "./ttf-tables";
 // Wrap a raw CFF byte stream in an OpenType sfnt. Returns OTTO-prefixed bytes
 // suitable for /FontFile3 + /Subtype /OpenType.
 export function wrapCffInOpenType(cff: Uint8Array): Uint8Array {
-  const cffInfo = parseCff(cff);
-  const fontName = readCffName(cff) ?? "Untitled";
+  const fixed = normaliseCffHeader(cff);
+  const cffInfo = parseCff(fixed);
+  const fontName = readCffName(fixed) ?? "Untitled";
 
   const metrics = {
     numGlyphs: cffInfo.numGlyphs,
@@ -42,7 +43,7 @@ export function wrapCffInOpenType(cff: Uint8Array): Uint8Array {
   const tables = new Map<string, Uint8Array>([
     // Tag order doesn't matter here -- buildSfnt sorts alphabetically per the
     // OpenType spec before writing the directory.
-    ["CFF ", cff],
+    ["CFF ", fixed],
     ["OS/2", buildOS2(metrics)],
     ["cmap", buildMinimalCmap()],
     ["head", buildHead(metrics)],
@@ -54,4 +55,29 @@ export function wrapCffInOpenType(cff: Uint8Array): Uint8Array {
   ]);
 
   return buildSfnt("OTTO", tables);
+}
+
+// pdf-lib's CFF subsetter (via fontkit's CFFSubset) writes the CFF header's
+// OffSize byte as 31 (0x1f) instead of a CFF-spec-legal value (1-4). The
+// byte sits at offset 3 of the CFF blob: major / minor / hdrSize / OffSize.
+//
+// Browsers and pdftools-with-lenient-parsers ignore the byte entirely, but
+// CoreText (macOS Preview) and FreeType validate it and refuse to load the
+// font when it's out of range -- the embedded CFF gets dropped and the
+// renderer falls back to a system font, which is what produced the
+// consecutive-ASCII garbling pattern in the user's slides.
+//
+// The fix is one byte: clamp OffSize to the maximum legal value (4). The
+// header's OffSize is only consulted to size an optional offset array that
+// follows the standard 4-byte header; since pdf-lib's subset doesn't emit
+// that extra array (hdrSize stays 4), the OffSize value isn't otherwise
+// referenced for parsing -- it just has to be 1..4 to pass validation.
+function normaliseCffHeader(cff: Uint8Array): Uint8Array {
+  if (cff.length < 4) return cff;
+  const offSize = cff[3];
+  if (offSize >= 1 && offSize <= 4) return cff; // already valid
+  const out = new Uint8Array(cff.length);
+  out.set(cff);
+  out[3] = 4;
+  return out;
 }

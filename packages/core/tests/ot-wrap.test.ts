@@ -63,6 +63,39 @@ describe.skipIf(!CFF_FONT_PATH)("CFF -> OpenType wrap", () => {
     expect(info.fontBBox[1]).toBeLessThan(info.fontBBox[3]);
   });
 
+  // pdf-lib's CFF subsetter writes an invalid OffSize byte (0x1f = 31) in
+  // the CFF header. CFF spec requires 1..4. Strict parsers (FreeType /
+  // macOS CoreText) reject the font; browsers ignore the byte. The wrapper
+  // must patch it to a legal value or we'll keep failing in Preview.
+  it("normalises pdf-lib's out-of-range CFF header OffSize", async () => {
+    const cff = await makeCffSubset();
+    // Sanity-check the input: pdf-lib emits an out-of-range OffSize byte
+    // (the spec requires 1..4, but fontkit's CFFSubset writes random values
+    // like 31 or 28 from the underlying buffer). When pdf-lib upstreams a
+    // fix this assertion stops firing -- safe to delete the test then.
+    const origOffSize = cff[3];
+    expect(origOffSize < 1 || origOffSize > 4).toBe(true);
+
+    const otf = wrapCffInOpenType(cff);
+    // Find the "CFF " table in the wrapped output and read its OffSize byte.
+    // Table directory entries are 16 bytes starting at offset 12.
+    const dv = new DataView(otf.buffer, otf.byteOffset, otf.byteLength);
+    const numTables = dv.getUint16(4);
+    let cffOff = -1;
+    for (let i = 0; i < numTables; i++) {
+      const entry = 12 + i * 16;
+      const tag = String.fromCharCode(otf[entry], otf[entry + 1], otf[entry + 2], otf[entry + 3]);
+      if (tag === "CFF ") {
+        cffOff = dv.getUint32(entry + 8);
+        break;
+      }
+    }
+    expect(cffOff).toBeGreaterThan(0);
+    // The patched CFF inside the wrapper has OffSize within the legal range.
+    expect(otf[cffOff + 3]).toBeGreaterThanOrEqual(1);
+    expect(otf[cffOff + 3]).toBeLessThanOrEqual(4);
+  });
+
   it("wrapCffInOpenType produces an OTTO sfnt fontkit can re-parse", async () => {
     const cff = await makeCffSubset();
     const otf = wrapCffInOpenType(cff);
