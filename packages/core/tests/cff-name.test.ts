@@ -69,21 +69,23 @@ describe("readCffName", () => {
   });
 });
 
-// Separate describe for the CIDFontType0 CIDToGIDMap strip in font-postprocess.
-// pdf-lib unconditionally writes /CIDToGIDMap /Identity on every descendant
-// CIDFont it embeds, but PDF 1.7 Table 117 says the entry is for CIDFontType2
-// only. macOS Preview rejects CIDFontType0 (CFF) dicts that carry it and
-// falls back to a system font, producing the garbled output the user saw.
+// End-to-end tests for the three patches font-postprocess applies to
+// pdf-lib's CFF-source output. Each test embeds a CFF OTF via pdf-lib, runs
+// the post-process, and checks one specific patch landed in the saved PDF.
+//
+// Both patches are only triggered by CFF source fonts, so the suite is
+// skipped when no CFF-bearing OTF is available on the test machine.
 import { describe as desc2 } from "vitest";
-import { PDFDocument } from "pdf-lib";
+import {
+  PDFDocument,
+  PDFRawStream,
+  decodePDFRawStream,
+} from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { injectFontCmaps } from "../src/render/pdf/font-postprocess";
 import { readFileSync } from "node:fs";
 
 const OTF_PATH = "/usr/share/fonts/truetype/adf/AccanthisADFStdNo3-Italic.otf";
-
-// Only run when the system happens to have a CFF-bearing OTF available;
-// rebuilding one from scratch would mean writing a full CFF encoder.
 const otfBytes: Uint8Array | undefined = (() => {
   try {
     return new Uint8Array(readFileSync(OTF_PATH));
@@ -92,30 +94,71 @@ const otfBytes: Uint8Array | undefined = (() => {
   }
 })();
 
-desc2.skipIf(!otfBytes)("injectFontCmaps: CIDFontType0 CIDToGIDMap strip", () => {
-  it("removes /CIDToGIDMap when /Subtype is /CIDFontType0", async () => {
-    const pdf = await PDFDocument.create();
-    pdf.registerFontkit(fontkit as never);
-    const font = await pdf.embedFont(otfBytes!, { subset: true });
-    const page = pdf.addPage();
-    page.drawText("Hi", { font });
-    const beforeBytes = await pdf.save({ useObjectStreams: false });
+async function embedCff(): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  pdf.registerFontkit(fontkit as never);
+  const font = await pdf.embedFont(otfBytes!, { subset: true });
+  pdf.addPage().drawText("Hi", { font });
+  return await pdf.save({ useObjectStreams: false });
+}
 
-    // Sanity: pdf-lib wrote the bogus CIDToGIDMap. (Use a substring check
-    // instead of a balanced-dict regex -- the dict has a nested <<...>> for
-    // CIDSystemInfo, which JS regex can't bracket.)
-    const before = new TextDecoder("latin1").decode(beforeBytes);
+desc2.skipIf(!otfBytes)("font-postprocess", () => {
+  // PDF 1.7 Table 117 reserves /CIDToGIDMap for CIDFontType2 (TrueType).
+  // pdf-lib writes it on Type 0 (CFF) descendants too -- we delete it for
+  // spec compliance.
+  it("strips /CIDToGIDMap from CIDFontType0 dicts", async () => {
+    const before = new TextDecoder("latin1").decode(await embedCff());
     expect(before).toMatch(/\/Subtype \/CIDFontType0\b/);
     expect(before).toMatch(/\/CIDToGIDMap \/Identity/);
 
-    // After post-processing the entry is gone but the CIDFontType0 dict
-    // itself is still there (we only deleted that one key).
-    const patched = await injectFontCmaps(beforeBytes);
+    const patched = await injectFontCmaps(await embedCff());
     const reloaded = await PDFDocument.load(patched);
     const after = new TextDecoder("latin1").decode(
       await reloaded.save({ useObjectStreams: false }),
     );
+    // Type 0 dict still there; just the bogus entry is gone.
     expect(after).toMatch(/\/Subtype \/CIDFontType0\b/);
     expect(after).not.toMatch(/\/CIDToGIDMap/);
+  });
+
+  // The essential fix. pdf-lib's CFF subsetter (via fontkit's CFFSubset)
+  // writes the CFF header's OffSize byte as whatever was in the backing
+  // buffer (typically values like 28 or 31). CFF spec section 6 requires
+  // 1..4 and macOS Preview / CoreText / FreeType / poppler all reject the
+  // font when it's out of range, falling back to a system font and rendering
+  // subset CIDs 1..N as the fallback's first N glyphs (the "+,-./0123..."
+  // garble). Clamp to 4.
+  it("clamps the CFF header OffSize byte into the legal 1..4 range", async () => {
+    // Sanity-check pdf-lib still emits the bug; pull the raw CFF stream out
+    // of a freshly embedded PDF and verify byte 3 is out of range.
+    const pre = await PDFDocument.load(await embedCff());
+    let rawOffSize = -1;
+    for (const [, obj] of pre.context.enumerateIndirectObjects()) {
+      if (!(obj instanceof PDFRawStream)) continue;
+      const d = decodePDFRawStream(obj).decode();
+      if (d.length >= 4 && d[0] === 0x01 && d[1] === 0x00) {
+        rawOffSize = d[3];
+        break;
+      }
+    }
+    expect(rawOffSize).toBeGreaterThan(0);
+    expect(rawOffSize < 1 || rawOffSize > 4).toBe(true);
+
+    // After post-process: same raw-CFF stream should have OffSize within
+    // 1..4. (When pdf-lib upstreams a fix this test starts being trivially
+    // true -- safe to delete it then.)
+    const patched = await injectFontCmaps(await embedCff());
+    const reloaded = await PDFDocument.load(patched);
+    let patchedOffSize = -1;
+    for (const [, obj] of reloaded.context.enumerateIndirectObjects()) {
+      if (!(obj instanceof PDFRawStream)) continue;
+      const d = decodePDFRawStream(obj).decode();
+      if (d.length >= 4 && d[0] === 0x01 && d[1] === 0x00) {
+        patchedOffSize = d[3];
+        break;
+      }
+    }
+    expect(patchedOffSize).toBeGreaterThanOrEqual(1);
+    expect(patchedOffSize).toBeLessThanOrEqual(4);
   });
 });

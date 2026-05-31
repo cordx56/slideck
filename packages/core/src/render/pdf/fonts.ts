@@ -46,19 +46,18 @@ async function embedOne(
   errors: PipelineError[],
 ): Promise<PDFFont | undefined> {
   const bytes = lf.bytes as ArrayBuffer & Uint8Array;
-  // Subset to keep the PDF small. pdf-lib's subsetter strips cmap from the
-  // output (PDF doesn't need it for CIDFontType2), but macOS Preview rejects
-  // cmap-less embeds and falls back to a system font. font-postprocess.ts
-  // patches the saved PDF afterwards: a minimal cmap is added back so every
-  // viewer can load the font program -- see ttf-cmap.ts for the format.
-  // BaseFont uses the spec-mandated "AAAAAA+PSName" form for subset fonts.
+  // Subset to keep the PDF small. pdf-lib's subset output has two bugs that
+  // make stricter PDF readers (macOS Preview, FreeType-based pdftools) reject
+  // the embedded font -- font-postprocess.ts patches the saved PDF to fix
+  // them. Here we just pick a spec-compliant BaseFont name.
   //
-  // For CFF-based sources (.otf / .ttc Hiragino-class fonts) the embedded
-  // CFF Name INDEX disagrees with the OT name table -- the OT side calls it
-  // "HiraginoSans-W7" while the CFF inside says "HiraKakuStdN-W7". Preview
-  // matches BaseFont against the *CFF* name, so we read that up front and
-  // use it as the PSName; TTF sources have no CFF and fall back to the OT
-  // name via fontkit.
+  // BaseFont gets the PDF 9.6.4 "AAAAAA+PSName" form. The PSName comes from
+  // the CFF Name INDEX when the source has one (.otf / .ttc) -- that name
+  // can disagree with the OT name table for Apple-supplied CFFs (CFF says
+  // "HiraKakuProN-W2", OT name says "HiraginoSans-W2"). Matching BaseFont
+  // to the embedded CFF's self-identification keeps tools that cross-check
+  // the two from getting confused. TTF sources have no CFF and fall back
+  // to the OT name via fontkit.
   const psName = readCffName(bytes) ?? readPostscriptName(bytes) ?? lf.family;
   try {
     return await pdf.embedFont(bytes, {

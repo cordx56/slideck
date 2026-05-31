@@ -1,23 +1,16 @@
 // Read the CFF Name INDEX entry from a font file.
 //
-// Background: macOS Preview matches a PDF font's BaseFont against the embedded
-// CFF program's Name INDEX (not against the OpenType name table). For .otf /
-// .ttc Hiragino-class fonts the two disagree:
+// Used by fonts.ts to pick a PDF BaseFont that matches the embedded CFF's
+// self-identification. For .otf / .ttc Apple-supplied CFFs the OpenType
+// name table and the CFF Name INDEX disagree:
 //
 //     OpenType name table  postscriptName : HiraginoSans-W7
 //     CFF "Name INDEX"     first entry    : HiraKakuStdN-W7
 //
-// pdf-lib's embedFont(customName) writes whatever string we give it as the
-// PDF BaseFont. fontkit's font.postscriptName returns the OT name. When we
-// hand pdf-lib that OT name, Preview reads the embedded CFF, finds a
-// different name, rejects the font, and falls back to a system font --
-// rendering subset CIDs 1..N as the first N glyphs of the fallback. That
-// produces the consecutive-ASCII garbling pattern the user saw.
-//
-// Fix: read the CFF Name INDEX up front and use *that* as the PostScript
-// name. Then BaseFont matches the embedded font's self-identification, and
-// Preview accepts the embed. TrueType sources have no CFF and return
-// undefined here, so the caller falls back to fontkit's postscriptName.
+// fontkit's font.postscriptName returns the OT name. We'd rather hand the
+// PDF embedder the *CFF*-side name so the resulting BaseFont matches the
+// raw CFF program inside the FontFile3 stream -- tools that cross-check
+// the two see consistent identification.
 //
 // Format references:
 // - OpenType: https://docs.microsoft.com/typography/opentype/spec/otff
