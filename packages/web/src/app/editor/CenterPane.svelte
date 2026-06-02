@@ -41,7 +41,7 @@
     else if (e.key === "End") target = store.slideCount - 1;
     else return;
     e.preventDefault();
-    store.goSlide(target);
+    store.goSlide(target, { moveCursor: true });
     // Move focus to the destination thumbnail (continuous nav + visibility).
     thumbEls[store.currentSlide]?.focus();
   }
@@ -71,7 +71,7 @@
         class="thumb"
         class:active={i === store.currentSlide}
         style="aspect-ratio: {aspect}"
-        onclick={() => store.goSlide(i)}
+        onclick={() => store.goSlide(i, { moveCursor: true })}
         title={slide.id}
       >
         <div class="thumb-svg">

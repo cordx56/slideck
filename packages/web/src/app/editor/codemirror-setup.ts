@@ -305,6 +305,9 @@ export function createEditor(opts: {
   parent: HTMLElement;
   doc: string;
   onChange: (text: string) => void;
+  // Fires on any cursor (selection head) movement, including the move caused
+  // by an edit. Used to drive the slide-preview <-> editor sync.
+  onCursorChange?: (offset: number) => void;
   ctx: () => EditorContext;
 }): EditorHandle {
   const state = EditorState.create({
@@ -327,6 +330,12 @@ export function createEditor(opts: {
       vfsPathDropHandler,
       EditorView.updateListener.of((u) => {
         if (u.docChanged) opts.onChange(u.state.doc.toString());
+        // Fire when the cursor moves (selectionSet) OR when the doc changed
+        // (which always shifts the cursor too). Coalesce so a single edit
+        // emits one cursor event with the post-edit position.
+        if (opts.onCursorChange && (u.selectionSet || u.docChanged)) {
+          opts.onCursorChange(u.state.selection.main.head);
+        }
       }),
     ],
   });

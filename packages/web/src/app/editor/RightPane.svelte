@@ -6,7 +6,9 @@
 
   let host: HTMLDivElement;
   let handle: EditorHandle | undefined;
-  // Ignore onChange during programmatic updates (e.g. file switch) to avoid loops.
+  // Ignore onChange / onCursorChange during programmatic updates -- file
+  // switches and slide-driven cursor jumps both run through dispatch() and
+  // would otherwise feed back into the store and loop.
   let applying = false;
 
   onMount(() => {
@@ -15,6 +17,9 @@
       doc: store.yamlText,
       onChange: (t) => {
         if (!applying) store.setYaml(t);
+      },
+      onCursorChange: (offset) => {
+        if (!applying) store.cursorMoved(offset);
       },
       ctx: () => ({ vfs: store.vfs, openPath: store.openPath }),
     });
@@ -31,6 +36,23 @@
       changes: { from: 0, to: handle.view.state.doc.length, insert: text },
     });
     applying = false;
+  });
+
+  // Drive the cursor when the slide preview jumps somewhere (thumbnail click,
+  // arrow nav). The store sets editorCursorTarget and we consume + reset it.
+  $effect(() => {
+    const target = store.editorCursorTarget;
+    if (target === null || !handle) return;
+    const len = handle.view.state.doc.length;
+    const pos = Math.max(0, Math.min(len, target));
+    applying = true;
+    handle.view.dispatch({
+      selection: { anchor: pos, head: pos },
+      scrollIntoView: true,
+    });
+    applying = false;
+    // Consume the request so the next jump to the same slide re-fires.
+    store.editorCursorTarget = null;
   });
 </script>
 

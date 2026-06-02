@@ -1,4 +1,4 @@
-import { parseDocument, type Document } from "yaml";
+import { parseDocument, isSeq, type Document } from "yaml";
 import type { z } from "zod";
 import { PipelineError, joinPath } from "../lib/error";
 
@@ -63,4 +63,38 @@ export function offsetForPath(
     if (range) return [range[0], range[1]];
   }
   return undefined;
+}
+
+// Source offsets [start, end) of every entry in a deck's slides: array.
+// Used by the editor for bidirectional cursor <-> slide-preview sync. The
+// `end` of each range is the offset of the next slide so the union covers
+// every character between the slides: marker and the document tail -- so
+// any cursor position past the first slide resolves to *some* slide.
+// Returns [] when the YAML is unparseable or has no slides: array.
+export function slideRangesOf(text: string): Array<[number, number]> {
+  let doc: Document;
+  try {
+    doc = parseDocument(text, { keepSourceTokens: true });
+  } catch {
+    return [];
+  }
+  if (doc.errors.length > 0) return [];
+  const slides = doc.get("slides", true);
+  if (!isSeq(slides)) return [];
+
+  // Each item has a [start, end-of-value, end-of-node] range. Use end-of-node
+  // so trailing comments on the same item stay with it, then stretch the
+  // range to the start of the next item so gaps between dash-prefixed entries
+  // (blank lines, indent comments) don't fall into "no slide".
+  const ranges: Array<[number, number]> = [];
+  const items = slides.items as Array<{ range?: [number, number, number] }>;
+  for (const item of items) {
+    if (item?.range) ranges.push([item.range[0], item.range[2]]);
+  }
+  for (let i = 0; i < ranges.length - 1; i++) {
+    ranges[i][1] = ranges[i + 1][0];
+  }
+  // Stretch the last slide to cover the rest of the document.
+  if (ranges.length > 0) ranges[ranges.length - 1][1] = text.length;
+  return ranges;
 }

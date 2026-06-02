@@ -17,7 +17,7 @@ import {
   type ProjectMeta,
 } from "./projects";
 import { installSample, copyProjectFiles } from "./sample";
-import { compileDeck, recompileDeck, renderSlideSvg, type CompiledDeck } from "@slideck/core";
+import { compileDeck, recompileDeck, renderSlideSvg, slideRangesOf, type CompiledDeck } from "@slideck/core";
 import type { LowerCtx, LoadedFont, MirDeck, MirElement } from "@slideck/core";
 import { PipelineError } from "@slideck/core";
 import { debounce } from "@slideck/core";
@@ -58,6 +58,12 @@ let dirty = $state(false);
 let compiled = $state.raw<CompiledDeck | null>(null);
 let errors = $state.raw<PipelineError[]>([]);
 let currentSlide = $state(0);
+// Editor <-> preview sync. slideRanges: char offsets [start, end) in the deck
+// yamlText for each slide entry; recomputed whenever yamlText is replaced.
+// editorCursorTarget: set when something asks the editor to jump (thumbnail
+// click, arrow nav, etc.); RightPane consumes and resets it.
+let slideRanges = $state.raw<Array<[number, number]>>([]);
+let editorCursorTarget = $state<number | null>(null);
 let files = $state.raw<FileEntry[]>([]);
 let brokenRefs = $state.raw<Reference[]>([]);
 let expanded = $state.raw<Set<string>>(new Set());
@@ -208,11 +214,32 @@ function applyYaml(text: string) {
   // Only YAML drives recompile / reference re-collection. Other text files
   // (.txt, .md, .json, ...) still save and update the sync indicator.
   if (isYaml(openPath)) {
+    refreshSlideRanges();
     scheduleLive();
     scheduleRefs();
   }
   scheduleSave(); // auto-save the change
   scheduleStatus(); // reflect unpushed changes in the sync indicator
+}
+
+// Recompute the slide -> char-offset map for the currently open YAML. Only
+// the deck.yaml carries a slides: array; for a base file the result is [].
+function refreshSlideRanges() {
+  slideRanges = openPath === "/" + ENTRY ? slideRangesOf(yamlText) : [];
+}
+
+// Return the slide index whose YAML range covers `offset`, or null when the
+// offset falls before the first slide (e.g. inside bases:). slideRanges is
+// laid out so the last slide stretches to the end of the document, so any
+// position past the first slide always resolves.
+function slideAtOffset(offset: number): number | null {
+  if (slideRanges.length === 0) return null;
+  if (offset < slideRanges[0][0]) return null;
+  for (let i = 0; i < slideRanges.length; i++) {
+    const [s, e] = slideRanges[i];
+    if (offset >= s && offset < e) return i;
+  }
+  return slideRanges.length - 1;
 }
 
 // --- GitHub sync helpers ---
@@ -236,6 +263,7 @@ async function reloadOpen(): Promise<void> {
   yamlText =
     isText(openPath) && (await vfs.exists(openPath)) ? await vfs.readText(openPath) : yamlText;
   dirty = false;
+  refreshSlideRanges();
   await refreshFiles();
   cachedCtx = null;
   cachedFonts = null;
@@ -313,6 +341,7 @@ async function loadCurrentProject(autoPull = false) {
   cachedCtx = null;
   cachedFonts = null;
   currentSlide = 0;
+  refreshSlideRanges();
   await fullCompile();
   await recomputeRefs();
   ready = true;
@@ -358,6 +387,14 @@ export const store = {
   },
   set currentSlide(v: number) {
     currentSlide = v;
+  },
+  // Editor cursor target: when non-null, RightPane moves the CodeMirror
+  // selection to this character offset (and resets it back to null).
+  get editorCursorTarget() {
+    return editorCursorTarget;
+  },
+  set editorCursorTarget(v: number | null) {
+    editorCursorTarget = v;
   },
   get files() {
     return files;
@@ -575,6 +612,7 @@ export const store = {
     openPath = path;
     yamlText = isText(path) ? await v.readText(path) : "";
     dirty = false;
+    refreshSlideRanges();
   },
 
   // Manual save (Ctrl/Cmd+S). Normally edits are auto-saved.
@@ -673,6 +711,7 @@ export const store = {
         openPath = "/";
         yamlText = "";
         dirty = false;
+        refreshSlideRanges();
       }
     }
   },
@@ -701,14 +740,29 @@ export const store = {
   },
 
   // --- Slide operations ---
-  goSlide(i: number) {
-    currentSlide = Math.max(0, Math.min(this.slideCount - 1, i));
+  // moveCursor: when true, also asks the editor to move its cursor to the
+  // start of the chosen slide's YAML (set by thumbnail click / arrow nav,
+  // not by the cursor-driven update path so the editor doesn't fight itself).
+  goSlide(i: number, opts?: { moveCursor?: boolean }) {
+    const next = Math.max(0, Math.min(this.slideCount - 1, i));
+    currentSlide = next;
+    if (opts?.moveCursor) {
+      const start = slideRanges[next]?.[0];
+      if (start !== undefined) editorCursorTarget = start;
+    }
   },
   next() {
-    this.goSlide(currentSlide + 1);
+    this.goSlide(currentSlide + 1, { moveCursor: true });
   },
   prev() {
-    this.goSlide(currentSlide - 1);
+    this.goSlide(currentSlide - 1, { moveCursor: true });
+  },
+  // Called from the editor when the CodeMirror selection (cursor head)
+  // changes. Resolves the offset to a slide index and updates the preview;
+  // a no-op when the cursor is before the first slide (e.g. inside bases:).
+  cursorMoved(offset: number) {
+    const i = slideAtOffset(offset);
+    if (i !== null && i !== currentSlide) currentSlide = i;
   },
   renderSvg(index = currentSlide): string {
     if (!compiled) return "";
