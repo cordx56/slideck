@@ -154,7 +154,11 @@
     outline-offset: -1px;
   }
   .chev {
-    width: 12px;
+    /* Fixed-width gutter so leaf rows line up with their sibling-folder rows
+       at the same depth. Without flex: 0 0 12px the chev inherits flex-shrink: 1
+       and collapses in narrow panels with long names, dragging the icon and
+       everything after it leftward -- same depth, same icon, different indent. */
+    flex: 0 0 12px;
     color: var(--fg-dim);
     font-size: 0.7rem;
   }
@@ -187,6 +191,12 @@
     --svg: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>');
   }
   .name {
+    /* Take the remaining space and ellipsise on overflow. min-width: 0 is the
+       flex-item escape hatch from the default min-content min-width -- without
+       it text-overflow can't kick in and the row pushes the chev/icon out of
+       alignment instead of clipping the name. */
+    flex: 1 1 0;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
   }
