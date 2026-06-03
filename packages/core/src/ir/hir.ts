@@ -2,6 +2,7 @@
 // Variables (${...}) not expanded, theme not applied, colors/fonts left as keys or literals,
 // position left as a % / px / center Dimension.
 import type { Dimension, Position, Point } from "../schema/position";
+import type { NumericValue } from "../schema/numeric";
 
 export type Align = "left" | "center" | "right";
 export type Fit = "contain" | "cover" | "fill";
@@ -9,22 +10,24 @@ export type LayoutDir = "row" | "column";
 export type CrossAlign = "start" | "center" | "end" | "stretch";
 export type Justify = "start" | "center" | "end" | "space-between" | "space-around";
 
+// Numeric HIR fields are number | "${var}" until normalize/variables.
+// resolveNumber expands the reference. See schema/numeric.ts.
 export interface BaseElement {
   id?: string;
   position?: Position;
   // main-axis ratio distribution among auto-layout children
-  flex?: number;
+  flex?: NumericValue;
 }
 
 export interface TextElement extends BaseElement {
   type: "text";
   text: string;
   font?: string;
-  size?: number;
+  size?: NumericValue;
   color?: string;
   align?: Align;
-  lineHeight?: number;
-  letterSpacing?: number;
+  lineHeight?: NumericValue;
+  letterSpacing?: NumericValue;
 }
 
 export interface ImageElement extends BaseElement {
@@ -45,16 +48,16 @@ export interface FigureElement extends BaseElement {
   shape: FigureShape;
   fill?: string;
   stroke?: string;
-  strokeWidth?: number;
-  rx?: number;
+  strokeWidth?: NumericValue;
+  rx?: NumericValue;
   from?: Point;
   to?: Point;
-  arrowSize?: number;
+  arrowSize?: NumericValue;
   text?: string;
-  textSize?: number;
+  textSize?: NumericValue;
   textColor?: string;
   textFont?: string;
-  textPadding?: number;
+  textPadding?: NumericValue;
 }
 
 export interface PathElement extends BaseElement {
@@ -62,7 +65,7 @@ export interface PathElement extends BaseElement {
   d: string;
   fill?: string;
   stroke?: string;
-  strokeWidth?: number;
+  strokeWidth?: NumericValue;
 }
 
 export interface GroupElement extends BaseElement {
@@ -86,9 +89,9 @@ export interface ListElement extends BaseElement {
   padding?: Dimension;
   // marker style (defaults to the text defaults when omitted).
   font?: string;
-  size?: number;
+  size?: NumericValue;
   color?: string;
-  start?: number; // ol start number (default 1)
+  start?: NumericValue; // ol start number (default 1)
 }
 
 export type HirElement =
@@ -117,11 +120,11 @@ export interface VarDecl {
 
 export interface TextDefaults {
   family?: string;
-  size?: number;
+  size?: NumericValue;
   color?: string;
   align?: Align;
-  lineHeight?: number;
-  letterSpacing?: number;
+  lineHeight?: NumericValue;
+  letterSpacing?: NumericValue;
   // Role slots for inline **bold** / *italic*. Reference a fonts: key or a
   // family. Unspecified roles are auto-detected from loaded fonts.
   bold?: string;

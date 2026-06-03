@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ElementSchema } from "./element";
+import { numericSchema } from "./numeric";
 import type { BaseHir } from "../ir/hir";
 
 // Font family names may contain arbitrary Unicode (letters, CJK, punctuation).
@@ -38,11 +39,11 @@ export const VarDeclSchema = z
 const TextDefaultsSchema = z
   .object({
     family: FamilyName.optional(),
-    size: z.number().positive().optional(),
+    size: numericSchema.optional(),
     color: z.string().optional(),
     align: z.enum(["left", "center", "right"]).optional(),
-    lineHeight: z.number().positive().optional(),
-    letterSpacing: z.number().optional(),
+    lineHeight: numericSchema.optional(),
+    letterSpacing: numericSchema.optional(),
     // Role slots: the face to use for **bold** / *italic* / both. Reference a
     // fonts: key or a CSS family. Unspecified roles are auto-detected from the
     // loaded fonts (post.isFixedPitch / OS/2 weight / italicAngle).

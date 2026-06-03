@@ -3,7 +3,7 @@ import type { FigureElement, HirElement, TextDefaults, RichStyle } from "../ir/h
 import type { FigureLabel, MirDeck, MirElement, MirFont, MirSlide } from "../ir/mir";
 import { PipelineError } from "../lib/error";
 import { toHex } from "../lib/color";
-import { buildVarContext, expandString, type VarContext } from "./variables";
+import { buildVarContext, expandString, resolveNumber, type VarContext } from "./variables";
 import { resolveAppliedBases, composeLayers, mergeColors, pickBackground } from "./bases";
 import { mergeSchemas } from "./schema-merge";
 import { mergeDefaults, type MergedDefaults } from "./defaults-merge";
@@ -13,7 +13,8 @@ import {
   DEFAULT_FIT,
   DEFAULT_STROKE_WIDTH,
   GROUP_FALLBACK,
-  resolveTextDefaults,
+  TEXT_FALLBACK,
+  mergeTextDefaults,
   type ResolvedTextDefaults,
 } from "./defaults";
 
@@ -115,11 +116,27 @@ function resolveTextDefaultsFor(
   vars: VarContext,
   errors: PipelineError[],
 ): ResolvedTextDefaults {
-  const raw = resolveTextDefaults(text);
+  const m = mergeTextDefaults(text);
+  // size / lineHeight / letterSpacing may be "${var}" -- expand them now so
+  // the rest of normalize sees a plain number. The fallback step in the
+  // merge guarantees a non-undefined input, so resolveNumber's ?? branch
+  // here only matters if the variable expansion itself failed.
   return {
-    ...raw,
+    family: m.family,
     // family is the fonts: key (= CSS family) as-is. No key->family translation.
-    color: resolveColorLiteral(expandString(raw.color, vars, errors)),
+    color: resolveColorLiteral(expandString(m.color, vars, errors)),
+    align: m.align,
+    size:
+      resolveNumber(m.size, vars, errors, { field: "defaults.text.size", positive: true }) ??
+      TEXT_FALLBACK.size,
+    lineHeight:
+      resolveNumber(m.lineHeight, vars, errors, {
+        field: "defaults.text.lineHeight",
+        positive: true,
+      }) ?? TEXT_FALLBACK.lineHeight,
+    letterSpacing:
+      resolveNumber(m.letterSpacing, vars, errors, { field: "defaults.text.letterSpacing" }) ??
+      TEXT_FALLBACK.letterSpacing,
   };
 }
 
@@ -167,7 +184,14 @@ function buildFigureLabel(
   resolveFont: (raw: string) => string,
 ): FigureLabel | undefined {
   if (hir.text === undefined) return undefined;
-  const size = hir.textSize ?? ctx.textDefaults.size;
+  const size =
+    resolveNumber(hir.textSize, ctx.vars, ctx.errors, { field: "textSize", positive: true }) ??
+    ctx.textDefaults.size;
+  const padding =
+    resolveNumber(hir.textPadding, ctx.vars, ctx.errors, {
+      field: "textPadding",
+      nonnegative: true,
+    }) ?? size * 0.4;
   return {
     content: exp(hir.text),
     font: hir.textFont ? resolveFont(exp(hir.textFont)) : ctx.textDefaults.family,
@@ -175,7 +199,7 @@ function buildFigureLabel(
     color: hir.textColor ? color(hir.textColor) : ctx.textDefaults.color,
     // Sensible default proportional to size; user can override for tighter or
     // looser breaks around the text when it sits on a line/arrow.
-    padding: hir.textPadding ?? size * 0.4,
+    padding,
   };
 }
 
@@ -184,6 +208,14 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
   const color = (s: string) => resolveColorLiteral(exp(s));
   // Font references in elements are CSS family names (= fonts: keys), no translation.
   const resolveFont = (raw: string) => raw;
+  // Compact wrapper around resolveNumber for the common per-field idiom; the
+  // field name is purely for error messages so users can locate the culprit.
+  const num = (
+    v: number | string | undefined,
+    field: string,
+    opts?: { positive?: boolean; nonnegative?: boolean; integer?: boolean },
+  ) => resolveNumber(v, ctx.vars, ctx.errors, { field, ...opts });
+  const flex = (v: number | string | undefined) => num(v, "flex");
 
   switch (hir.type) {
     case "text": {
@@ -191,14 +223,14 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
       return {
         type: "text",
         position: hir.position,
-        flex: hir.flex,
+        flex: flex(hir.flex),
         text: exp(hir.text),
         font: hir.font ? resolveFont(exp(hir.font)) : td.family,
-        size: hir.size ?? td.size,
+        size: num(hir.size, "size", { positive: true }) ?? td.size,
         color: hir.color ? color(hir.color) : td.color,
         align: hir.align ?? td.align,
-        lineHeight: hir.lineHeight ?? td.lineHeight,
-        letterSpacing: hir.letterSpacing ?? td.letterSpacing,
+        lineHeight: num(hir.lineHeight, "lineHeight", { positive: true }) ?? td.lineHeight,
+        letterSpacing: num(hir.letterSpacing, "letterSpacing") ?? td.letterSpacing,
         rich: ctx.rich,
       };
     }
@@ -206,42 +238,45 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
       return {
         type: "image",
         position: hir.position,
-        flex: hir.flex,
+        flex: flex(hir.flex),
         src: exp(hir.src),
         fit: hir.fit ?? DEFAULT_FIT,
       };
     case "figure": {
       // One HIR shape primitive -> a specific MIR variant per shape.
       const stroke = hir.stroke ? color(hir.stroke) : undefined;
+      const strokeW =
+        num(hir.strokeWidth, "strokeWidth", { nonnegative: true }) ??
+        (stroke ? DEFAULT_STROKE_WIDTH : 0);
       const lineStroke = () => (hir.stroke ? color(hir.stroke) : ctx.textDefaults.color);
-      const lineWidth = () => hir.strokeWidth ?? DEFAULT_STROKE_WIDTH;
+      const lineW = num(hir.strokeWidth, "strokeWidth", { nonnegative: true }) ?? DEFAULT_STROKE_WIDTH;
       const label = buildFigureLabel(hir, ctx, exp, color, resolveFont);
       switch (hir.shape) {
         case "rect":
           return {
             type: "rect",
             position: hir.position,
-            flex: hir.flex,
+            flex: flex(hir.flex),
             fill: hir.fill ? color(hir.fill) : undefined,
             stroke,
-            strokeWidth: hir.strokeWidth ?? (stroke ? DEFAULT_STROKE_WIDTH : 0),
-            rx: hir.rx ?? 0,
+            strokeWidth: strokeW,
+            rx: num(hir.rx, "rx", { nonnegative: true }) ?? 0,
             label,
           };
         case "circle":
           return {
             type: "circle",
             position: hir.position,
-            flex: hir.flex,
+            flex: flex(hir.flex),
             fill: hir.fill ? color(hir.fill) : undefined,
             stroke,
-            strokeWidth: hir.strokeWidth ?? (stroke ? DEFAULT_STROKE_WIDTH : 0),
+            strokeWidth: strokeW,
             label,
           };
         case "line":
           return {
             type: "line",
-            flex: hir.flex,
+            flex: flex(hir.flex),
             from: hir.from ?? {
               x: { kind: "percent", value: 0 },
               y: { kind: "percent", value: 0 },
@@ -251,14 +286,14 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
               y: { kind: "percent", value: 100 },
             },
             stroke: lineStroke(),
-            strokeWidth: lineWidth(),
+            strokeWidth: lineW,
             fill: hir.fill ? color(hir.fill) : undefined,
             label,
           };
         case "arrow":
           return {
             type: "arrow",
-            flex: hir.flex,
+            flex: flex(hir.flex),
             from: hir.from ?? {
               x: { kind: "percent", value: 0 },
               y: { kind: "percent", value: 0 },
@@ -268,8 +303,9 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
               y: { kind: "percent", value: 100 },
             },
             stroke: lineStroke(),
-            strokeWidth: lineWidth(),
-            arrowSize: hir.arrowSize ?? 3 * lineWidth(),
+            strokeWidth: lineW,
+            arrowSize:
+              num(hir.arrowSize, "arrowSize", { positive: true }) ?? 3 * lineW,
             fill: hir.fill ? color(hir.fill) : undefined,
             label,
           };
@@ -283,14 +319,16 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
         d: exp(hir.d),
         fill: hir.fill ? color(hir.fill) : undefined,
         stroke,
-        strokeWidth: hir.strokeWidth ?? (stroke ? DEFAULT_STROKE_WIDTH : 0),
+        strokeWidth:
+          num(hir.strokeWidth, "strokeWidth", { nonnegative: true }) ??
+          (stroke ? DEFAULT_STROKE_WIDTH : 0),
       };
     }
     case "group":
       return {
         type: "group",
         position: hir.position,
-        flex: hir.flex,
+        flex: flex(hir.flex),
         children: hir.children.map((c) => convertElement(c, ctx)),
         layout: hir.layout,
         gap: hir.gap ?? { kind: "percent", value: 0 },
@@ -301,14 +339,14 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
     case "ul":
     case "ol": {
       const td = ctx.textDefaults;
-      const size = hir.size ?? td.size;
+      const size = num(hir.size, "size", { positive: true }) ?? td.size;
       // A list's size becomes the default text size for its items (overridable per item).
       const itemCtx: ConvertCtx =
         hir.size !== undefined ? { ...ctx, textDefaults: { ...td, size } } : ctx;
       return {
         type: hir.type,
         position: hir.position,
-        flex: hir.flex,
+        flex: flex(hir.flex),
         items: hir.items.map((c) => convertElement(c, itemCtx)),
         gap: hir.gap ?? { kind: "percent", value: 0 },
         align: hir.align ?? GROUP_FALLBACK.align,
@@ -316,7 +354,7 @@ function convertElement(hir: HirElement, ctx: ConvertCtx): MirElement {
         font: hir.font ? resolveFont(exp(hir.font)) : td.family,
         size,
         color: hir.color ? color(hir.color) : td.color,
-        start: hir.start ?? 1,
+        start: num(hir.start, "start", { integer: true }) ?? 1,
       };
     }
   }

@@ -165,6 +165,87 @@ describe("normalize", () => {
     if (list.type === "ul") expect((list.items[0] as MirText).size).toBe(30); // defaults.text.size
   });
 
+  // Numeric fields accept "${var}" references and resolve them in normalize
+  // (the schema accepts number | string for these fields; resolveNumber
+  // expands + parses). Without this, the user can't template font sizes /
+  // line heights from schema.vars even when those vars are number-typed.
+  it("size: ${var} resolves to the variable's number value", () => {
+    const base: BaseHir = {
+      ...stdBase,
+      schema: {
+        vars: {
+          title: { type: "string", required: true },
+          titleSize: { type: "number", default: 120 },
+        },
+      },
+      layout: [{ type: "text", text: "${title}", size: "${titleSize}" }],
+    };
+    const { deck, errors } = normalize(single(base, [{ id: "s", vars: { title: "t" } }]));
+    expect(errors).toHaveLength(0);
+    expect((deck!.slides[0].elements[0] as MirText).size).toBe(120);
+  });
+
+  it("size: ${var} picks up a slide-level override of the variable", () => {
+    const base: BaseHir = {
+      ...stdBase,
+      schema: {
+        vars: {
+          title: { type: "string", required: true },
+          titleSize: { type: "number", default: 120 },
+        },
+      },
+      layout: [{ type: "text", text: "${title}", size: "${titleSize}" }],
+    };
+    const { deck, errors } = normalize(
+      single(base, [{ id: "s", vars: { title: "t", titleSize: 200 } }]),
+    );
+    expect(errors).toHaveLength(0);
+    expect((deck!.slides[0].elements[0] as MirText).size).toBe(200);
+  });
+
+  // The numericSchema only accepts strings shaped like "${...}". Other strings
+  // (e.g. a typo like "thirty") fail at schema-validation time, which is
+  // exercised by element-infer / schema tests -- here we cover the runtime
+  // path where the *resolved* value isn't a number (e.g. the variable points
+  // at a string).
+  it("errors when ${var} on a numeric field resolves to a non-number", () => {
+    const base: BaseHir = {
+      ...stdBase,
+      schema: {
+        vars: {
+          title: { type: "string", required: true },
+          titleSize: { type: "string", default: "huge" },
+        },
+      },
+      layout: [{ type: "text", text: "${title}", size: "${titleSize}" }],
+    };
+    const { errors } = normalize(single(base, [{ id: "s", vars: { title: "t" } }]));
+    expect(errors.some((e) => /expected a number.*size/.test(e.message))).toBe(true);
+  });
+
+  // defaults.text.size in the base file accepts ${var} too, so a theme can be
+  // parameterised by its consumer (deck.vars override).
+  it("defaults.text.size: ${var} resolves at the theme level", () => {
+    const base: BaseHir = {
+      fonts: { body: { path: "x.ttf" } },
+      colors: { fg: "#fff" },
+      slide: { width: 1000, height: 500 },
+      defaults: {
+        text: { family: "body", size: "${bodySize}", color: "${fg}" },
+      },
+      schema: {
+        vars: {
+          title: { type: "string", required: true },
+          bodySize: { type: "number", default: 48 },
+        },
+      },
+      layout: [{ type: "text", text: "${title}" }],
+    };
+    const { deck, errors } = normalize(single(base, [{ id: "s", vars: { title: "t" } }]));
+    expect(errors).toHaveLength(0);
+    expect((deck!.slides[0].elements[0] as MirText).size).toBe(48);
+  });
+
   it("deck-level vars are overridden by slide.vars", () => {
     const base: BaseHir = { ...stdBase, layout: [{ type: "text", text: "${title}" }] };
     const { deck } = normalize(

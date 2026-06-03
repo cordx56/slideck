@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { PositionSchema, PointSchema, parseDimension } from "./position";
 import type { Dimension } from "./position";
+import { numericSchema } from "./numeric";
 import type { HirElement } from "../ir/hir";
 
 const alignSchema = z.enum(["left", "center", "right"]);
@@ -27,7 +28,7 @@ const lengthSchema = z.union([z.string(), z.number()]).transform((raw, ctx): Dim
 const baseFields = {
   id: z.string().optional(),
   position: PositionSchema.optional(),
-  flex: z.number().optional(),
+  flex: numericSchema.optional(),
 };
 
 const TextSchema = z
@@ -36,11 +37,11 @@ const TextSchema = z
     ...baseFields,
     text: z.string(),
     font: z.string().optional(),
-    size: z.number().positive().optional(),
+    size: numericSchema.optional(),
     color: z.string().optional(),
     align: alignSchema.optional(),
-    lineHeight: z.number().positive().optional(),
-    letterSpacing: z.number().optional(),
+    lineHeight: numericSchema.optional(),
+    letterSpacing: numericSchema.optional(),
   })
   .strict();
 
@@ -70,16 +71,16 @@ const FigureSchema = z
     ...baseFields,
     fill: z.string().optional(),
     stroke: z.string().optional(),
-    strokeWidth: z.number().nonnegative().optional(),
-    rx: z.number().nonnegative().optional(),
+    strokeWidth: numericSchema.optional(),
+    rx: numericSchema.optional(),
     from: PointSchema.optional(),
     to: PointSchema.optional(),
-    arrowSize: z.number().positive().optional(),
+    arrowSize: numericSchema.optional(),
     text: z.string().optional(),
-    textSize: z.number().positive().optional(),
+    textSize: numericSchema.optional(),
     textColor: z.string().optional(),
     textFont: z.string().optional(),
-    textPadding: z.number().nonnegative().optional(),
+    textPadding: numericSchema.optional(),
   })
   .strict();
 
@@ -90,7 +91,7 @@ const PathSchema = z
     d: z.string(),
     fill: z.string().optional(),
     stroke: z.string().optional(),
-    strokeWidth: z.number().nonnegative().optional(),
+    strokeWidth: numericSchema.optional(),
   })
   .strict();
 
@@ -116,9 +117,9 @@ const listFields = {
   align: crossAlignSchema.optional(),
   padding: lengthSchema.optional(),
   font: z.string().optional(),
-  size: z.number().positive().optional(),
+  size: numericSchema.optional(),
   color: z.string().optional(),
-  start: z.number().int().optional(),
+  start: numericSchema.optional(),
 };
 const UlSchema = z.object({ type: z.literal("ul"), ...listFields }).strict();
 const OlSchema = z.object({ type: z.literal("ol"), ...listFields }).strict();

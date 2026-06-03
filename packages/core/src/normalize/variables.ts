@@ -121,3 +121,57 @@ function stringify(v: unknown): string {
   if (v === null || v === undefined) return "";
   return String(v);
 }
+
+// Resolve a numeric HIR field that may be a literal number or a "${var}"
+// reference string. Number literals are returned unchanged; strings go through
+// expandString and parseFloat, with range / integer checks applied to the
+// resolved value. The schema (numeric.ts) only checks the *shape* of the
+// input at parse time -- value checks live here because the actual number
+// isn't known until variables are resolved.
+export function resolveNumber(
+  value: number | string | undefined,
+  ctx: VarContext,
+  errors: PipelineError[],
+  opts?: {
+    field?: string;
+    positive?: boolean;
+    nonnegative?: boolean;
+    integer?: boolean;
+  },
+): number | undefined {
+  if (value === undefined) return undefined;
+  let n: number;
+  if (typeof value === "number") {
+    n = value;
+  } else {
+    const expanded = expandString(value, ctx, errors);
+    n = parseFloat(expanded);
+    if (!Number.isFinite(n)) {
+      errors.push(
+        new PipelineError(
+          `expected a number${field(opts)}, got ${JSON.stringify(expanded)}`,
+        ),
+      );
+      return undefined;
+    }
+  }
+  if (opts?.integer && !Number.isInteger(n)) {
+    errors.push(new PipelineError(`expected an integer${field(opts)}, got ${n}`));
+    return undefined;
+  }
+  if (opts?.positive && !(n > 0)) {
+    errors.push(new PipelineError(`expected a positive number${field(opts)}, got ${n}`));
+    return undefined;
+  }
+  if (opts?.nonnegative && !(n >= 0)) {
+    errors.push(
+      new PipelineError(`expected a non-negative number${field(opts)}, got ${n}`),
+    );
+    return undefined;
+  }
+  return n;
+}
+
+function field(opts: { field?: string } | undefined): string {
+  return opts?.field ? ` for "${opts.field}"` : "";
+}
