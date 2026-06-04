@@ -103,4 +103,87 @@ describe("renderPdf", () => {
     }
     expect(subsetsChecked).toBeGreaterThan(0);
   });
+
+  // pdf-lib's CFF subsetter throws "value argument is out of bounds" at
+  // pdf.save() when an embedded CFF font has zero glyph references. That
+  // happens whenever a deck declares a font in fonts:{} but no element ever
+  // draws with it -- e.g. a base.yaml declaring a "mono" face for code
+  // blocks the user happens not to use on this slide. renderPdf restricts
+  // the embed set to families that appear in some text run, so unused
+  // declarations are skipped and the encoder is never called on them.
+  it("doesn't crash when the deck declares a font that no element uses", async () => {
+    const exampleRoot = resolve(__dirname, "../public/examples/basic");
+
+    const exampleFontDir = resolve(exampleRoot, "fonts");
+
+    // Self-contained synthetic deck: one base declaring a CFF font (Hiragino
+    // TTC) that nothing references, and a slide that only draws Latin text
+    // using a separate TTF face. Without the embed-only-used-fonts restructure,
+    // pdf.save() would throw inside CFFSubset.encode for the unused hira font.
+    class SyntheticResolver implements AssetResolver {
+      async readText(rel: string): Promise<string> {
+        switch (rel) {
+          case "deck.yaml":
+            return `
+bases:
+  - id: base
+    file: ./base.yaml
+slides:
+  - id: only
+    use: base
+    elements:
+      - type: text
+        text: "Plain Latin text"
+        position: { left: 10%, top: 40%, width: 80% }
+`;
+          case "base.yaml":
+            return `
+fonts:
+  body: { path: ./body.ttf }
+  hira: { path: ./hira.ttc, index: 0 }
+slide: { width: 1920, height: 1080 }
+defaults:
+  text: { family: body }
+`;
+        }
+        throw new Error("unexpected readText " + rel);
+      }
+      async readBytes(rel: string): Promise<Uint8Array> {
+        switch (rel) {
+          case "body.ttf":
+            return new Uint8Array(
+              await readFile(resolve(exampleFontDir, "NotoSans-Regular.ttf")),
+            );
+          case "hira.ttc":
+            return new Uint8Array(
+              await readFile("/home/yuki/Documents/Develop/slider/hiragino.ttc"),
+            );
+        }
+        throw new Error("unexpected readBytes " + rel);
+      }
+      async exists(rel: string): Promise<boolean> {
+        if (rel === "base.yaml" || rel === "deck.yaml") return true;
+        try {
+          await this.readBytes(rel);
+          return true;
+        } catch {
+          return false;
+        }
+      }
+    }
+
+    const resolver = new SyntheticResolver();
+    // Soft-skip the test when the CFF fixture isn't installed -- this case
+    // only matters with a CFF source. The local hiragino.ttc isn't shipped
+    // with the repo (it's in .gitignore).
+    if (!(await resolver.exists("hira.ttc"))) return;
+
+    const { compiled, errors } = await compileDeck(resolver);
+    expect(errors).toHaveLength(0);
+    // The repro: this used to throw "value argument is out of bounds" at
+    // save() time. With the embed-only-used-fonts change it returns cleanly.
+    const { bytes, errors: pdfErrors } = await renderPdf(compiled!);
+    expect(pdfErrors).toHaveLength(0);
+    expect(new TextDecoder().decode(bytes.slice(0, 5))).toBe("%PDF-");
+  });
 });

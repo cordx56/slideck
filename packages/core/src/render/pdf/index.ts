@@ -37,13 +37,32 @@ export async function renderPdf(
   const pdf = await PDFDocument.create();
   pdf.registerFontkit(fontkit);
 
-  const fonts = await embedFonts(pdf, compiled.fonts, errors);
+  // Lower every slide up front so we know which fonts are actually referenced
+  // before deciding what to embed. pdf-lib's CFF subsetter throws "value
+  // argument is out of bounds" deep inside pdf.save() when an embedded CFF
+  // font has zero glyph references (the subset is empty and the encoder
+  // overflows). Restricting the embed set to fonts that show up in some text
+  // run sidesteps the crash for fonts declared in fonts:{} but never drawn.
+  const slideLirs = compiled.deck.slides
+    .map((_, i) => lowerSlide(compiled, i))
+    .filter((lir): lir is NonNullable<typeof lir> => lir !== undefined);
+
+  const usedFamilies = new Set<string>();
+  for (const lir of slideLirs) {
+    for (const prim of lir.primitives) {
+      if (prim.kind !== "text") continue;
+      for (const run of prim.runs) usedFamilies.add(run.font.family);
+    }
+  }
+  const usedFonts = new Map(
+    [...compiled.fonts].filter(([family]) => usedFamilies.has(family)),
+  );
+
+  const fonts = await embedFonts(pdf, usedFonts, errors);
   const imageCache = new Map<Uint8Array, PDFImage>();
   const rasterizeSvg = options.rasterizeSvg ?? browserSvgRasterizer;
 
-  for (let i = 0; i < compiled.deck.slides.length; i++) {
-    const lir = lowerSlide(compiled, i);
-    if (!lir) continue;
+  for (const lir of slideLirs) {
     const page = pdf.addPage([lir.width, lir.height]);
 
     if (lir.background) {
