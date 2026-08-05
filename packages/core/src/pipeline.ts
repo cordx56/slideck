@@ -10,6 +10,7 @@ import { prepare } from "./load/prepare";
 import { lower } from "./lower";
 import { renderSvgString, type SvgRenderOptions } from "./render/svg";
 import { PipelineError } from "./lib/error";
+import { dataUri } from "./lib/base64";
 
 export interface CompiledDeck {
   deck: MirDeck;
@@ -49,6 +50,11 @@ export interface RecompileResult {
   errors: PipelineError[];
 }
 
+export interface RenderSlideSvgOptions extends SvgRenderOptions {
+  // Include every font used by the slide as a data URL for a standalone SVG.
+  embedFonts?: boolean;
+}
+
 // Lightweight recompile for deck text edits. Skips prepare (font/image loading)
 // and does only parse + normalize. The caller reuses the existing ctx/fonts.
 export async function recompileDeck(
@@ -73,9 +79,23 @@ export function lowerSlide(compiled: CompiledDeck, index: number): SlideLir | un
 export function renderSlideSvg(
   compiled: CompiledDeck,
   index: number,
-  svgOptions?: SvgRenderOptions,
+  svgOptions: RenderSlideSvgOptions = {},
 ): string | undefined {
   const lir = lowerSlide(compiled, index);
   if (!lir) return undefined;
-  return renderSvgString(lir, svgOptions);
+  if (!svgOptions.embedFonts || svgOptions.fontFaces) return renderSvgString(lir, svgOptions);
+
+  const usedFamilies = new Set<string>();
+  for (const primitive of lir.primitives) {
+    if (primitive.kind !== "text") continue;
+    for (const run of primitive.runs) usedFamilies.add(run.font.family);
+  }
+  const fontFaces = [...compiled.fonts]
+    .filter(([family]) => usedFamilies.has(family))
+    .map(([, font]) => ({
+      family: font.family,
+      dataUrl: dataUri("font/ttf", font.bytes),
+      format: "truetype",
+    }));
+  return renderSvgString(lir, { ...svgOptions, fontFaces });
 }

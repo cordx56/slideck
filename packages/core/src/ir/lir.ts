@@ -1,6 +1,6 @@
 // LIR: a flat list of render primitives.
 // Groups expanded, absolute coordinates (px, origin at slide top-left), text shaped.
-// inline markdown/math are expanded to text/line/path in lower (no dedicated primitive).
+// inline markdown/math are expanded to native text/vector primitives in lower.
 import type { Align } from "./hir";
 
 // Each face is registered under its own CSS family. italic=true asks the
@@ -49,6 +49,17 @@ export type Primitive =
       rx?: number;
     }
   | { kind: "path"; d: string; fill?: string; stroke?: Stroke }
+  | {
+      kind: "svgPath";
+      d: string;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      viewBox: { x: number; y: number; width: number; height: number };
+      preserveAlign: "min" | "mid" | "max";
+      fill: string;
+    }
   | { kind: "circle"; cx: number; cy: number; r: number; fill?: string; stroke?: Stroke }
   | {
       kind: "line";

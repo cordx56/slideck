@@ -30,9 +30,9 @@ exactly the same layout. What you see in the editor is what you get in the PDF.
 - **Lists**: `ul` / `ol` with `items` (same shape as a group's children).
 - **Inline Markdown**: bold, italic, inline `code`, ~~strikethrough~~, and links.
   Links are rendered as real clickable annotations in PDF and `<a>` in SVG.
-- **Inline math**: `$...$` is rendered with MathJax into native vector paths, so
-  formulas render identically in the SVG preview, the exported SVG, and the PDF
-  (no browser or external CSS required at view time).
+- **Inline math**: `$...$` is laid out with KaTeX and emitted as embedded-font
+  text (plus native vector rules/stretchy symbols), so formulas stay selectable
+  and render identically in the SVG preview, exported SVG, and PDF.
 - **Fonts**: TrueType embedding with subsetting and ToUnicode (selectable /
   extractable text in the PDF). TTC collections are supported (`index:`).
 - **Images**: intrinsic size is parsed from the file header (PNG/JPEG/GIF/WebP/

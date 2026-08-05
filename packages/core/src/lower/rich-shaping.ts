@@ -2,7 +2,7 @@ import type { Align, RichStyle } from "../ir/hir";
 import type { FontRef } from "../ir/lir";
 import { type FontMetrics, isCJK } from "./metrics";
 import { parseRich, type RichSegment } from "../lib/richtext";
-import { renderMath, type MathGlyph } from "../lib/math";
+import { renderMath, type MathItem } from "../lib/math";
 
 // Lower rich text (inline markdown + math) into placed run / math sequences.
 // A mixed variant of shapeText. Coords use box top-left origin (x=left, baseline=y from top).
@@ -21,7 +21,7 @@ export interface RichRun {
 }
 
 export interface RichMathPlaced {
-  glyphs: MathGlyph[]; // baseline origin (used after translate)
+  items: MathItem[];
   x: number;
   baseline: number;
 }
@@ -47,7 +47,7 @@ interface Style {
 type Atom =
   | { kind: "text"; text: string; style: Style; w: number; space: boolean }
   | { kind: "break" }
-  | { kind: "math"; glyphs: MathGlyph[]; w: number };
+  | { kind: "math"; items: MathItem[]; w: number };
 
 const sameStyle = (a: Style, b: Style): boolean =>
   a.bold === b.bold &&
@@ -148,7 +148,7 @@ function buildAtoms(
   for (const seg of segments) {
     if (seg.kind === "math") {
       const m = renderMath(seg.tex, size);
-      if (m) atoms.push({ kind: "math", glyphs: m.glyphs, w: m.width });
+      if (m) atoms.push({ kind: "math", items: m.items, w: m.width });
       else pushText(atoms, seg.tex, PLAIN, baseFont, size, ls, metrics, rich); // raw text on failure
       continue;
     }
@@ -269,7 +269,7 @@ export function shapeRich(
     for (const a of line) {
       if (a.kind === "math") {
         flush();
-        maths.push({ glyphs: a.glyphs, x, baseline });
+        maths.push({ items: a.items, x, baseline });
         x += a.w;
         continue;
       }

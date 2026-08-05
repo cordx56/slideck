@@ -36,7 +36,8 @@ function deckWithText(text: string): MirDeck {
   };
 }
 
-const prims = (text: string): Primitive[] => lower(deckWithText(text).slides[0], deckWithText(text), ctx).primitives;
+const prims = (text: string): Primitive[] =>
+  lower(deckWithText(text).slides[0], deckWithText(text), ctx).primitives;
 const allRuns = (ps: Primitive[]): TextRun[] =>
   ps.flatMap((p) => (p.kind === "text" ? p.runs : []));
 
@@ -75,14 +76,15 @@ describe("parseRich (segment decomposition)", () => {
   });
 });
 
-describe("renderMath (MathJax -> paths)", () => {
-  it("converts formulas to path lists (proportional to px size)", () => {
+describe("renderMath (KaTeX -> native primitives)", () => {
+  it("converts formula glyphs to positioned text", () => {
     const r = renderMath("E=mc^2", 40);
     expect(r).not.toBeNull();
     expect(r!.width).toBeGreaterThan(0);
     expect(r!.ascent).toBeGreaterThan(0);
-    expect(r!.glyphs.length).toBeGreaterThan(0);
-    expect(r!.glyphs[0].d).toMatch(/^M/);
+    const texts = r!.items.filter((item) => item.kind === "text");
+    expect(texts.map((item) => item.text).join("")).toBe("E=mc2");
+    expect(texts.every((item) => item.family.startsWith("slideck-katex-"))).toBe(true);
   });
   it("doubling the size doubles the width", () => {
     const a = renderMath("x+1", 20)!;
@@ -92,14 +94,14 @@ describe("renderMath (MathJax -> paths)", () => {
 });
 
 describe("lower of rich text (native expansion)", () => {
-  it("math text becomes path(formula) + text(surrounding) with no foreignObject", () => {
+  it("math glyphs and surrounding content are emitted as selectable text", () => {
     const ps = prims("area is $x^2$");
-    expect(ps.some((p) => p.kind === "path")).toBe(true);
     expect(ps.some((p) => p.kind === "text")).toBe(true);
+    const mathRuns = allRuns(ps).filter((run) => run.font.family.startsWith("slideck-katex-"));
+    expect(mathRuns.map((run) => run.text).join("")).toBe("x2");
     const svg = renderSvgString({ id: "s", width: 1000, height: 1000, primitives: ps });
-    expect(svg).toContain("<path");
+    expect(svg).toContain("slideck-katex-Math-Italic");
     expect(svg).not.toContain("foreignObject");
-    expect(svg).not.toContain("katex");
     expect(svg).toContain("area is");
   });
 
@@ -127,14 +129,41 @@ describe("lower of rich text (native expansion)", () => {
     expect(run?.font.italic).toBe(true);
   });
 
-  it("math paths only use M / L / C / Z (pdf-lib converts Q via the wrong PDF op)", () => {
-    const paths = prims("$\\alpha$").filter((p) => p.kind === "path") as { d: string }[];
-    expect(paths.length).toBeGreaterThan(0);
-    for (const { d } of paths) {
-      // No Q/T/S/H/V should survive transformPath; otherwise pdf-lib mis-converts
-      // them (notably Q -> v) and the rendered glyphs go fuzzy in the PDF.
-      expect(d).not.toMatch(/\b[QTSHV]\b/);
-      expect(d).toMatch(/\bC\b/); // alpha has many curves -> at least one C
+  it("keeps only stretchy radical geometry as a clipped SVG path", () => {
+    // The x glyph remains text; only the shape KaTeX itself defines as SVG is a path.
+    const ps = prims("$\\sqrt{x}$");
+    expect(allRuns(ps).some((run) => run.text === "x")).toBe(true);
+    const radical = ps.find((p) => p.kind === "svgPath");
+    expect(radical?.kind).toBe("svgPath");
+    if (radical?.kind === "svgPath") {
+      expect(radical.w).toBeGreaterThan(0);
+      expect(radical.h).toBeGreaterThan(0);
+      expect(radical.viewBox.width).toBe(400000);
+    }
+  });
+
+  it("aligns a wide accent with the expression it covers", () => {
+    const rendered = renderMath("\\widehat{xyz}", 40);
+    const accent = rendered?.items.find((item) => item.kind === "svgPath");
+    expect(accent?.kind).toBe("svgPath");
+    if (accent?.kind === "svgPath") {
+      // KaTeX stretches the accent to the full expression width from x=0.
+      expect(accent.x).toBeCloseTo(0, 4);
+      expect(accent.width).toBeCloseTo(rendered!.width, 4);
+    }
+  });
+
+  it("renders a fraction bar as a native rectangle", () => {
+    const ps = prims("$\\frac{a}{b}$");
+    const runs = allRuns(ps);
+    expect(runs.map((run) => run.text).join("")).toBe("ba");
+    const bar = ps.find((p) => p.kind === "rect" && p.w > 0 && p.h > 0);
+    const numerator = runs.find((run) => run.text === "a");
+    expect(bar?.kind).toBe("rect");
+    expect(numerator).toBeDefined();
+    if (bar?.kind === "rect" && numerator) {
+      // The numerator and full-width fraction rule share the same left edge.
+      expect(bar.x).toBeCloseTo(numerator.x, 4);
     }
   });
 

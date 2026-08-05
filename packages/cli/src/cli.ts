@@ -127,7 +127,7 @@ async function cmdExport(args: string[]): Promise<void> {
   if (svgDir) {
     await mkdir(svgDir, { recursive: true });
     compiled.deck.slides.forEach((slide, i) => {
-      const svg = renderSlideSvg(compiled, i) ?? "";
+      const svg = renderSlideSvg(compiled, i, { embedFonts: true }) ?? "";
       void writeFile(resolve(svgDir!, `${String(i + 1).padStart(2, "0")}-${slide.id}.svg`), svg);
     });
     svgNote = `, SVG -> ${svgDir}/`;

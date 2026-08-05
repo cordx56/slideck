@@ -8,6 +8,7 @@ import { isTtc, extractFontFromTtc } from "./ttc";
 import { mimeFromPath } from "../lib/mime";
 import { imageSize } from "../lib/image-size";
 import { PipelineError } from "../lib/error";
+import { katexFonts } from "../lib/katex-fonts";
 
 // Resource bundle for lower. fonts are also used for PDF embedding/preview registration.
 export interface PreparedAssets {
@@ -99,6 +100,10 @@ export async function prepare(
   const fonts = await loadFonts(deck, resolver, errors);
   const { fk, auto } = buildFkAndRoles(fonts);
   const metrics = buildMetrics(fk);
+
+  // KaTeX faces are renderer resources, not candidates for the deck's body,
+  // bold, italic, or monospace roles. Add them only after role detection.
+  for (const [family, font] of katexFonts()) fonts.set(family, font);
 
   // Back-fill role families that the theme did not declare with the auto-
   // detected face for that role (mono, bold, italic, boldItalic). Without a

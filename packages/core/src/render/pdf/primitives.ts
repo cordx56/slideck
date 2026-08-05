@@ -8,6 +8,9 @@ import {
   pushGraphicsState,
   popGraphicsState,
   concatTransformationMatrix,
+  clip,
+  endPath,
+  rectangle,
 } from "pdf-lib";
 import type { Primitive } from "../../ir/lir";
 import { hexToRgb01 } from "../../lib/color";
@@ -131,6 +134,31 @@ export async function drawPrimitive(
         borderWidth: prim.stroke?.width ?? 0,
       });
       break;
+    case "svgPath": {
+      const vb = prim.viewBox;
+      const scale = Math.max(prim.w / vb.width, prim.h / vb.height);
+      const scaledWidth = vb.width * scale;
+      const alignOffset =
+        prim.preserveAlign === "max"
+          ? prim.w - scaledWidth
+          : prim.preserveAlign === "mid"
+            ? (prim.w - scaledWidth) / 2
+            : 0;
+      page.pushOperators(
+        pushGraphicsState(),
+        rectangle(prim.x, ph - prim.y - prim.h, prim.w, prim.h),
+        clip(),
+        endPath(),
+      );
+      page.drawSvgPath(prim.d, {
+        x: prim.x + alignOffset - vb.x * scale,
+        y: ph - prim.y + vb.y * scale,
+        scale,
+        color: toColor(prim.fill),
+      });
+      page.pushOperators(popGraphicsState());
+      break;
+    }
     case "link": {
       // Clickable link annotation. Rect is converted to PDF coords (y up).
       const annot = pdf.context.obj({

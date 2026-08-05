@@ -90,6 +90,22 @@ export function renderPrimitive(p: Primitive): string {
       return `<path d="${escapeXml(p.d)}" fill="${
         p.fill ? escapeXml(p.fill) : "none"
       }"${strokeAttrs(p.stroke)}/>`;
+    case "svgPath": {
+      const align =
+        p.preserveAlign === "max"
+          ? "xMaxYMin"
+          : p.preserveAlign === "mid"
+            ? "xMidYMin"
+            : "xMinYMin";
+      const vb = p.viewBox;
+      return `<svg x="${num(p.x)}" y="${num(p.y)}" width="${num(p.w)}" height="${num(
+        p.h,
+      )}" viewBox="${num(vb.x)} ${num(vb.y)} ${num(vb.width)} ${num(
+        vb.height,
+      )}" preserveAspectRatio="${align} slice" overflow="hidden"><path d="${escapeXml(
+        p.d,
+      )}" fill="${escapeXml(p.fill)}"/></svg>`;
+    }
     case "circle":
       return `<circle cx="${num(p.cx)}" cy="${num(p.cy)}" r="${num(p.r)}" fill="${
         p.fill ? escapeXml(p.fill) : "none"

@@ -56,4 +56,19 @@ describe("compileDeck (end-to-end)", () => {
     expect(compiled).toBeFalsy();
     expect(errors.length).toBeGreaterThan(0);
   });
+
+  it("keeps KaTeX fonts isolated from text roles and embeds used faces on request", async () => {
+    const mathTheme = theme.replace("text: \${title}", 'text: "**Bold** $x^2$"');
+    const resolver = resolverFrom({ "deck.yaml": deck, "theme.yaml": mathTheme });
+    const { compiled, errors } = await compileDeck(resolver);
+    expect(errors).toHaveLength(0);
+    expect(compiled).toBeTruthy();
+
+    const svg = renderSlideSvg(compiled!, 0, { embedFonts: true });
+    expect(svg).toContain("slideck-katex-Math-Italic");
+    expect(svg).toContain("slideck-katex-Main-Regular");
+    expect(svg).toContain("data:font/ttf;base64,");
+    // Built-in math faces must not become the fallback bold face for deck text.
+    expect(svg).toContain('font-family="sans-serif"');
+  });
 });

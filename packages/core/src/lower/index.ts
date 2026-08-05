@@ -7,7 +7,6 @@ import { computeAutoLayout, listGutter, listContentBox, stackedHeight } from "./
 import { shapeText } from "./text-shaping";
 import { shapeRich, type RichLayout, type RichRun } from "./rich-shaping";
 import { hasRichMarkup } from "../lib/richtext";
-import { translateMathPath } from "../lib/math";
 import type { RichStyle } from "../ir/hir";
 import type { LowerCtx } from "./context";
 
@@ -219,7 +218,8 @@ function placeElement(el: MirElement, box: Box, ctx: LowerCtx, out: Primitive[])
         rx: el.rx || undefined,
       });
       // Label sits on top of the rect fill, so no extra backing rect is needed.
-      if (el.label) emitFigureLabel(box.x + box.w / 2, box.y + box.h / 2, el.label, undefined, ctx, out);
+      if (el.label)
+        emitFigureLabel(box.x + box.w / 2, box.y + box.h / 2, el.label, undefined, ctx, out);
       break;
     case "line": {
       const x1 = box.x + toPx(el.from.x, box.w);
@@ -247,7 +247,8 @@ function placeElement(el: MirElement, box: Box, ctx: LowerCtx, out: Primitive[])
         fill: el.fill,
         stroke: makeStroke(el.stroke, el.strokeWidth),
       });
-      if (el.label) emitFigureLabel(box.x + box.w / 2, box.y + box.h / 2, el.label, undefined, ctx, out);
+      if (el.label)
+        emitFigureLabel(box.x + box.w / 2, box.y + box.h / 2, el.label, undefined, ctx, out);
       break;
     case "arrow": {
       const x1 = box.x + toPx(el.from.x, box.w);
@@ -287,7 +288,8 @@ function placeElement(el: MirElement, box: Box, ctx: LowerCtx, out: Primitive[])
         });
         // Label midpoint = middle of the visible line (from -> arrowhead base),
         // so it stays clear of the arrowhead even for short arrows.
-        if (el.label) emitFigureLabel((x1 + baseX) / 2, (y1 + baseY) / 2, el.label, el.fill, ctx, out);
+        if (el.label)
+          emitFigureLabel((x1 + baseX) / 2, (y1 + baseY) / 2, el.label, el.fill, ctx, out);
       }
       break;
     }
@@ -413,7 +415,7 @@ function applyCrossPosition(el: MirElement, box: Box, isRow: boolean): Box {
   return { x: r.pos, y: box.y, w: r.size, h: box.h };
 }
 
-// Expand the shapeRich result into text(runs) + line(underline/strike) + path(math).
+// Expand the shapeRich result into native text and vector primitives.
 function emitRich(layout: RichLayout, box: Box, mathColor: string, out: Primitive[]): void {
   const runs: TextRun[] = layout.runs.map((r) => ({
     text: r.text,
@@ -423,6 +425,34 @@ function emitRich(layout: RichLayout, box: Box, mathColor: string, out: Primitiv
     x: box.x + r.x,
     y: box.y + r.baseline,
   }));
+
+  for (const math of layout.maths) {
+    for (const item of math.items) {
+      if (item.kind !== "text") continue;
+      runs.push({
+        text: item.text,
+        font: { family: item.family },
+        size: item.size,
+        color: item.color ?? mathColor,
+        x: box.x + math.x + item.x,
+        y: box.y + math.baseline + item.baseline,
+      });
+    }
+  }
+
+  for (const math of layout.maths) {
+    for (const item of math.items) {
+      if (item.kind !== "rect" || !item.background) continue;
+      out.push({
+        kind: "rect",
+        x: box.x + math.x + item.x,
+        y: box.y + math.baseline + item.y,
+        w: item.width,
+        h: item.height,
+        fill: item.color ?? mathColor,
+      });
+    }
+  }
   if (runs.length) out.push({ kind: "text", x: box.x, y: box.y, runs, align: "left" });
 
   for (const r of layout.runs) {
@@ -441,13 +471,41 @@ function emitRich(layout: RichLayout, box: Box, mathColor: string, out: Primitiv
     }
   }
 
-  for (const m of layout.maths) {
-    for (const g of m.glyphs) {
-      out.push({
-        kind: "path",
-        d: translateMathPath(g.d, box.x + m.x, box.y + m.baseline),
-        fill: mathColor,
-      });
+  for (const math of layout.maths) {
+    for (const item of math.items) {
+      const color = item.color ?? mathColor;
+      if (item.kind === "rect" && !item.background) {
+        out.push({
+          kind: "rect",
+          x: box.x + math.x + item.x,
+          y: box.y + math.baseline + item.y,
+          w: item.width,
+          h: item.height,
+          fill: item.strokeWidth ? undefined : color,
+          stroke: item.strokeWidth ? { color, width: item.strokeWidth } : undefined,
+        });
+      } else if (item.kind === "line") {
+        out.push({
+          kind: "line",
+          x1: box.x + math.x + item.x1,
+          y1: box.y + math.baseline + item.y1,
+          x2: box.x + math.x + item.x2,
+          y2: box.y + math.baseline + item.y2,
+          stroke: { color, width: item.width },
+        });
+      } else if (item.kind === "svgPath") {
+        out.push({
+          kind: "svgPath",
+          d: item.d,
+          x: box.x + math.x + item.x,
+          y: box.y + math.baseline + item.y,
+          w: item.width,
+          h: item.height,
+          viewBox: item.viewBox,
+          preserveAlign: item.align,
+          fill: color,
+        });
+      }
     }
   }
 }
