@@ -14,8 +14,8 @@ function resolver(deckText: string) {
   const enc = new TextEncoder();
   return new MemoryAssetResolver(
     new Map([
-      ["deck.yaml", enc.encode(deckText)],
-      ["theme.yaml", enc.encode(theme)],
+      ["/deck.yaml", enc.encode(deckText)],
+      ["/theme.yaml", enc.encode(theme)],
     ]),
   );
 }

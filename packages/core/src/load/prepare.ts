@@ -1,9 +1,16 @@
-import type { MirDeck, MirElement, MirText } from "../ir/mir";
+import type { MirDeck } from "../ir/mir";
+import { walkElements } from "../ir/walk";
 import type { AssetResolver } from "./assets";
 import { FontkitMetrics, createFkFont, type FkFont } from "../lower/fontkit-metrics";
 import type { FontMetrics } from "../lower/metrics";
 import { ApproximateMetrics } from "../lower/metrics";
-import type { LoadedImage, LoadedFont, LowerCtx } from "../lower/context";
+import {
+  type LoadedImage,
+  type LoadedFont,
+  type LowerCtx,
+  type FontRoles,
+  EMPTY_FONT_ROLES,
+} from "../lower/context";
 import { isTtc, extractFontFromTtc } from "./ttc";
 import { mimeFromPath } from "../lib/mime";
 import { imageSize } from "../lib/image-size";
@@ -16,17 +23,14 @@ export interface PreparedAssets {
   fonts: Map<string, LoadedFont>;
 }
 
-// Walk the element tree of all slides and collect image src values.
+// Collect every image src referenced by any slide.
 function collectImageSrcs(deck: MirDeck): Set<string> {
   const srcs = new Set<string>();
-  const walk = (els: MirElement[]) => {
-    for (const el of els) {
+  for (const slide of deck.slides) {
+    walkElements(slide.elements, (el) => {
       if (el.type === "image") srcs.add(el.src);
-      else if (el.type === "group") walk(el.children);
-      else if (el.type === "ul" || el.type === "ol") walk(el.items);
-    }
-  };
-  for (const s of deck.slides) walk(s.elements);
+    });
+  }
   return srcs;
 }
 
@@ -38,7 +42,6 @@ async function loadFonts(
 ): Promise<Map<string, LoadedFont>> {
   const fonts = new Map<string, LoadedFont>();
   for (const [family, decl] of deck.fonts) {
-    if (!decl.path) continue;
     try {
       let bytes = await resolver.readBytes(decl.path);
       // .ttc expands the font at the given index into a standalone SFNT.
@@ -51,22 +54,15 @@ async function loadFonts(
   return fonts;
 }
 
-interface AutoRoles {
-  mono: string;
-  bold: string;
-  italic: string;
-  boldItalic: string;
-}
-
 // Build the fontkit map and auto-detect mono / bold / italic / boldItalic role
 // faces in a single pass. The first matching face for each role wins; explicit
-// defaults.text.* / defaults.mono.family entries override this in normalize.
+// defaults.text.* / defaults.mono.family entries override this in lower.
 function buildFkAndRoles(fonts: Map<string, LoadedFont>): {
   fk: Map<string, FkFont>;
-  auto: AutoRoles;
+  auto: FontRoles;
 } {
   const fk = new Map<string, FkFont>();
-  const auto: AutoRoles = { mono: "", bold: "", italic: "", boldItalic: "" };
+  const auto: FontRoles = { ...EMPTY_FONT_ROLES };
   for (const [family, lf] of fonts) {
     const f = createFkFont(lf.bytes);
     if (!f) continue;
@@ -83,14 +79,6 @@ function buildMetrics(fk: Map<string, FkFont>): FontMetrics {
   return fk.size > 0 ? new FontkitMetrics(fk) : new ApproximateMetrics();
 }
 
-function walkTextElements(els: MirElement[], visit: (t: MirText) => void): void {
-  for (const el of els) {
-    if (el.type === "text") visit(el);
-    else if (el.type === "group") walkTextElements(el.children, visit);
-    else if (el.type === "ul" || el.type === "ol") walkTextElements(el.items, visit);
-  }
-}
-
 // Asynchronously assemble the resources (images, fonts, metrics) passed to lower.
 export async function prepare(
   deck: MirDeck,
@@ -105,21 +93,6 @@ export async function prepare(
   // bold, italic, or monospace roles. Add them only after role detection.
   for (const [family, font] of katexFonts()) fonts.set(family, font);
 
-  // Back-fill role families that the theme did not declare with the auto-
-  // detected face for that role (mono, bold, italic, boldItalic). Without a
-  // matching face the role stays "" and rich-shaping uses the surrounding text
-  // font, so the rendered glyphs always match the measured width.
-  for (const s of deck.slides) {
-    walkTextElements(s.elements, (t) => {
-      const r = t.rich;
-      if (!r) return;
-      if (!r.monoFamily) r.monoFamily = auto.mono;
-      if (!r.boldFamily) r.boldFamily = auto.bold;
-      if (!r.italicFamily) r.italicFamily = auto.italic;
-      if (!r.boldItalicFamily) r.boldItalicFamily = auto.boldItalic;
-    });
-  }
-
   const images = new Map<string, LoadedImage>();
   for (const src of collectImageSrcs(deck)) {
     try {
@@ -133,5 +106,5 @@ export async function prepare(
   }
 
   const slide = { width: deck.slide.width, height: deck.slide.height };
-  return { ctx: { metrics, images, slide }, fonts };
+  return { ctx: { metrics, images, roles: auto, slide }, fonts };
 }

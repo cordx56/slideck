@@ -12,14 +12,14 @@ export type Justify = "start" | "center" | "end" | "space-between" | "space-arou
 
 // Numeric HIR fields are number | "${var}" until normalize/variables.
 // resolveNumber expands the reference. See schema/numeric.ts.
-export interface BaseElement {
+export interface ElementCommon {
   id?: string;
   position?: Position;
   // main-axis ratio distribution among auto-layout children
   flex?: NumericValue;
 }
 
-export interface TextElement extends BaseElement {
+export interface TextElement extends ElementCommon {
   type: "text";
   text: string;
   font?: string;
@@ -30,7 +30,7 @@ export interface TextElement extends BaseElement {
   letterSpacing?: NumericValue;
 }
 
-export interface ImageElement extends BaseElement {
+export interface ImageElement extends ElementCommon {
   type: "image";
   src: string;
   fit?: Fit;
@@ -43,7 +43,7 @@ export type FigureShape = "rect" | "line" | "circle" | "arrow";
 // Optional label: text centred on the figure (box centre for rect/circle, line
 // midpoint for line/arrow). Background colour is `fill`; for line/arrow it
 // becomes a small backing rect drawn under the text (omitted when fill unset).
-export interface FigureElement extends BaseElement {
+export interface FigureElement extends ElementCommon {
   type: "figure";
   shape: FigureShape;
   fill?: string;
@@ -60,7 +60,7 @@ export interface FigureElement extends BaseElement {
   textPadding?: NumericValue;
 }
 
-export interface PathElement extends BaseElement {
+export interface PathElement extends ElementCommon {
   type: "path";
   d: string;
   fill?: string;
@@ -68,7 +68,7 @@ export interface PathElement extends BaseElement {
   strokeWidth?: NumericValue;
 }
 
-export interface GroupElement extends BaseElement {
+export interface GroupElement extends ElementCommon {
   type: "group";
   children: HirElement[];
   layout?: LayoutDir;
@@ -76,12 +76,13 @@ export interface GroupElement extends BaseElement {
   align?: CrossAlign;
   justify?: Justify;
   padding?: Dimension;
+  // Group-scoped vars are parsed but currently not applied by normalize.
   vars?: Record<string, unknown>;
 }
 
 // ul (bulleted) / ol (numbered) list. A vertical-stack container like group,
 // whose children are items. A marker (• / 1.) is drawn before each item.
-export interface ListElement extends BaseElement {
+export interface ListElement extends ElementCommon {
   type: "ul" | "ol";
   items: HirElement[];
   gap?: Dimension;
@@ -140,18 +141,6 @@ export interface LinkDefaults {
 export interface MonoDefaults {
   family?: string;
   color?: string;
-}
-
-// Resolved richtext styles. Each *Family is the CSS family for that role; empty
-// string means "fall back to the surrounding text font" (no real variant).
-export interface RichStyle {
-  linkColor: string;
-  linkUnderline: boolean;
-  monoFamily: string;
-  monoColor: string;
-  boldFamily: string;
-  italicFamily: string;
-  boldItalicFamily: string;
 }
 
 // Base: a composable layer merging theme and overlay.

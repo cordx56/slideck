@@ -1,9 +1,8 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { VFS, FileEntry, VFSListener } from "@slideck/core";
-import { normalize, join, mimeFromPath } from "@slideck/core";
-import { EventBus } from "./events";
+import { EventBus, normalizePath, mimeFromPath } from "@slideck/core";
 import { ObjectURLCache } from "./object-url-cache";
-import { readZip, writeZip, type ZipEntry } from "./zip";
+import { exportEntries, importEntries } from "./zip";
 
 interface FileRecord {
   path: string;
@@ -18,8 +17,6 @@ interface SlideAppDB extends DBSchema {
   files: { key: string; value: FileRecord };
   meta: { key: string; value: { key: string; value: unknown } };
 }
-
-const IMPORT_BATCH = 50;
 
 function toEntry(r: FileRecord): FileEntry {
   return {
@@ -44,16 +41,16 @@ class IndexedDbVfs implements VFS {
   }
 
   async exists(path: string): Promise<boolean> {
-    return (await this.db.get("files", normalize(path))) !== undefined;
+    return (await this.db.get("files", normalizePath(path))) !== undefined;
   }
 
   async stat(path: string): Promise<FileEntry | null> {
-    const r = await this.db.get("files", normalize(path));
+    const r = await this.db.get("files", normalizePath(path));
     return r ? toEntry(r) : null;
   }
 
   private async record(path: string): Promise<FileRecord> {
-    const r = await this.db.get("files", normalize(path));
+    const r = await this.db.get("files", normalizePath(path));
     if (!r) throw new Error(`File not found: ${path}`);
     if (r.kind !== "file" || !r.data) throw new Error(`Not a file: ${path}`);
     return r;
@@ -73,12 +70,12 @@ class IndexedDbVfs implements VFS {
   }
 
   getObjectURL(path: string): Promise<string> {
-    return this.urls.get(normalize(path));
+    return this.urls.get(normalizePath(path));
   }
 
   // --- Write ---
   private async ensureParents(path: string): Promise<void> {
-    const parts = normalize(path).split("/").filter(Boolean);
+    const parts = normalizePath(path).split("/").filter(Boolean);
     let cur = "";
     for (let i = 0; i < parts.length - 1; i++) {
       cur += "/" + parts[i];
@@ -90,7 +87,7 @@ class IndexedDbVfs implements VFS {
   }
 
   private async writeBytes(path: string, data: Uint8Array, mimeType: string): Promise<void> {
-    const p = normalize(path);
+    const p = normalizePath(path);
     const existed = (await this.db.get("files", p)) !== undefined;
     await this.ensureParents(p);
     await this.db.put("files", {
@@ -115,7 +112,7 @@ class IndexedDbVfs implements VFS {
   }
 
   async createFolder(path: string): Promise<void> {
-    const p = normalize(path);
+    const p = normalizePath(path);
     if (await this.db.get("files", p)) return;
     await this.ensureParents(p);
     await this.db.put("files", { path: p, kind: "folder", modifiedAt: Date.now() });
@@ -123,7 +120,7 @@ class IndexedDbVfs implements VFS {
   }
 
   async delete(path: string): Promise<void> {
-    const p = normalize(path);
+    const p = normalizePath(path);
     const tx = this.db.transaction("files", "readwrite");
     const keys = (await tx.store.getAllKeys()) as string[];
     const targets = keys.filter((k) => k === p || k.startsWith(p + "/"));
@@ -136,8 +133,8 @@ class IndexedDbVfs implements VFS {
   }
 
   async move(from: string, to: string): Promise<void> {
-    const f = normalize(from);
-    const t = normalize(to);
+    const f = normalizePath(from);
+    const t = normalizePath(to);
     if (f === t) return;
     if (t.startsWith(f + "/")) throw new Error("Cannot move into its own descendant");
 
@@ -160,8 +157,8 @@ class IndexedDbVfs implements VFS {
   }
 
   async copy(from: string, to: string): Promise<void> {
-    const f = normalize(from);
-    const t = normalize(to);
+    const f = normalizePath(from);
+    const t = normalizePath(to);
     const all = await this.db.getAll("files");
     const affected = all.filter((r) => r.path === f || r.path.startsWith(f + "/"));
     if (affected.length === 0) throw new Error(`Copy source does not exist: ${f}`);
@@ -174,24 +171,12 @@ class IndexedDbVfs implements VFS {
   }
 
   // --- Bulk ---
-  async importZip(blob: Blob, targetDir = "/"): Promise<void> {
-    const entries = await readZip(blob);
-    for (let i = 0; i < entries.length; i += IMPORT_BATCH) {
-      for (const e of entries.slice(i, i + IMPORT_BATCH)) {
-        const p = normalize(join(targetDir, e.path));
-        await this.writeBytes(p, e.data, mimeFromPath(p));
-      }
-    }
+  importZip(blob: Blob, targetDir = "/"): Promise<void> {
+    return importEntries(this, blob, targetDir);
   }
 
-  async exportZip(): Promise<Blob> {
-    const all = await this.db.getAll("files");
-    const entries: ZipEntry[] = [];
-    for (const r of all) {
-      if (r.kind !== "file" || !r.data) continue;
-      entries.push({ path: r.path.replace(/^\//, ""), data: r.data });
-    }
-    return writeZip(entries);
+  exportZip(): Promise<Blob> {
+    return exportEntries(this);
   }
 
   async clear(): Promise<void> {

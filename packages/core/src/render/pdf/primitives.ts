@@ -18,10 +18,7 @@ import { rectY, flipY } from "./coords";
 import { type EmbeddedFonts, pickFont } from "./fonts";
 import { PipelineError } from "../../lib/error";
 import type { SvgRasterizer } from "./svg-raster";
-
-// Synthetic italic: ~14 deg skew, applied around the run's baseline so the
-// horizontal advance is unchanged and the measured layout still matches.
-const ITALIC_SKEW = Math.tan((14 * Math.PI) / 180);
+import { ITALIC_SKEW } from "../italic";
 
 function toColor(hex: string): Color {
   const { r, g, b } = hexToRgb01(hex);

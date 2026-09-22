@@ -1,6 +1,6 @@
 import { type PDFDocument, type PDFFont, StandardFonts } from "pdf-lib";
-import fontkit from "@pdf-lib/fontkit";
 import type { LoadedFont } from "../../lower/context";
+import { createFkFont } from "../../lower/fontkit-metrics";
 import { PipelineError } from "../../lib/error";
 import { readCffName } from "./cff-name";
 
@@ -58,7 +58,7 @@ async function embedOne(
   // to the embedded CFF's self-identification keeps tools that cross-check
   // the two from getting confused. TTF sources have no CFF and fall back
   // to the OT name via fontkit.
-  const psName = readCffName(bytes) ?? readPostscriptName(bytes) ?? lf.family;
+  const psName = readCffName(bytes) ?? createFkFont(bytes)?.postscriptName ?? lf.family;
   try {
     return await pdf.embedFont(bytes, {
       subset: true,
@@ -76,19 +76,6 @@ async function embedOne(
       errors.push(new PipelineError(`Font embed failed: ${lf.family} (${String(e)})`));
       return undefined;
     }
-  }
-}
-
-// Open the font file once via fontkit to read its postscriptName. Returns
-// undefined when the file isn't a font fontkit recognises -- the caller falls
-// back to the family name, which is good enough for PDF lookup.
-function readPostscriptName(bytes: Uint8Array): string | undefined {
-  try {
-    // Cast through unknown: @pdf-lib/fontkit's typings expose .create
-    const f = (fontkit as unknown as { create: (b: Uint8Array) => { postscriptName?: string } }).create(bytes);
-    return f.postscriptName ?? undefined;
-  } catch {
-    return undefined;
   }
 }
 

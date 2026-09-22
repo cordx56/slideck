@@ -1,7 +1,7 @@
 import { PDFDocument, type PDFImage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import type { CompiledDeck } from "../../pipeline";
-import { lowerSlide } from "../../pipeline";
+import { lowerAllSlides, usedFonts } from "../../pipeline";
 import { hexToRgb01 } from "../../lib/color";
 import { rgb } from "pdf-lib";
 import { embedFonts } from "./fonts";
@@ -43,22 +43,9 @@ export async function renderPdf(
   // font has zero glyph references (the subset is empty and the encoder
   // overflows). Restricting the embed set to fonts that show up in some text
   // run sidesteps the crash for fonts declared in fonts:{} but never drawn.
-  const slideLirs = compiled.deck.slides
-    .map((_, i) => lowerSlide(compiled, i))
-    .filter((lir): lir is NonNullable<typeof lir> => lir !== undefined);
+  const slideLirs = lowerAllSlides(compiled);
 
-  const usedFamilies = new Set<string>();
-  for (const lir of slideLirs) {
-    for (const prim of lir.primitives) {
-      if (prim.kind !== "text") continue;
-      for (const run of prim.runs) usedFamilies.add(run.font.family);
-    }
-  }
-  const usedFonts = new Map(
-    [...compiled.fonts].filter(([family]) => usedFamilies.has(family)),
-  );
-
-  const fonts = await embedFonts(pdf, usedFonts, errors);
+  const fonts = await embedFonts(pdf, usedFonts(compiled, slideLirs), errors);
   const imageCache = new Map<Uint8Array, PDFImage>();
   const rasterizeSvg = options.rasterizeSvg ?? browserSvgRasterizer;
 

@@ -15,6 +15,7 @@ export * from "./load/ttc";
 // Schema / IR types
 export * from "./schema";
 export type * from "./ir";
+export { childElements, walkElements } from "./ir/walk";
 
 // lower (position resolution/layout/shaping) and metrics
 export { lower } from "./lower";

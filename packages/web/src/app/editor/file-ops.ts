@@ -1,5 +1,5 @@
 import type { VFS } from "../../vfs";
-import { join, normalize, extname } from "@slideck/core";
+import { joinPath, normalizePath, extname } from "@slideck/core";
 
 export interface UploadEntry {
   path: string; // path relative to the target (includes hierarchy for directory drops)
@@ -13,11 +13,11 @@ function stem(name: string): [string, string] {
 
 // Return a unique name within dir that does not collide ("x.png" -> "x copy.png" ...).
 export async function uniqueName(vfs: VFS, dir: string, name: string): Promise<string> {
-  if (!(await vfs.exists(normalize(join(dir, name))))) return name;
+  if (!(await vfs.exists(normalizePath(joinPath(dir, name))))) return name;
   const [base, ext] = stem(name);
   for (let i = 1; ; i++) {
     const candidate = i === 1 ? `${base} copy${ext}` : `${base} copy ${i}${ext}`;
-    if (!(await vfs.exists(normalize(join(dir, candidate))))) return candidate;
+    if (!(await vfs.exists(normalizePath(joinPath(dir, candidate))))) return candidate;
   }
 }
 
@@ -29,7 +29,7 @@ export async function detectConflicts(
 ): Promise<string[]> {
   const conflicts: string[] = [];
   for (const rel of relPaths) {
-    if (await vfs.exists(normalize(join(targetDir, rel)))) conflicts.push(rel);
+    if (await vfs.exists(normalizePath(joinPath(targetDir, rel)))) conflicts.push(rel);
   }
   return conflicts;
 }

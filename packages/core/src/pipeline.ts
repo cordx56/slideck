@@ -5,7 +5,7 @@ import type { MirDeck } from "./ir/mir";
 import type { SlideLir } from "./ir/lir";
 import type { LowerCtx, LoadedFont } from "./lower/context";
 import { loadDeck } from "./load/resolve-refs";
-import { normalize } from "./normalize";
+import { normalize, type NormalizeResult } from "./normalize";
 import { prepare } from "./load/prepare";
 import { lower } from "./lower";
 import { renderSvgString, type SvgRenderOptions } from "./render/svg";
@@ -28,15 +28,21 @@ export interface CompileOptions {
   entry?: string;
 }
 
+export async function loadAndNormalize(
+  resolver: AssetResolver,
+  entry = "/deck.yaml",
+): Promise<NormalizeResult> {
+  const loaded = await loadDeck(resolver, entry);
+  if (!loaded.loaded) return { errors: loaded.errors };
+  return normalize(loaded.loaded);
+}
+
 // Load the project and build MIR plus the resources needed for lower.
 export async function compileDeck(
   resolver: AssetResolver,
   options: CompileOptions = {},
 ): Promise<CompileResult> {
-  const loaded = await loadDeck(resolver, options.entry ?? "deck.yaml");
-  if (!loaded.loaded) return { errors: loaded.errors };
-
-  const normalized = normalize(loaded.loaded);
+  const normalized = await loadAndNormalize(resolver, options.entry);
   if (!normalized.deck) return { errors: normalized.errors };
 
   const errors = [...normalized.errors];
@@ -45,27 +51,9 @@ export async function compileDeck(
   return { compiled: { deck: normalized.deck, ctx, fonts }, errors };
 }
 
-export interface RecompileResult {
-  deck?: MirDeck;
-  errors: PipelineError[];
-}
-
 export interface RenderSlideSvgOptions extends SvgRenderOptions {
   // Include every font used by the slide as a data URL for a standalone SVG.
   embedFonts?: boolean;
-}
-
-// Lightweight recompile for deck text edits. Skips prepare (font/image loading)
-// and does only parse + normalize. The caller reuses the existing ctx/fonts.
-export async function recompileDeck(
-  resolver: AssetResolver,
-  entry = "deck.yaml",
-): Promise<RecompileResult> {
-  const loaded = await loadDeck(resolver, entry);
-  if (!loaded.loaded) return { errors: loaded.errors };
-  const normalized = normalize(loaded.loaded);
-  if (!normalized.deck) return { errors: normalized.errors };
-  return { deck: normalized.deck, errors: normalized.errors };
 }
 
 // Lower the given slide to LIR.
@@ -73,6 +61,21 @@ export function lowerSlide(compiled: CompiledDeck, index: number): SlideLir | un
   const slide = compiled.deck.slides[index];
   if (!slide) return undefined;
   return lower(slide, compiled.deck, compiled.ctx);
+}
+
+export function lowerAllSlides(compiled: CompiledDeck): SlideLir[] {
+  return compiled.deck.slides.map((slide) => lower(slide, compiled.deck, compiled.ctx));
+}
+
+export function usedFonts(compiled: CompiledDeck, lirs: SlideLir[]): Map<string, LoadedFont> {
+  const usedFamilies = new Set<string>();
+  for (const lir of lirs) {
+    for (const primitive of lir.primitives) {
+      if (primitive.kind !== "text") continue;
+      for (const run of primitive.runs) usedFamilies.add(run.font.family);
+    }
+  }
+  return new Map([...compiled.fonts].filter(([family]) => usedFamilies.has(family)));
 }
 
 // Render the given slide to an SVG string.
@@ -85,17 +88,10 @@ export function renderSlideSvg(
   if (!lir) return undefined;
   if (!svgOptions.embedFonts || svgOptions.fontFaces) return renderSvgString(lir, svgOptions);
 
-  const usedFamilies = new Set<string>();
-  for (const primitive of lir.primitives) {
-    if (primitive.kind !== "text") continue;
-    for (const run of primitive.runs) usedFamilies.add(run.font.family);
-  }
-  const fontFaces = [...compiled.fonts]
-    .filter(([family]) => usedFamilies.has(family))
-    .map(([, font]) => ({
-      family: font.family,
-      dataUrl: dataUri("font/ttf", font.bytes),
-      format: "truetype",
-    }));
+  const fontFaces = [...usedFonts(compiled, [lir]).values()].map((font) => ({
+    family: font.family,
+    dataUrl: dataUri("font/ttf", font.bytes),
+    format: "truetype",
+  }));
   return renderSvgString(lir, { ...svgOptions, fontFaces });
 }

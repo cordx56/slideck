@@ -1,6 +1,6 @@
 import { parseDocument, isSeq, type Document } from "yaml";
 import type { z } from "zod";
-import { PipelineError, joinPath } from "../lib/error";
+import { PipelineError, formatIssuePath } from "../lib/error";
 
 export interface ParseOutput<T> {
   value?: T;
@@ -41,7 +41,7 @@ export function parseAndValidate<T>(
     // zod 4 types path as PropertyKey[]; YAML-derived paths never contain symbols.
     const path = iss.path as (string | number)[];
     const offset = offsetForPath(doc, path);
-    const where = path.length > 0 ? ` at ${joinPath(path)}` : "";
+    const where = path.length > 0 ? ` at ${formatIssuePath(path)}` : "";
     return new PipelineError(`${label}: ${iss.message}${where}`, {
       path,
       offset,

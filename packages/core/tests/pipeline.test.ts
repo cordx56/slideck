@@ -36,7 +36,7 @@ slides:
 
 describe("compileDeck (end-to-end)", () => {
   it("loads and renders a YAML project", async () => {
-    const resolver = resolverFrom({ "deck.yaml": deck, "theme.yaml": theme });
+    const resolver = resolverFrom({ "/deck.yaml": deck, "/theme.yaml": theme });
     const { compiled, errors } = await compileDeck(resolver);
     expect(errors).toHaveLength(0);
     expect(compiled).toBeTruthy();
@@ -51,7 +51,7 @@ describe("compileDeck (end-to-end)", () => {
   });
 
   it("missing bases is an error", async () => {
-    const resolver = resolverFrom({ "deck.yaml": "slides: [{ id: x }]" });
+    const resolver = resolverFrom({ "/deck.yaml": "slides: [{ id: x }]" });
     const { compiled, errors } = await compileDeck(resolver);
     expect(compiled).toBeFalsy();
     expect(errors.length).toBeGreaterThan(0);
@@ -59,7 +59,7 @@ describe("compileDeck (end-to-end)", () => {
 
   it("keeps KaTeX fonts isolated from text roles and embeds used faces on request", async () => {
     const mathTheme = theme.replace("text: \${title}", 'text: "**Bold** $x^2$"');
-    const resolver = resolverFrom({ "deck.yaml": deck, "theme.yaml": mathTheme });
+    const resolver = resolverFrom({ "/deck.yaml": deck, "/theme.yaml": mathTheme });
     const { compiled, errors } = await compileDeck(resolver);
     expect(errors).toHaveLength(0);
     expect(compiled).toBeTruthy();

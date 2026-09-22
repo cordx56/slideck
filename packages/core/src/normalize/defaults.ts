@@ -16,7 +16,7 @@ export const TEXT_FALLBACK = {
 // Numeric text-defaults can be a "${var}" reference (resolved later) or a
 // literal number; the merge step only fills in the fallback when the field
 // is *missing*, not based on type. The actual variable resolution is the
-// caller's job (see resolveTextDefaultsFor in normalize/index.ts).
+// caller's job (see resolveTextDefaults in normalize/text-style.ts).
 export interface MergedTextDefaults {
   family: string;
   size: NumericValue;
@@ -38,7 +38,7 @@ export interface ResolvedTextDefaults {
 }
 
 // Merge theme.defaults.text with the fallback. ${var} references survive
-// unchanged through this step -- they're resolved in resolveTextDefaultsFor.
+// unchanged through this step -- they're resolved in resolveTextDefaults.
 export function mergeTextDefaults(td: TextDefaults | undefined): MergedTextDefaults {
   return {
     family: td?.family ?? TEXT_FALLBACK.family,

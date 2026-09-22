@@ -103,7 +103,7 @@ async function cmdExport(args: string[]): Promise<void> {
 
   const deckPath = resolve(deck);
   const root = dirname(deckPath);
-  const entry = basename(deckPath);
+  const entry = "/" + basename(deckPath);
 
   // Verify deck.yaml is readable (for a clearer error).
   await readFile(deckPath, "utf8").catch(() => {

@@ -4,7 +4,7 @@ import {
   OverrideResolver,
   CachingResolver,
 } from "../src/load/assets";
-import { recompileDeck } from "../src/pipeline";
+import { loadAndNormalize } from "../src/pipeline";
 import type { MirText } from "../src/ir";
 
 const theme = `
@@ -20,13 +20,13 @@ function base(deckText: string) {
   const enc = new TextEncoder();
   return new MemoryAssetResolver(
     new Map([
-      ["deck.yaml", enc.encode(deckText)],
-      ["theme.yaml", enc.encode(theme)],
+      ["/deck.yaml", enc.encode(deckText)],
+      ["/theme.yaml", enc.encode(theme)],
     ]),
   );
 }
 
-describe("OverrideResolver + recompileDeck (live edit)", () => {
+describe("OverrideResolver + loadAndNormalize (live edit)", () => {
   it("replaces disk with in-memory deck text", async () => {
     const mkDeck = (t: string) =>
       `bases: [{ id: standard, file: ./theme.yaml }]\nslides: [{ id: s, use: standard, vars: { title: ${t} } }]`;
@@ -34,10 +34,10 @@ describe("OverrideResolver + recompileDeck (live edit)", () => {
     const edited = mkDeck("edited");
     const resolver = new OverrideResolver(
       onDisk,
-      new Map([["deck.yaml", edited]]),
+      new Map([["/deck.yaml", edited]]),
     );
 
-    const { deck, errors } = await recompileDeck(resolver);
+    const { deck, errors } = await loadAndNormalize(resolver);
     expect(errors).toHaveLength(0);
     expect((deck!.slides[0].elements[0] as MirText).text).toBe("edited");
   });
@@ -45,9 +45,9 @@ describe("OverrideResolver + recompileDeck (live edit)", () => {
   it("returns errors on invalid YAML edits (deck is undefined)", async () => {
     const resolver = new OverrideResolver(
       base("x"),
-      new Map([["deck.yaml", "slides: [}"]]),
+      new Map([["/deck.yaml", "slides: [}"]]),
     );
-    const { deck, errors } = await recompileDeck(resolver);
+    const { deck, errors } = await loadAndNormalize(resolver);
     expect(deck).toBeFalsy();
     expect(errors.length).toBeGreaterThan(0);
   });
@@ -57,7 +57,7 @@ describe("CachingResolver", () => {
   it("reads bytes for the same path once and returns the same reference", async () => {
     let reads = 0;
     const inner: MemoryAssetResolver = new MemoryAssetResolver(
-      new Map([["a.bin", new Uint8Array([1, 2, 3])]]),
+      new Map([["/a.bin", new Uint8Array([1, 2, 3])]]),
     );
     const counting = {
       readText: inner.readText.bind(inner),
@@ -68,8 +68,8 @@ describe("CachingResolver", () => {
       exists: inner.exists.bind(inner),
     };
     const caching = new CachingResolver(counting);
-    const a = await caching.readBytes("a.bin");
-    const b = await caching.readBytes("a.bin");
+    const a = await caching.readBytes("/a.bin");
+    const b = await caching.readBytes("/a.bin");
     expect(reads).toBe(1);
     expect(a).toBe(b); // same reference (assumes fontkit memoization works)
   });

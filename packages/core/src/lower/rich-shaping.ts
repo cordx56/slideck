@@ -1,8 +1,9 @@
-import type { Align, RichStyle } from "../ir/hir";
+import type { RichStyle } from "../ir/mir";
 import type { FontRef } from "../ir/lir";
 import { type FontMetrics, isCJK } from "./metrics";
 import { parseRich, type RichSegment } from "../lib/richtext";
 import { renderMath, type MathItem } from "../lib/math";
+import type { TextStyle } from "./text-shaping";
 
 // Lower rich text (inline markdown + math) into placed run / math sequences.
 // A mixed variant of shapeText. Coords use box top-left origin (x=left, baseline=y from top).
@@ -220,16 +221,13 @@ function trimTrailing(line: Atom[]): Atom[] {
 
 export function shapeRich(
   text: string,
-  baseFont: string,
-  size: number,
+  style: TextStyle,
   maxWidth: number,
-  align: Align,
-  lineHeight: number,
-  letterSpacing: number,
   metrics: FontMetrics,
   rich: RichStyle,
   color: string,
 ): RichLayout {
+  const { font: baseFont, size, align, lineHeight, letterSpacing } = style;
   const atoms = buildAtoms(parseRich(text), baseFont, size, letterSpacing, metrics, rich);
   const lines = wrap(atoms, maxWidth);
   const lineBox = size * lineHeight;

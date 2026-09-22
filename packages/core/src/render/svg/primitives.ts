@@ -1,5 +1,6 @@
 import type { Primitive, Stroke } from "../../ir/lir";
 import { dataUri } from "../../lib/base64";
+import { ITALIC_SKEW } from "../italic";
 
 export function escapeXml(s: string): string {
   return s
@@ -42,10 +43,6 @@ function strokeAttrs(stroke: Stroke | undefined): string {
   if (!stroke) return "";
   return ` stroke="${escapeXml(stroke.color)}" stroke-width="${num(stroke.width)}"`;
 }
-
-// CSS / browsers use ~14 deg for synthetic italic; horizontal advance is
-// unaffected so the measured layout still matches.
-const ITALIC_SKEW = Math.tan((14 * Math.PI) / 180);
 
 // SkewX around the baseline (y = baselineY). The transform sends
 // (x, y) -> (x - K*(y - baselineY), y), keeping the baseline fixed and tilting

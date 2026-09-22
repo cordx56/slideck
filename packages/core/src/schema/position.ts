@@ -7,6 +7,16 @@ export type Dimension =
   | { kind: "px"; value: number }
   | { kind: "center" };
 
+export function percent(value: number): Dimension {
+  return { kind: "percent", value };
+}
+
+export function px(value: number): Dimension {
+  return { kind: "px", value };
+}
+
+export const ZERO_LENGTH: Dimension = percent(0);
+
 const NUM_UNIT_RE = /^\s*(-?\d+(?:\.\d+)?)\s*(%|px)?\s*$/;
 
 // Convert a raw YAML value (string | number) to a Dimension.
@@ -14,7 +24,7 @@ const NUM_UNIT_RE = /^\s*(-?\d+(?:\.\d+)?)\s*(%|px)?\s*$/;
 export function parseDimension(raw: unknown, allowCenter: boolean): Dimension | null {
   if (typeof raw === "number") {
     if (!Number.isFinite(raw)) return null;
-    return { kind: "px", value: raw };
+    return px(raw);
   }
   if (typeof raw !== "string") return null;
   const trimmed = raw.trim();
@@ -25,8 +35,8 @@ export function parseDimension(raw: unknown, allowCenter: boolean): Dimension | 
   if (!m) return null;
   const value = parseFloat(m[1]);
   const unit = m[2];
-  if (unit === "%") return { kind: "percent", value };
-  return { kind: "px", value };
+  if (unit === "%") return percent(value);
+  return px(value);
 }
 
 function dimensionSchema(allowCenter: boolean) {

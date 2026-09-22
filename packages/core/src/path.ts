@@ -1,7 +1,7 @@
 // VFS paths are always absolute, "/"-separated, with no trailing slash. Root is "/".
 
 // "/a/../b//c/." -> "/b/c". A reference that escapes root is an error.
-export function normalize(p: string): string {
+export function normalizePath(p: string): string {
   const parts = p.split("/");
   const out: string[] = [];
   for (const part of parts) {
@@ -17,18 +17,18 @@ export function normalize(p: string): string {
 }
 
 export function dirname(p: string): string {
-  const n = normalize(p);
+  const n = normalizePath(p);
   if (n === "/") return "/";
   const i = n.lastIndexOf("/");
   return i <= 0 ? "/" : n.slice(0, i);
 }
 
 export function basename(p: string): string {
-  const n = normalize(p);
+  const n = normalizePath(p);
   return n === "/" ? "" : n.slice(n.lastIndexOf("/") + 1);
 }
 
-export function join(...parts: string[]): string {
+export function joinPath(...parts: string[]): string {
   return parts.filter((s) => s !== "").join("/");
 }
 
@@ -42,14 +42,14 @@ export function extname(p: string): string {
 // Resolve a reference inside YAML to an absolute path.
 // "/..." is absolute; "./...", "name.ext", and "../..." are relative to the containing file.
 export function resolvePath(reference: string, containingFile: string): string {
-  if (reference.startsWith("/")) return normalize(reference);
-  return normalize(join(dirname(containingFile), reference));
+  if (reference.startsWith("/")) return normalizePath(reference);
+  return normalizePath(joinPath(dirname(containingFile), reference));
 }
 
 // Whether an absolute path is a descendant of another directory (excluding itself).
 export function isDescendant(path: string, ancestorDir: string): boolean {
-  const a = normalize(ancestorDir);
-  const p = normalize(path);
+  const a = normalizePath(ancestorDir);
+  const p = normalizePath(path);
   if (a === "/") return p !== "/";
   return p.startsWith(a + "/");
 }

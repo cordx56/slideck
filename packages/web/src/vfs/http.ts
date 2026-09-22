@@ -9,9 +9,15 @@ import type {
   ServerInfo,
   VfsEventMessage,
 } from "@slideck/core";
-import { VfsApi, CLIENT_HEADER, MIME_HEADER, normalize, mimeFromPath, join } from "@slideck/core";
-import { EventBus } from "./events";
-import { readZip, writeZip, type ZipEntry } from "./zip";
+import {
+  EventBus,
+  VfsApi,
+  CLIENT_HEADER,
+  MIME_HEADER,
+  normalizePath,
+  mimeFromPath,
+} from "@slideck/core";
+import { exportEntries, importEntries } from "./zip";
 
 const JSON_CT = { "content-type": "application/json" };
 
@@ -78,7 +84,7 @@ class HttpVfs implements VFS {
 
   // --- Write (like the IndexedDB impl, emit events optimistically to local) ---
   async writeText(path: string, text: string): Promise<void> {
-    const p = normalize(path);
+    const p = normalizePath(path);
     const existed = await this.exists(p);
     await fetch(VfsApi.file(p), {
       method: "PUT",
@@ -89,7 +95,7 @@ class HttpVfs implements VFS {
   }
 
   async writeBlob(path: string, blob: Blob, mimeType?: string): Promise<void> {
-    const p = normalize(path);
+    const p = normalizePath(path);
     const existed = await this.exists(p);
     await fetch(VfsApi.file(p), {
       method: "PUT",
@@ -100,14 +106,14 @@ class HttpVfs implements VFS {
   }
 
   async createFolder(path: string): Promise<void> {
-    const p = normalize(path);
+    const p = normalizePath(path);
     await fetch(VfsApi.folder(p), { method: "POST", headers: this.h() });
     this.bus.emit({ type: "create", path: p });
   }
 
   async move(from: string, to: string): Promise<void> {
-    const f = normalize(from);
-    const t = normalize(to);
+    const f = normalizePath(from);
+    const t = normalizePath(to);
     const body: PathPairBody = { from: f, to: t };
     await fetch(VfsApi.move, {
       method: "POST",
@@ -118,8 +124,8 @@ class HttpVfs implements VFS {
   }
 
   async copy(from: string, to: string): Promise<void> {
-    const f = normalize(from);
-    const t = normalize(to);
+    const f = normalizePath(from);
+    const t = normalizePath(to);
     const body: PathPairBody = { from: f, to: t };
     await fetch(VfsApi.copy, {
       method: "POST",
@@ -130,30 +136,18 @@ class HttpVfs implements VFS {
   }
 
   async delete(path: string): Promise<void> {
-    const p = normalize(path);
+    const p = normalizePath(path);
     await fetch(VfsApi.file(p), { method: "DELETE", headers: this.h() });
     this.bus.emit({ type: "delete", path: p });
   }
 
   // --- Bulk (ZIP is handled client-side using the other methods) ---
-  async exportZip(): Promise<Blob> {
-    const entries: ZipEntry[] = [];
-    for (const f of await this.list()) {
-      if (f.kind !== "file") continue;
-      entries.push({ path: f.path.replace(/^\//, ""), data: await this.readBytes(f.path) });
-    }
-    return writeZip(entries);
+  exportZip(): Promise<Blob> {
+    return exportEntries(this);
   }
 
-  async importZip(blob: Blob, targetDir = "/"): Promise<void> {
-    for (const e of await readZip(blob)) {
-      const p = normalize(join(targetDir, e.path));
-      await this.writeBlob(
-        p,
-        new Blob([e.data as BlobPart], { type: mimeFromPath(p) }),
-        mimeFromPath(p),
-      );
-    }
+  importZip(blob: Blob, targetDir = "/"): Promise<void> {
+    return importEntries(this, blob, targetDir);
   }
 
   clear(): Promise<void> {

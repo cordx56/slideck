@@ -12,7 +12,14 @@
     type TreeCtx,
   } from "./tree";
   import { readDataTransferEntries, detectConflicts, uniqueName } from "./file-ops";
-  import { basename, dirname, join, normalize, isValidName, isDescendant } from "@slideck/core";
+  import {
+    basename,
+    dirname,
+    joinPath,
+    normalizePath,
+    isValidName,
+    isDescendant,
+  } from "@slideck/core";
 
   const tree = $derived(buildTree(store.files, store.showHidden));
 
@@ -34,12 +41,12 @@
   async function newFile(dir: string) {
     const name = await uniqueName(vfs(), dir, "untitled.yaml");
     await store.createFile(dir, name);
-    renamingPath = normalize(join(dir, name));
+    renamingPath = normalizePath(joinPath(dir, name));
   }
   async function newFolder(dir: string) {
     const name = await uniqueName(vfs(), dir, "new-folder");
     await store.createFolder(dir, name);
-    renamingPath = normalize(join(dir, name));
+    renamingPath = normalizePath(joinPath(dir, name));
   }
 
   async function uploadFiles(items: DataTransferItemList, toDir: string) {

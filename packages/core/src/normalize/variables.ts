@@ -148,9 +148,7 @@ export function resolveNumber(
     n = parseFloat(expanded);
     if (!Number.isFinite(n)) {
       errors.push(
-        new PipelineError(
-          `expected a number${field(opts)}, got ${JSON.stringify(expanded)}`,
-        ),
+        new PipelineError(`expected a number${field(opts)}, got ${JSON.stringify(expanded)}`),
       );
       return undefined;
     }
@@ -164,9 +162,7 @@ export function resolveNumber(
     return undefined;
   }
   if (opts?.nonnegative && !(n >= 0)) {
-    errors.push(
-      new PipelineError(`expected a non-negative number${field(opts)}, got ${n}`),
-    );
+    errors.push(new PipelineError(`expected a non-negative number${field(opts)}, got ${n}`));
     return undefined;
   }
   return n;

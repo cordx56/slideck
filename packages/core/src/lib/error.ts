@@ -18,7 +18,8 @@ export class PipelineError extends Error {
   }
 }
 
-export function joinPath(path: (string | number)[]): string {
+// Format a zod issue path for messages: ["slides", 0, "text"] -> slides[0].text
+export function formatIssuePath(path: (string | number)[]): string {
   return path
     .map((p) => (typeof p === "number" ? `[${p}]` : p))
     .join(".")

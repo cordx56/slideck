@@ -1,31 +1,29 @@
 import type { AssetResolver } from "./assets";
-import { resolveFrom } from "./assets";
 import { parseAndValidate } from "./parse";
 import { DeckSchema, BaseSchema } from "../schema";
 import type { DeckHir, BaseHir, HirElement } from "../ir/hir";
+import { walkElements } from "../ir/walk";
 import { PipelineError } from "../lib/error";
+import { resolvePath } from "../path";
 
 // Resolve asset references (image.src / font.path) to an absolute path (root-relative),
 // treating them as relative to the declaring file. Those with ${...} are deferred to
 // after variable expansion.
 function resolveRef(ref: string, fromFile: string): string {
-  return ref.includes("${") ? ref : resolveFrom(fromFile, ref);
+  return ref.includes("${") ? ref : resolvePath(ref, fromFile);
 }
 
-// Walk the element tree and resolve image.src relative to fromFile (recurses into group).
+// Walk the element tree and resolve image.src relative to fromFile.
 function resolveElementPaths(elements: HirElement[], fromFile: string): void {
-  for (const el of elements) {
+  walkElements(elements, (el) => {
     if (el.type === "image") el.src = resolveRef(el.src, fromFile);
-    else if (el.type === "group") resolveElementPaths(el.children, fromFile);
-    else if (el.type === "ul" || el.type === "ol") resolveElementPaths(el.items, fromFile);
-  }
+  });
 }
 
 export interface LoadedDeck {
   deck: DeckHir;
   // base id -> resolved base (after applying extends). Order/always refer to deck.bases.
   basesById: Map<string, BaseHir>;
-  resolver: AssetResolver;
 }
 
 export interface LoadResult {
@@ -85,7 +83,7 @@ async function loadBaseFile(
   if (base.layout) resolveElementPaths(base.layout, path);
 
   if (base.extends) {
-    const parentPath = resolveFrom(path, base.extends);
+    const parentPath = resolvePath(base.extends, path);
     const parent = await loadBaseFile(resolver, parentPath, seen, errors);
     if (!parent) return undefined;
     return mergeBase(parent, base);
@@ -93,7 +91,7 @@ async function loadBaseFile(
   return base;
 }
 
-export async function loadDeck(resolver: AssetResolver, entry = "deck.yaml"): Promise<LoadResult> {
+export async function loadDeck(resolver: AssetResolver, entry = "/deck.yaml"): Promise<LoadResult> {
   const errors: PipelineError[] = [];
 
   let deckText: string;
@@ -117,12 +115,12 @@ export async function loadDeck(resolver: AssetResolver, entry = "deck.yaml"): Pr
   // Load each base file and map them by id.
   const basesById = new Map<string, BaseHir>();
   for (const ref of deck.bases) {
-    const path = resolveFrom(entry, ref.file);
+    const path = resolvePath(ref.file, entry);
     const base = await loadBaseFile(resolver, path, new Set(), errors);
     if (base) basesById.set(ref.id, base);
   }
 
   if (errors.length > 0) return { errors };
 
-  return { loaded: { deck, basesById, resolver }, errors: [] };
+  return { loaded: { deck, basesById }, errors: [] };
 }

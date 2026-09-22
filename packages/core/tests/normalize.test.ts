@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { normalize } from "../src/normalize";
-import { MemoryAssetResolver } from "../src/load/assets";
 import type { LoadedDeck } from "../src/load/resolve-refs";
 import type { BaseHir, SlideHir, MirText } from "../src/ir";
 
@@ -22,7 +21,6 @@ function loaded(
       slides,
     },
     basesById: new Map(bases.map((b) => [b.id, b.base])),
-    resolver: new MemoryAssetResolver(new Map()),
   };
 }
 

@@ -1,6 +1,14 @@
 import type { Align } from "../ir/hir";
 import { type FontMetrics, isCJK } from "./metrics";
 
+export interface TextStyle {
+  font: string;
+  size: number;
+  align: Align;
+  lineHeight: number;
+  letterSpacing: number;
+}
+
 export interface ShapedLine {
   text: string;
   x: number; // x offset from box left edge (after align)
@@ -102,14 +110,11 @@ function wrapParagraph(
 // Shape text into lines. The single wrapping routine shared by SVG/PDF.
 export function shapeText(
   text: string,
-  font: string,
-  size: number,
+  style: TextStyle,
   maxWidth: number,
-  align: Align,
-  lineHeight: number,
-  letterSpacing: number,
   metrics: FontMetrics,
 ): ShapedText {
+  const { font, size, align, lineHeight, letterSpacing } = style;
   const paragraphs = text.split("\n");
   const rawLines: string[] = [];
   for (const p of paragraphs) {

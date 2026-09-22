@@ -3,6 +3,7 @@ import { ApproximateMetrics, type FontMetrics } from "./metrics";
 
 // Type only the parts of fontkit's Font that we need.
 export interface FkFont {
+  postscriptName?: string;
   unitsPerEm: number;
   ascent: number;
   descent: number;
@@ -17,6 +18,7 @@ export interface FkFont {
 
 // Internal: fontkit's font with the post / head / OS/2 fields we read.
 interface FkRawFont {
+  postscriptName?: string;
   unitsPerEm: number;
   ascent: number;
   descent: number;
@@ -36,6 +38,7 @@ export function createFkFont(bytes: Uint8Array): FkFont | undefined {
     const weightClass = f["OS/2"]?.usWeightClass ?? 400;
     const italicAngle = f.post?.italicAngle ?? 0;
     return {
+      postscriptName: f.postscriptName,
       unitsPerEm: f.unitsPerEm,
       ascent: f.ascent,
       descent: f.descent,

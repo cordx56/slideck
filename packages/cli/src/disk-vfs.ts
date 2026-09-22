@@ -1,8 +1,10 @@
 import { readFile, writeFile, mkdir, rm, stat, readdir, cp, rename } from "node:fs/promises";
-import { join as pjoin, dirname as pdirname, relative, sep } from "node:path";
+import type { Stats } from "node:fs";
+import { join as pjoin, dirname as pdirname } from "node:path";
 import type { VFS, FileEntry, VFSListener } from "@slideck/core";
-import { EventBus, normalize, mimeFromPath } from "@slideck/core";
+import { EventBus, normalizePath, mimeFromPath } from "@slideck/core";
 import { createWatcher, type Watcher } from "./watch";
+import { toVfsPath } from "./paths";
 
 // Top-level names to exclude from the tree / not watch, and the internal meta dir.
 const IGNORE_TOP = new Set([".git", "node_modules"]);
@@ -12,6 +14,18 @@ const META_FILE = ".slideck/meta.json";
 function ignored(relPosix: string): boolean {
   const top = relPosix.split("/")[0];
   return IGNORE_TOP.has(top) || relPosix === META_DIR || relPosix.startsWith(META_DIR + "/");
+}
+
+function fileEntryOf(path: string, stat: Stats): FileEntry {
+  return stat.isDirectory()
+    ? { path, kind: "folder", modifiedAt: stat.mtimeMs }
+    : {
+        path,
+        kind: "file",
+        size: stat.size,
+        mimeType: mimeFromPath(path),
+        modifiedAt: stat.mtimeMs,
+      };
 }
 
 // VFS implementation backed by a project directory. Change notifications come
@@ -28,13 +42,8 @@ export class DiskVfs implements VFS {
 
   // VFS path ("/a/b") -> absolute disk path.
   private disk(p: string): string {
-    const n = normalize(p);
+    const n = normalizePath(p);
     return n === "/" ? this.root : pjoin(this.root, n.slice(1));
-  }
-
-  private toVfs(abs: string): string {
-    const r = relative(this.root, abs).split(sep).join("/");
-    return r === "" ? "/" : "/" + r;
   }
 
   private async ensureParent(diskPath: string): Promise<void> {
@@ -49,21 +58,15 @@ export class DiskVfs implements VFS {
       if (!entries) return;
       for (const ent of entries) {
         const abs = pjoin(absDir, ent.name);
-        const vfs = this.toVfs(abs);
+        const vfs = toVfsPath(this.root, abs);
         if (ignored(vfs.slice(1))) continue;
         const st = await stat(abs).catch(() => null);
         if (!st) continue;
         if (ent.isDirectory()) {
-          out.push({ path: vfs, kind: "folder", modifiedAt: st.mtimeMs });
+          out.push(fileEntryOf(vfs, st));
           await walk(abs);
         } else if (ent.isFile()) {
-          out.push({
-            path: vfs,
-            kind: "file",
-            size: st.size,
-            mimeType: mimeFromPath(vfs),
-            modifiedAt: st.mtimeMs,
-          });
+          out.push(fileEntryOf(vfs, st));
         }
       }
     };
@@ -78,16 +81,8 @@ export class DiskVfs implements VFS {
   async stat(path: string): Promise<FileEntry | null> {
     const st = await stat(this.disk(path)).catch(() => null);
     if (!st) return null;
-    const vfs = normalize(path);
-    return st.isDirectory()
-      ? { path: vfs, kind: "folder", modifiedAt: st.mtimeMs }
-      : {
-          path: vfs,
-          kind: "file",
-          size: st.size,
-          mimeType: mimeFromPath(vfs),
-          modifiedAt: st.mtimeMs,
-        };
+    const vfs = normalizePath(path);
+    return fileEntryOf(vfs, st);
   }
 
   async readBytes(path: string): Promise<Uint8Array> {

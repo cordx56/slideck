@@ -6,14 +6,26 @@ import { parseInlineMath, hasInlineMath, stripInlineMath } from "../src/lib/inli
 import { hasMarkdown, hasRichMarkup, parseRich } from "../src/lib/richtext";
 import { renderMath } from "../src/lib/math";
 import type { Primitive, TextRun } from "../src/ir/lir";
-import type { LowerCtx } from "../src/lower/context";
-import type { MirDeck, MirText } from "../src/ir";
+import { type LowerCtx, EMPTY_FONT_ROLES } from "../src/lower/context";
+import type { MirDeck, MirText, RichStyle } from "../src/ir";
 import type { Dimension } from "../src/schema/position";
 
 const pct = (v: number): Dimension => ({ kind: "percent", value: v });
+
+// Rich style with no role faces declared (lower falls back to the base font).
+const richStyle = (color: string): RichStyle => ({
+  linkColor: color,
+  linkUnderline: true,
+  monoFamily: "",
+  monoColor: color,
+  boldFamily: "",
+  italicFamily: "",
+  boldItalicFamily: "",
+});
 const ctx: LowerCtx = {
   metrics: new ApproximateMetrics(),
   images: new Map(),
+  roles: EMPTY_FONT_ROLES,
   slide: { width: 1000, height: 1000 },
 };
 
@@ -28,6 +40,7 @@ function deckWithText(text: string): MirDeck {
     align: "left",
     lineHeight: 1.2,
     letterSpacing: 0,
+    rich: richStyle("#ffffff"),
   };
   return {
     slide: { width: 1000, height: 1000 },

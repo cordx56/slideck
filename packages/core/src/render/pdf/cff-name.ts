@@ -18,7 +18,7 @@
 
 const OTTO_MAGIC = 0x4f54544f; // "OTTO"  -- sfnt with CFF outlines
 const TTCF_MAGIC = 0x74746366; // "ttcf"  -- TrueType Collection
-const CFF_MAJOR = 0x01;        // raw CFF major version byte
+const CFF_MAJOR = 0x01; // raw CFF major version byte
 
 // Read the CFF Name INDEX's first entry from a font file. Supports:
 //   - raw CFF                (header: 01 00 ...)

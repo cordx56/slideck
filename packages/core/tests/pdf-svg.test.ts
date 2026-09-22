@@ -59,9 +59,9 @@ describe("renderPdf SVG raster", () => {
   // diagnostic path so users know they need to supply a rasterizer in Node.
   it("reports a clear error when no rasterizer is available", async () => {
     const resolver = new MemResolver({
-      "deck.yaml": DECK_YAML,
-      "base.yaml": BASE_YAML,
-      "icon.svg": TINY_SVG,
+      "/deck.yaml": DECK_YAML,
+      "/base.yaml": BASE_YAML,
+      "/icon.svg": TINY_SVG,
     });
     const { compiled, errors } = await compileDeck(resolver);
     if (errors.length > 0) console.error(errors);
@@ -77,9 +77,9 @@ describe("renderPdf SVG raster", () => {
   // size so it can decide on raster resolution.
   it("embeds SVG when a rasterizer is supplied", async () => {
     const resolver = new MemResolver({
-      "deck.yaml": DECK_YAML,
-      "base.yaml": BASE_YAML,
-      "icon.svg": TINY_SVG,
+      "/deck.yaml": DECK_YAML,
+      "/base.yaml": BASE_YAML,
+      "/icon.svg": TINY_SVG,
     });
     const { compiled } = await compileDeck(resolver);
 

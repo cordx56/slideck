@@ -50,8 +50,7 @@ export function tableChecksum(data: Uint8Array): number {
   const n = data.length;
   const aligned = n & ~3;
   for (let i = 0; i < aligned; i += 4) {
-    const w =
-      ((data[i] << 24) | (data[i + 1] << 16) | (data[i + 2] << 8) | data[i + 3]) >>> 0;
+    const w = ((data[i] << 24) | (data[i + 1] << 16) | (data[i + 2] << 8) | data[i + 3]) >>> 0;
     sum = (sum + w) >>> 0;
   }
   if (n > aligned) {
@@ -91,9 +90,7 @@ export function addTable(
   // spec; pdf-lib's subset output already is, but sort to be safe) with the
   // new tag spliced in. We clone the entries so layout mutation doesn't leak
   // back into the caller's ParsedFont.
-  const sorted = parsed.entries
-    .map((e) => ({ ...e }))
-    .sort((a, b) => (a.tag < b.tag ? -1 : 1));
+  const sorted = parsed.entries.map((e) => ({ ...e })).sort((a, b) => (a.tag < b.tag ? -1 : 1));
   const insertAt = sorted.findIndex((e) => e.tag > newTag);
   const newEntry: TableEntry = {
     tag: newTag,

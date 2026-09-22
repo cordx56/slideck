@@ -9,8 +9,8 @@ import { renderPdf } from "@slideck/core/pdf";
 
 class DiskResolver implements AssetResolver {
   constructor(private root: string) {}
-  private p(rel: string) {
-    return resolve(this.root, normalizePath(rel));
+  private p(path: string) {
+    return resolve(this.root, normalizePath(path).slice(1));
   }
   async readText(rel: string) {
     return readFile(this.p(rel), "utf8");
@@ -123,7 +123,7 @@ describe("renderPdf", () => {
     class SyntheticResolver implements AssetResolver {
       async readText(rel: string): Promise<string> {
         switch (rel) {
-          case "deck.yaml":
+          case "/deck.yaml":
             return `
 bases:
   - id: base
@@ -136,7 +136,7 @@ slides:
         text: "Plain Latin text"
         position: { left: 10%, top: 40%, width: 80% }
 `;
-          case "base.yaml":
+          case "/base.yaml":
             return `
 fonts:
   body: { path: ./body.ttf }
@@ -150,11 +150,11 @@ defaults:
       }
       async readBytes(rel: string): Promise<Uint8Array> {
         switch (rel) {
-          case "body.ttf":
+          case "/body.ttf":
             return new Uint8Array(
               await readFile(resolve(exampleFontDir, "NotoSans-Regular.ttf")),
             );
-          case "hira.ttc":
+          case "/hira.ttc":
             return new Uint8Array(
               await readFile("/home/yuki/Documents/Develop/slider/hiragino.ttc"),
             );
@@ -162,7 +162,7 @@ defaults:
         throw new Error("unexpected readBytes " + rel);
       }
       async exists(rel: string): Promise<boolean> {
-        if (rel === "base.yaml" || rel === "deck.yaml") return true;
+        if (rel === "/base.yaml" || rel === "/deck.yaml") return true;
         try {
           await this.readBytes(rel);
           return true;
@@ -176,7 +176,7 @@ defaults:
     // Soft-skip the test when the CFF fixture isn't installed -- this case
     // only matters with a CFF source. The local hiragino.ttc isn't shipped
     // with the repo (it's in .gitignore).
-    if (!(await resolver.exists("hira.ttc"))) return;
+    if (!(await resolver.exists("/hira.ttc"))) return;
 
     const { compiled, errors } = await compileDeck(resolver);
     expect(errors).toHaveLength(0);

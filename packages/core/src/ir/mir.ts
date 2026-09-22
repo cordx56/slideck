@@ -2,7 +2,21 @@
 // Theme applied, variables expanded, defaults applied; colors are hex, fonts are family names.
 // position is still a Dimension (% / px / center), group hierarchy is preserved.
 import type { Position, Point, Dimension } from "../schema/position";
-import type { Align, Fit, LayoutDir, CrossAlign, Justify, RichStyle } from "./hir";
+import type { Align, Fit, LayoutDir, CrossAlign, Justify } from "./hir";
+
+// Resolved richtext styles for inline **bold** / *italic* / `code` / links.
+// Each *Family is the CSS family declared for that role in defaults; an empty
+// string means "not declared" and lower falls back to the auto-detected role
+// face (LowerCtx.roles) or, failing that, the surrounding text font.
+export interface RichStyle {
+  linkColor: string;
+  linkUnderline: boolean;
+  monoFamily: string;
+  monoColor: string;
+  boldFamily: string;
+  italicFamily: string;
+  boldItalicFamily: string;
+}
 
 export interface MirText {
   type: "text";
@@ -16,7 +30,7 @@ export interface MirText {
   lineHeight: number;
   letterSpacing: number;
   // inline Markdown link/code styles (for richtext).
-  rich?: RichStyle;
+  rich: RichStyle;
 }
 
 export interface MirImage {
@@ -135,7 +149,7 @@ export type MirElement =
 
 export interface MirFont {
   family: string;
-  path?: string;
+  path: string;
   index?: number; // font index within a .ttc
 }
 

@@ -1,6 +1,7 @@
 import { watch, readdirSync, statSync, type FSWatcher, type Stats } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { join } from "node:path";
 import type { VFSEvent } from "@slideck/core";
+import { toVfsPath } from "./paths";
 
 // Watch the project on disk and report changes as a list of VFSEvent.
 // On Linux fs.watch recursive is unavailable, so we set a watch per directory,
@@ -29,11 +30,6 @@ export function createWatcher(
   let timer: ReturnType<typeof setTimeout> | null = null;
   let closed = false;
 
-  const toVfs = (abs: string): string => {
-    const r = relative(root, abs).split(sep).join("/");
-    return r === "" ? "/" : "/" + r;
-  };
-
   function scan(): { snap: Map<string, Snap>; dirs: Set<string> } {
     const snap = new Map<string, Snap>();
     const dirs = new Set<string>([root]);
@@ -46,7 +42,7 @@ export function createWatcher(
       }
       for (const name of names) {
         const abs = join(dir, name);
-        const vfs = toVfs(abs);
+        const vfs = toVfsPath(root, abs);
         if (ignore(vfs.slice(1))) continue;
         let st: Stats;
         try {

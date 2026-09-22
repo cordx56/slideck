@@ -2,14 +2,26 @@ import { describe, it, expect } from "vitest";
 import { lower } from "../src/lower";
 import { computeAutoLayout } from "../src/lower/auto-layout";
 import { ApproximateMetrics } from "../src/lower/metrics";
-import type { LowerCtx } from "../src/lower/context";
-import type { MirDeck, MirGroup, MirList, MirSlide, MirText } from "../src/ir";
+import { type LowerCtx, EMPTY_FONT_ROLES } from "../src/lower/context";
+import type { MirDeck, MirGroup, MirList, MirSlide, MirText, RichStyle } from "../src/ir";
 import type { Dimension } from "../src/schema/position";
 
 const pct = (v: number): Dimension => ({ kind: "percent", value: v });
+
+// Rich style with no role faces declared (lower falls back to the base font).
+const richStyle = (color: string): RichStyle => ({
+  linkColor: color,
+  linkUnderline: true,
+  monoFamily: "",
+  monoColor: color,
+  boldFamily: "",
+  italicFamily: "",
+  boldItalicFamily: "",
+});
 const ctx: LowerCtx = {
   metrics: new ApproximateMetrics(),
   images: new Map(),
+  roles: EMPTY_FONT_ROLES,
   slide: { width: 1000, height: 1000 },
 };
 
@@ -56,6 +68,7 @@ describe("lower", () => {
         align: "left",
         lineHeight: 1.2,
         letterSpacing: 0,
+        rich: richStyle("#000000"),
       },
     ]);
     const lir = lower(deck.slides[0], deck, ctx);
@@ -104,15 +117,16 @@ describe("lower", () => {
 });
 
 describe("computeAutoLayout", () => {
-  const text = (t: string) => ({
-    type: "text" as const,
+  const text = (t: string): MirText => ({
+    type: "text",
     text: t,
     font: "body",
     size: 40,
     color: "#000",
-    align: "left" as const,
+    align: "left",
     lineHeight: 1.2,
     letterSpacing: 0,
+    rich: richStyle("#000"),
   });
 
   it("column stacks children vertically with gaps between", () => {
@@ -296,6 +310,7 @@ describe("lower lists (ul/ol)", () => {
     align: "left",
     lineHeight: 1.2,
     letterSpacing: 0,
+    rich: richStyle("#000"),
   });
 
   function list(type: "ul" | "ol", start = 1): MirList {
@@ -384,6 +399,7 @@ describe("lower image aspect", () => {
       images: new Map([
         ["a.png", { data: new Uint8Array(), mime: "image/png", width: 400, height: 200 }], // 2:1
       ]),
+      roles: EMPTY_FONT_ROLES,
       slide: { width: 1000, height: 1000 },
     };
     const deck = deckWith([
@@ -421,6 +437,7 @@ describe("lower rich text indent", () => {
         align: "left",
         lineHeight: 1.2,
         letterSpacing: 0,
+        rich: richStyle("#000"),
       },
     ]);
     const prims = lower(deck.slides[0], deck, ctx).primitives;

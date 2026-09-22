@@ -32,13 +32,7 @@
 // indirect objects, and edit dicts/streams. Cost is one extra PDF
 // load/save cycle.
 
-import {
-  PDFDict,
-  PDFDocument,
-  PDFName,
-  PDFRawStream,
-  decodePDFRawStream,
-} from "pdf-lib";
+import { PDFDict, PDFDocument, PDFName, PDFRawStream, decodePDFRawStream } from "pdf-lib";
 import { ensureCmap } from "./ttf-cmap";
 
 // Returns the input bytes when no fixes were needed (saves the second
@@ -128,7 +122,10 @@ function stripCidToGidMapFromCidType0(dict: PDFDict): boolean {
 function isTrueType(bytes: Uint8Array): boolean {
   if (bytes.length < 4) return false;
   // Standard sfnt scaler 0x00010000, or Apple's legacy "true".
-  const b0 = bytes[0], b1 = bytes[1], b2 = bytes[2], b3 = bytes[3];
+  const b0 = bytes[0],
+    b1 = bytes[1],
+    b2 = bytes[2],
+    b3 = bytes[3];
   if (b0 === 0x00 && b1 === 0x01 && b2 === 0x00 && b3 === 0x00) return true;
   if (b0 === 0x74 && b1 === 0x72 && b2 === 0x75 && b3 === 0x65) return true;
   return false;

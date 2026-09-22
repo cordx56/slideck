@@ -4,7 +4,12 @@ import { ApproximateMetrics } from "../src/lower/metrics";
 
 const m = new ApproximateMetrics();
 const shape = (text: string, maxWidth: number, align: "left" | "center" | "right" = "left") =>
-  shapeText(text, "body", 40, maxWidth, align, 1.2, 0, m);
+  shapeText(
+    text,
+    { font: "body", size: 40, align, lineHeight: 1.2, letterSpacing: 0 },
+    maxWidth,
+    m,
+  );
 
 describe("shapeText", () => {
   it("a single line when width is enough", () => {

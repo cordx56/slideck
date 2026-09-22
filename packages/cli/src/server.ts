@@ -49,6 +49,16 @@ interface Pending {
   at: number;
 }
 
+interface ApiContext {
+  req: IncomingMessage;
+  res: ServerResponse;
+  url: URL;
+  qpath: string | null;
+  client: string | undefined;
+}
+
+type ApiHandler = (context: ApiContext) => Promise<void>;
+
 export interface ServeOptions {
   port?: number;
   host?: string;
@@ -67,6 +77,19 @@ function readBody(req: IncomingMessage): Promise<Buffer> {
     req.on("end", () => res(Buffer.concat(chunks)));
     req.on("error", rej);
   });
+}
+
+async function readJsonBody(req: IncomingMessage, emptyBody = ""): Promise<unknown> {
+  const text = (await readBody(req)).toString("utf8");
+  return JSON.parse(text || emptyBody);
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isPathPairBody(value: unknown): value is PathPairBody {
+  return isJsonObject(value) && typeof value.from === "string" && typeof value.to === "string";
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -106,24 +129,15 @@ function build(root: string, webDir: string, name: string): Server {
     for (const res of sse) res.write(line);
   });
 
-  async function handleApi(
-    req: IncomingMessage,
-    res: ServerResponse,
-    sub: string,
-    url: URL,
-  ): Promise<void> {
-    const method = req.method ?? "GET";
-    const client = header(req, CLIENT_HEADER);
-    const qpath = url.searchParams.get("path");
-
-    if (sub === "/info" && method === "GET") {
+  const routes: Record<string, ApiHandler> = {
+    "GET /info": async ({ res }) => {
       const info: ServerInfo = { server: true, name, root };
-      return sendJson(res, 200, info);
-    }
-    if (sub === "/files" && method === "GET") {
-      return sendJson(res, 200, await vfs.list());
-    }
-    if (sub === "/events" && method === "GET") {
+      sendJson(res, 200, info);
+    },
+    "GET /files": async ({ res }) => {
+      sendJson(res, 200, await vfs.list());
+    },
+    "GET /events": async ({ req, res }) => {
       res.writeHead(200, {
         "content-type": "text/event-stream",
         "cache-control": "no-cache",
@@ -132,73 +146,112 @@ function build(root: string, webDir: string, name: string): Server {
       res.write(": connected\n\n");
       sse.add(res);
       req.on("close", () => sse.delete(res));
-      return;
-    }
-    if (sub === "/stat" && method === "GET") {
-      if (qpath === null) return sendJson(res, 400, { error: "path required" });
-      return sendJson(res, 200, await vfs.stat(qpath));
-    }
-    if (sub === "/meta") {
+    },
+    "GET /stat": async ({ res, qpath }) => {
+      if (qpath === null) {
+        sendJson(res, 400, { error: "path required" });
+        return;
+      }
+      sendJson(res, 200, await vfs.stat(qpath));
+    },
+    "GET /meta": async ({ res, url }) => {
       const key = url.searchParams.get("key");
-      if (key === null) return sendJson(res, 400, { error: "key required" });
-      if (method === "GET") {
-        return sendJson(res, 200, { value: await vfs.getMeta(key) });
-      }
-      if (method === "PUT") {
-        const body = JSON.parse((await readBody(req)).toString("utf8") || "{}") as {
-          value: unknown;
-        };
-        await vfs.setMeta(key, body.value);
-        res.writeHead(204).end();
+      if (key === null) {
+        sendJson(res, 400, { error: "key required" });
         return;
       }
-    }
-    if (sub === "/file") {
-      if (qpath === null) return sendJson(res, 400, { error: "path required" });
-      if (method === "GET") {
-        const bytes = await vfs.readBytes(qpath).catch(() => null);
-        if (!bytes) return notFound(res);
-        res.writeHead(200, { "content-type": mimeFromPath(qpath) });
-        res.end(Buffer.from(bytes));
+      sendJson(res, 200, { value: await vfs.getMeta(key) });
+    },
+    "PUT /meta": async ({ req, res, url }) => {
+      const key = url.searchParams.get("key");
+      if (key === null) {
+        sendJson(res, 400, { error: "key required" });
         return;
       }
-      if (method === "PUT") {
-        const body = await readBody(req);
-        await vfs.writeBytes(qpath, new Uint8Array(body));
-        markPending(qpath, client);
-        res.writeHead(204).end();
+      const body = await readJsonBody(req, "{}");
+      if (!isJsonObject(body)) throw new Error("Invalid JSON body");
+      await vfs.setMeta(key, body.value);
+      res.writeHead(204).end();
+    },
+    "GET /file": async ({ res, qpath }) => {
+      if (qpath === null) {
+        sendJson(res, 400, { error: "path required" });
         return;
       }
-      if (method === "DELETE") {
-        await vfs.delete(qpath);
-        markPending(qpath, client);
-        res.writeHead(204).end();
+      const bytes = await vfs.readBytes(qpath).catch(() => null);
+      if (!bytes) {
+        notFound(res);
         return;
       }
-    }
-    if (sub === "/folder" && method === "POST") {
-      if (qpath === null) return sendJson(res, 400, { error: "path required" });
+      res.writeHead(200, { "content-type": mimeFromPath(qpath) });
+      res.end(Buffer.from(bytes));
+    },
+    "PUT /file": async ({ req, res, qpath, client }) => {
+      if (qpath === null) {
+        sendJson(res, 400, { error: "path required" });
+        return;
+      }
+      const body = await readBody(req);
+      await vfs.writeBytes(qpath, new Uint8Array(body));
+      markPending(qpath, client);
+      res.writeHead(204).end();
+    },
+    "DELETE /file": async ({ res, qpath, client }) => {
+      if (qpath === null) {
+        sendJson(res, 400, { error: "path required" });
+        return;
+      }
+      await vfs.delete(qpath);
+      markPending(qpath, client);
+      res.writeHead(204).end();
+    },
+    "POST /folder": async ({ res, qpath, client }) => {
+      if (qpath === null) {
+        sendJson(res, 400, { error: "path required" });
+        return;
+      }
       await vfs.createFolder(qpath);
       markPending(qpath, client);
       res.writeHead(204).end();
-      return;
-    }
-    if (sub === "/move" && method === "POST") {
-      const { from, to } = JSON.parse((await readBody(req)).toString("utf8")) as PathPairBody;
+    },
+    "POST /move": async ({ req, res, client }) => {
+      const body = await readJsonBody(req);
+      if (!isPathPairBody(body)) throw new Error("Invalid path pair body");
+      const { from, to } = body;
       await vfs.move(from, to);
       markPending(from, client);
       markPending(to, client);
       res.writeHead(204).end();
-      return;
-    }
-    if (sub === "/copy" && method === "POST") {
-      const { from, to } = JSON.parse((await readBody(req)).toString("utf8")) as PathPairBody;
+    },
+    "POST /copy": async ({ req, res, client }) => {
+      const body = await readJsonBody(req);
+      if (!isPathPairBody(body)) throw new Error("Invalid path pair body");
+      const { from, to } = body;
       await vfs.copy(from, to);
       markPending(to, client);
       res.writeHead(204).end();
+    },
+  };
+
+  async function handleApi(
+    req: IncomingMessage,
+    res: ServerResponse,
+    subPath: string,
+    url: URL,
+  ): Promise<void> {
+    const method = req.method ?? "GET";
+    const handler = routes[`${method} ${subPath}`];
+    if (!handler) {
+      notFound(res);
       return;
     }
-    notFound(res);
+    await handler({
+      req,
+      res,
+      url,
+      qpath: url.searchParams.get("path"),
+      client: header(req, CLIENT_HEADER),
+    });
   }
 
   // Static file serving. A path with no extension that is not found returns index.html

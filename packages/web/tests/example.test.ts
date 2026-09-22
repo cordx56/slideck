@@ -8,8 +8,8 @@ import { compileDeck, renderSlideSvg } from "@slideck/core";
 // Resolver that reads public/examples/basic from real disk (Node only, for testing).
 class DiskResolver implements AssetResolver {
   constructor(private root: string) {}
-  private p(rel: string) {
-    return resolve(this.root, normalizePath(rel));
+  private p(path: string) {
+    return resolve(this.root, normalizePath(path).slice(1));
   }
   async readText(rel: string) {
     return readFile(this.p(rel), "utf8");

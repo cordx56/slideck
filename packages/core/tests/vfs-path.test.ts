@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  normalize,
+  normalizePath,
   dirname,
   basename,
   extname,
@@ -9,17 +9,17 @@ import {
   isValidName,
 } from "../src/path";
 
-describe("vfs/path normalize", () => {
+describe("vfs/path normalizePath", () => {
   it("collapses . and .. and slashes", () => {
-    expect(normalize("/a/./b//c")).toBe("/a/b/c");
-    expect(normalize("/a/b/../c")).toBe("/a/c");
-    expect(normalize("/")).toBe("/");
-    expect(normalize("/a/")).toBe("/a");
+    expect(normalizePath("/a/./b//c")).toBe("/a/b/c");
+    expect(normalizePath("/a/b/../c")).toBe("/a/c");
+    expect(normalizePath("/")).toBe("/");
+    expect(normalizePath("/a/")).toBe("/a");
   });
 
   it("escaping the root is an error", () => {
-    expect(() => normalize("/../foo")).toThrow();
-    expect(() => normalize("/a/../../b")).toThrow();
+    expect(() => normalizePath("/../foo")).toThrow();
+    expect(() => normalizePath("/a/../../b")).toThrow();
   });
 });
 

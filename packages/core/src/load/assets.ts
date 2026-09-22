@@ -1,42 +1,20 @@
-// Asset resolution. Read files by path relative to the project root (the directory
-// containing deck.yaml). Implementations: fetch / File System Access / ZIP.
+import { normalizePath } from "../path";
+
+// Asset resolution. Read files by absolute, root-relative VFS path.
 
 export interface AssetResolver {
-  readText(relativePath: string): Promise<string>;
-  readBytes(relativePath: string): Promise<Uint8Array>;
-  exists(relativePath: string): Promise<boolean>;
+  readText(path: string): Promise<string>;
+  readBytes(path: string): Promise<Uint8Array>;
+  exists(path: string): Promise<boolean>;
 }
 
 // Resolver that supports write-back (local folder / ZIP).
 export interface WritableResolver extends AssetResolver {
-  writeText(relativePath: string, text: string): Promise<void>;
+  writeText(path: string, text: string): Promise<void>;
 }
 
 export function isWritable(r: AssetResolver): r is WritableResolver {
   return typeof (r as WritableResolver).writeText === "function";
-}
-
-// Normalize a relative path like "./a/../b/c" to "b/c". A leading "./" is stripped.
-export function normalizePath(p: string): string {
-  const parts = p.split("/");
-  const out: string[] = [];
-  for (const part of parts) {
-    if (part === "" || part === ".") continue;
-    if (part === "..") {
-      if (out.length > 0 && out[out.length - 1] !== "..") out.pop();
-      else out.push("..");
-    } else {
-      out.push(part);
-    }
-  }
-  return out.join("/");
-}
-
-// Resolve a relative path against a file (its dir part) as the base.
-export function resolveFrom(baseFile: string, relative: string): string {
-  const baseDir = baseFile.includes("/") ? baseFile.slice(0, baseFile.lastIndexOf("/")) : "";
-  if (relative.startsWith("/")) return normalizePath(relative);
-  return normalizePath(baseDir ? `${baseDir}/${relative}` : relative);
 }
 
 // HTTP fetch based resolver. Uses a serving path such as public/examples as root.
@@ -44,25 +22,25 @@ export class FetchAssetResolver implements AssetResolver {
   // root is a URL base with a trailing slash.
   constructor(private readonly root: string) {}
 
-  private url(relativePath: string): string {
-    return this.root + normalizePath(relativePath);
+  private url(path: string): string {
+    return this.root + normalizePath(path).slice(1);
   }
 
-  async readText(relativePath: string): Promise<string> {
-    const res = await fetch(this.url(relativePath));
-    if (!res.ok) throw new Error(`failed to read: ${relativePath} (${res.status})`);
+  async readText(path: string): Promise<string> {
+    const res = await fetch(this.url(path));
+    if (!res.ok) throw new Error(`failed to read: ${path} (${res.status})`);
     return res.text();
   }
 
-  async readBytes(relativePath: string): Promise<Uint8Array> {
-    const res = await fetch(this.url(relativePath));
-    if (!res.ok) throw new Error(`failed to read: ${relativePath} (${res.status})`);
+  async readBytes(path: string): Promise<Uint8Array> {
+    const res = await fetch(this.url(path));
+    if (!res.ok) throw new Error(`failed to read: ${path} (${res.status})`);
     return new Uint8Array(await res.arrayBuffer());
   }
 
-  async exists(relativePath: string): Promise<boolean> {
+  async exists(path: string): Promise<boolean> {
     try {
-      const res = await fetch(this.url(relativePath), { method: "HEAD" });
+      const res = await fetch(this.url(path), { method: "HEAD" });
       return res.ok;
     } catch {
       return false;
@@ -78,37 +56,37 @@ export class CachingResolver implements AssetResolver {
 
   constructor(private readonly base: AssetResolver) {}
 
-  readText(relativePath: string): Promise<string> {
-    const key = normalizePath(relativePath);
+  readText(path: string): Promise<string> {
+    const key = normalizePath(path);
     let p = this.textCache.get(key);
     if (!p) {
-      p = this.base.readText(relativePath);
+      p = this.base.readText(key);
       this.textCache.set(key, p);
     }
     return p;
   }
 
-  readBytes(relativePath: string): Promise<Uint8Array> {
-    const key = normalizePath(relativePath);
+  readBytes(path: string): Promise<Uint8Array> {
+    const key = normalizePath(path);
     let p = this.bytesCache.get(key);
     if (!p) {
-      p = this.base.readBytes(relativePath);
+      p = this.base.readBytes(key);
       this.bytesCache.set(key, p);
     }
     return p;
   }
 
-  exists(relativePath: string): Promise<boolean> {
-    return this.base.exists(relativePath);
+  exists(path: string): Promise<boolean> {
+    return this.base.exists(normalizePath(path));
   }
 
-  invalidate(relativePath?: string): void {
-    if (relativePath === undefined) {
+  invalidate(path?: string): void {
+    if (path === undefined) {
       this.textCache.clear();
       this.bytesCache.clear();
       return;
     }
-    const key = normalizePath(relativePath);
+    const key = normalizePath(path);
     this.textCache.delete(key);
     this.bytesCache.delete(key);
   }
@@ -122,20 +100,21 @@ export class OverrideResolver implements AssetResolver {
     private readonly overrides: Map<string, string>,
   ) {}
 
-  async readText(relativePath: string): Promise<string> {
-    const key = normalizePath(relativePath);
+  async readText(path: string): Promise<string> {
+    const key = normalizePath(path);
     const override = this.overrides.get(key);
     if (override !== undefined) return override;
-    return this.base.readText(relativePath);
+    return this.base.readText(key);
   }
 
-  readBytes(relativePath: string): Promise<Uint8Array> {
-    return this.base.readBytes(relativePath);
+  readBytes(path: string): Promise<Uint8Array> {
+    return this.base.readBytes(normalizePath(path));
   }
 
-  exists(relativePath: string): Promise<boolean> {
-    if (this.overrides.has(normalizePath(relativePath))) return Promise.resolve(true);
-    return this.base.exists(relativePath);
+  exists(path: string): Promise<boolean> {
+    const key = normalizePath(path);
+    if (this.overrides.has(key)) return Promise.resolve(true);
+    return this.base.exists(key);
   }
 }
 
@@ -143,22 +122,22 @@ export class OverrideResolver implements AssetResolver {
 export class MemoryAssetResolver implements AssetResolver {
   constructor(private readonly files: Map<string, Uint8Array>) {}
 
-  private get(relativePath: string): Uint8Array {
-    const key = normalizePath(relativePath);
+  private get(path: string): Uint8Array {
+    const key = normalizePath(path);
     const data = this.files.get(key);
     if (!data) throw new Error(`no such file: ${key}`);
     return data;
   }
 
-  async readText(relativePath: string): Promise<string> {
-    return new TextDecoder().decode(this.get(relativePath));
+  async readText(path: string): Promise<string> {
+    return new TextDecoder().decode(this.get(path));
   }
 
-  async readBytes(relativePath: string): Promise<Uint8Array> {
-    return this.get(relativePath);
+  async readBytes(path: string): Promise<Uint8Array> {
+    return this.get(path);
   }
 
-  async exists(relativePath: string): Promise<boolean> {
-    return this.files.has(normalizePath(relativePath));
+  async exists(path: string): Promise<boolean> {
+    return this.files.has(normalizePath(path));
   }
 }

@@ -1,771 +1,131 @@
-import type { AssetResolver } from "@slideck/core";
-import { OverrideResolver } from "@slideck/core";
-import { VfsResolver } from "../load/vfs-resolver";
-import { openVfs, openHttpVfs, probeServer, type VFS, type FileEntry } from "../vfs";
-import { extname, dirname, basename, join, normalize, isDescendant } from "@slideck/core";
-import { uniqueName, type UploadEntry } from "./editor/file-ops";
-import {
-  dbNameFor,
-  registerProject,
-  unregisterProject,
-  projectExists,
-  listProjects,
-  listTemplates,
-  setTemplate,
-  getLastProject,
-  setLastProject,
-  type ProjectMeta,
-} from "./projects";
-import { installSample, copyProjectFiles } from "./sample";
-import { compileDeck, recompileDeck, renderSlideSvg, slideRangesOf, type CompiledDeck } from "@slideck/core";
-import type { LowerCtx, LoadedFont, MirDeck, MirElement } from "@slideck/core";
-import { PipelineError } from "@slideck/core";
-import { debounce } from "@slideck/core";
-import { registerFonts } from "../lib/fonts-register";
-import { isImagePath, isTextPath } from "@slideck/core";
-import { collectBrokenReferences, type Reference } from "@slideck/core";
-import {
-  loadAuth,
-  saveAuth,
-  clearAuth,
-  getUser,
-  listRepos,
-  type Repo,
-  loadRemote,
-  unlink,
-  clone as ghClone,
-  link as ghLink,
-  pull as ghPull,
-  push as ghPush,
-  hasLocalChanges,
-  type GithubRemote,
-} from "../github";
+import * as compile from "./state/compile.svelte";
+import * as document from "./state/document.svelte";
+import * as files from "./state/files.svelte";
+import * as github from "./state/github.svelte";
+import * as project from "./state/project.svelte";
 
-const ENTRY = "deck.yaml"; // /deck.yaml in the VFS
-
-export type SyncStatus = "none" | "syncing" | "synced" | "ahead" | "conflict" | "error";
-
-// --- Reactive state ---
-// Navigation is decided by the URL hash (in App). The store only holds VFS init state.
-let booting = $state(true); // true until initialization completes
-let ready = $state(false); // project is loaded (editor can be shown)
-let serverMode = $state(false); // running under slideck serve (disk-linked)
-let currentProject = $state<string | null>(null);
-let projectsVersion = $state(0); // bumped on registry change to re-evaluate projects
-let openPath = $state("/deck.yaml");
-let yamlText = $state("");
-let dirty = $state(false);
-let compiled = $state.raw<CompiledDeck | null>(null);
-let errors = $state.raw<PipelineError[]>([]);
-let currentSlide = $state(0);
-// Editor <-> preview sync. slideRanges: char offsets [start, end) in the deck
-// yamlText for each slide entry; recomputed whenever yamlText is replaced.
-// editorCursorTarget: set when something asks the editor to jump (thumbnail
-// click, arrow nav, etc.); RightPane consumes and resets it.
-let slideRanges = $state.raw<Array<[number, number]>>([]);
-let editorCursorTarget = $state<number | null>(null);
-let files = $state.raw<FileEntry[]>([]);
-let brokenRefs = $state.raw<Reference[]>([]);
-let expanded = $state.raw<Set<string>>(new Set());
-let showHidden = $state(false);
-
-// --- GitHub state ---
-let githubLogin = $state<string | null>(null); // connected account (null = not connected)
-let remote = $state.raw<GithubRemote | null>(null); // current project's linked repo
-let syncStatus = $state<SyncStatus>("none");
-let syncWarning = $state.raw<{ title: string; files: string[] } | null>(null); // conflict dialog
-
-// --- Non-reactive ---
-let vfs: VFS | null = null;
-let githubToken: string | null = null;
-let cachedCtx: LowerCtx | null = null;
-let cachedFonts: Map<string, LoadedFont> | null = null;
-let unsubscribe: (() => void) | null = null;
-
-function isYaml(path: string): boolean {
-  const e = extname(path);
-  return e === ".yaml" || e === ".yml";
-}
-
-// Files the editor opens in CodeMirror (read/save as text). Wider than isYaml:
-// covers .txt / .md / .json / .csv / .svg too. Only YAML drives live recompile.
-function isText(path: string): boolean {
-  return isTextPath(path);
-}
-
-function compileResolver(): AssetResolver {
-  if (!vfs) throw new Error("VFS not initialized");
-  const base = new VfsResolver(vfs);
-  if (dirty && isYaml(openPath)) {
-    const key = openPath.replace(/^\//, "");
-    return new OverrideResolver(base, new Map([[key, yamlText]]));
-  }
-  return base;
-}
-
-function clampSlide() {
-  const n = compiled ? compiled.deck.slides.length : 0;
-  if (currentSlide >= n) currentSlide = Math.max(0, n - 1);
-}
-
-// All update steps below are best-effort: an exception (e.g. a file removed by a
-// concurrent file operation) is surfaced as an error and never left to halt the
-// update loop. The next scheduled run recovers on its own.
-async function fullCompile() {
-  try {
-    const result = await compileDeck(compileResolver(), { entry: ENTRY });
-    errors = result.errors;
-    if (result.compiled) {
-      compiled = result.compiled;
-      cachedCtx = result.compiled.ctx;
-      cachedFonts = result.compiled.fonts;
-      clampSlide();
-      await registerFonts(result.compiled.fonts);
-    }
-  } catch (e) {
-    errors = [new PipelineError(`compile failed: ${String(e)}`)];
-  }
-}
-
-async function liveRecompile() {
-  if (!cachedCtx || !cachedFonts) {
-    await fullCompile();
-    return;
-  }
-  try {
-    const result = await recompileDeck(compileResolver(), ENTRY);
-    errors = result.errors;
-    if (!result.deck) return;
-    // If the new deck references an image src or font key that we haven't
-    // loaded yet (typed-in src, a fix to a previous typo, a new font), fall
-    // through to a full compile so prepare loads them. Otherwise typed asset
-    // edits would not reflect until something else triggered a full reload.
-    if (hasMissingAssets(result.deck)) {
-      await fullCompile();
-      return;
-    }
-    compiled = { deck: result.deck, ctx: cachedCtx, fonts: cachedFonts };
-    clampSlide();
-  } catch (e) {
-    errors = [new PipelineError(`update failed: ${String(e)}`)];
-  }
-}
-
-// True iff the new deck mentions an image src or font key not in the prepared
-// caches. Walks the element tree once; assumes cachedCtx / cachedFonts exist.
-function hasMissingAssets(deck: MirDeck): boolean {
-  if (!cachedCtx || !cachedFonts) return true;
-  for (const key of deck.fonts.keys()) {
-    if (!cachedFonts.has(key)) return true;
-  }
-  for (const s of deck.slides) {
-    if (anyMissingImage(s.elements)) return true;
-  }
-  return false;
-}
-
-function anyMissingImage(els: MirElement[]): boolean {
-  for (const el of els) {
-    if (el.type === "image" && !cachedCtx!.images.has(el.src)) return true;
-    if (el.type === "group" && anyMissingImage(el.children)) return true;
-    if ((el.type === "ul" || el.type === "ol") && anyMissingImage(el.items)) return true;
-  }
-  return false;
-}
-
-async function recomputeRefs() {
-  if (!vfs) return;
-  try {
-    brokenRefs = await collectBrokenReferences(vfs, openPath, dirty ? yamlText : undefined);
-  } catch {
-    // Transient (e.g. a file removed mid-scan during a rename); keep the previous refs.
-  }
-}
-
-// Write the file being edited back to the VFS. The self-saving flag keeps
-// save-triggered VFS events from causing an unneeded full recompile (edits
-// already did a live recompile).
-let selfSaving = false;
-async function saveCurrent() {
-  if (!vfs || !dirty || !isText(openPath)) return;
-  selfSaving = true;
-  try {
-    await vfs.writeText(openPath, yamlText);
-    dirty = false;
-  } catch {
-    // Keep dirty so a later save retries; do not break the update loop.
-  } finally {
-    selfSaving = false;
-  }
-}
-
-const scheduleLive = debounce(() => void liveRecompile(), 200);
-const scheduleFull = debounce(() => void fullCompile(), 200);
-const scheduleRefs = debounce(() => void recomputeRefs(), 200);
-const scheduleSave = debounce(() => void saveCurrent(), 400);
-
-async function refreshFiles() {
-  if (vfs) files = await vfs.list();
-}
-
-function applyYaml(text: string) {
-  yamlText = text;
-  dirty = true;
-  // Only YAML drives recompile / reference re-collection. Other text files
-  // (.txt, .md, .json, ...) still save and update the sync indicator.
-  if (isYaml(openPath)) {
-    refreshSlideRanges();
-    scheduleLive();
-    scheduleRefs();
-  }
-  scheduleSave(); // auto-save the change
-  scheduleStatus(); // reflect unpushed changes in the sync indicator
-}
-
-// Recompute the slide -> char-offset map for the currently open YAML. Only
-// the deck.yaml carries a slides: array; for a base file the result is [].
-function refreshSlideRanges() {
-  slideRanges = openPath === "/" + ENTRY ? slideRangesOf(yamlText) : [];
-}
-
-// Return the slide index whose YAML range covers `offset`, or null when the
-// offset falls before the first slide (e.g. inside bases:). slideRanges is
-// laid out so the last slide stretches to the end of the document, so any
-// position past the first slide always resolves.
-function slideAtOffset(offset: number): number | null {
-  if (slideRanges.length === 0) return null;
-  if (offset < slideRanges[0][0]) return null;
-  for (let i = 0; i < slideRanges.length; i++) {
-    const [s, e] = slideRanges[i];
-    if (offset >= s && offset < e) return i;
-  }
-  return slideRanges.length - 1;
-}
-
-// --- GitHub sync helpers ---
-// Recompute the sync indicator from local-vs-baseline (cheap, no network).
-async function refreshSyncStatus(): Promise<void> {
-  if (!vfs || !remote || !githubToken) {
-    syncStatus = "none";
-    return;
-  }
-  try {
-    syncStatus = (await hasLocalChanges(vfs)) ? "ahead" : "synced";
-  } catch {
-    /* keep previous status */
-  }
-}
-const scheduleStatus = debounce(() => void refreshSyncStatus(), 800);
-
-// After sync overwrote files on disk, reload the open file and recompile.
-async function reloadOpen(): Promise<void> {
-  if (!vfs) return;
-  yamlText =
-    isText(openPath) && (await vfs.exists(openPath)) ? await vfs.readText(openPath) : yamlText;
-  dirty = false;
-  refreshSlideRanges();
-  await refreshFiles();
-  cachedCtx = null;
-  cachedFonts = null;
-  await fullCompile();
-  await recomputeRefs();
-}
-
-async function loadGithubAuth(): Promise<void> {
-  const a = await loadAuth();
-  if (a) {
-    githubToken = a.token;
-    githubLogin = a.login;
-  }
-}
-
-// Warn before closing the tab if there are unpushed (or conflicting) changes.
-let unloadGuardInstalled = false;
-function installUnloadGuard(): void {
-  if (unloadGuardInstalled || typeof window === "undefined") return;
-  unloadGuardInstalled = true;
-  window.addEventListener("beforeunload", (e) => {
-    if (remote && (syncStatus === "ahead" || syncStatus === "conflict")) {
-      e.preventDefault();
-      e.returnValue = "";
-    }
-  });
-}
-
-async function runPull(): Promise<void> {
-  if (!vfs || !remote || !githubToken) return;
-  await saveCurrent(); // flush unsaved edits so they participate in the diff
-  syncStatus = "syncing";
-  try {
-    const res = await ghPull(vfs, githubToken, remote);
-    await reloadOpen();
-    syncWarning = res.conflicts.length
-      ? {
-          title: "Conflicts auto-resolved (kept the newer version)",
-          files: res.conflicts.map((c) => `${c.path} — kept ${c.resolution}`),
-        }
-      : null;
-    await refreshSyncStatus();
-  } catch (e) {
-    syncStatus = "error";
-    errors = [new PipelineError(`GitHub pull failed: ${String(e)}`)];
-  }
-}
-
-// Switch to a named project's VFS (= dedicated IndexedDB).
-async function useVfs(name: string) {
-  unsubscribe?.();
-  unsubscribe = null;
-  vfs?.dispose();
-  vfs = await openVfs(dbNameFor(name));
-  currentProject = name;
-  setLastProject(name);
-}
-
-// Load the project from the current vfs, compile it, and become ready.
-async function loadCurrentProject(autoPull = false) {
-  if (!vfs) return;
-  unsubscribe?.();
-  unsubscribe = vfs.subscribe(() => {
-    if (selfSaving) return; // skip auto-save events; already live-recompiled
-    void refreshFiles();
-    scheduleFull();
-    scheduleRefs();
-  });
-  await refreshFiles();
-  expanded = new Set((await vfs.getMeta<string[]>("treeExpanded")) ?? []);
-  showHidden = (await vfs.getMeta<boolean>("showHidden")) ?? false;
-  openPath = "/deck.yaml";
-  yamlText = (await vfs.exists("/deck.yaml")) ? await vfs.readText("/deck.yaml") : "";
-  dirty = false;
-  cachedCtx = null;
-  cachedFonts = null;
-  currentSlide = 0;
-  refreshSlideRanges();
-  await fullCompile();
-  await recomputeRefs();
-  ready = true;
-
-  // GitHub: load the linked repo for this project; auto-pull on open.
-  syncWarning = null;
-  remote = githubToken ? ((await loadRemote(vfs)) ?? null) : null;
-  if (remote && autoPull) await runPull();
-  else await refreshSyncStatus();
-}
+export type { SyncStatus } from "./state/github.svelte";
 
 export const store = {
   get booting() {
-    return booting;
+    return project.isBooting();
   },
   get openPath() {
-    return openPath;
+    return document.path();
   },
   get isYamlOpen() {
-    return isYaml(openPath);
+    return document.isYamlOpen();
   },
-  // Any text-editable file: drives whether CodeMirror is shown vs the preview.
   get isTextOpen() {
-    return isText(openPath);
+    return document.isTextOpen();
   },
   get isImageOpen() {
-    return isImagePath(openPath);
+    return document.isImageOpen();
   },
   get yamlText() {
-    return yamlText;
+    return document.text();
   },
   get dirty() {
-    return dirty;
+    return document.isDirty();
   },
   get compiled() {
-    return compiled;
+    return compile.compiledDeck();
   },
   get errors() {
-    return errors;
+    return compile.pipelineErrors();
   },
   get currentSlide() {
-    return currentSlide;
+    return document.slide();
   },
-  set currentSlide(v: number) {
-    currentSlide = v;
+  set currentSlide(value: number) {
+    document.setCurrentSlide(value);
   },
-  // Editor cursor target: when non-null, RightPane moves the CodeMirror
-  // selection to this character offset (and resets it back to null).
   get editorCursorTarget() {
-    return editorCursorTarget;
+    return document.cursorTarget();
   },
-  set editorCursorTarget(v: number | null) {
-    editorCursorTarget = v;
+  set editorCursorTarget(value: number | null) {
+    document.setCursorTarget(value);
   },
   get files() {
-    return files;
+    return files.fileEntries();
   },
   get brokenRefs() {
-    return brokenRefs;
+    return compile.brokenReferences();
   },
-  // Set of YAML file paths with broken references (for the tree's red dot).
-  get filesWithBrokenRefs(): Set<string> {
-    return new Set(brokenRefs.map((r) => r.fromFile));
+  get filesWithBrokenRefs() {
+    return compile.filesWithBrokenRefs();
   },
-  // Whether a project is loaded and the editor can be shown.
   get ready() {
-    return ready;
+    return project.isReady();
   },
   get currentProject() {
-    return currentProject;
+    return project.projectName();
   },
-  // Saved project list (for the selection screen). projectsVersion drives re-evaluation.
-  get projects(): ProjectMeta[] {
-    projectsVersion;
-    return listProjects();
+  get projects() {
+    return project.projects();
   },
-  // Template projects (for "Create from template").
-  get templates(): ProjectMeta[] {
-    projectsVersion;
-    return listTemplates();
+  get templates() {
+    return project.templates();
   },
-  markTemplate(name: string) {
-    setTemplate(name, true);
-    projectsVersion++;
-  },
-  unmarkTemplate(name: string) {
-    setTemplate(name, false);
-    projectsVersion++;
-  },
-  projectExists(name: string): boolean {
-    return projectExists(name);
-  },
+  markTemplate: project.markTemplate,
+  unmarkTemplate: project.unmarkTemplate,
+  projectExists: project.projectExists,
   get slideCount() {
-    return compiled ? compiled.deck.slides.length : 0;
+    return compile.slideCount();
   },
-  // Slide aspect ratio (width/height) for thumbnail sizing.
   get slideAspect() {
-    const s = compiled?.deck.slide;
-    return s && s.height > 0 ? s.width / s.height : 16 / 9;
+    return compile.slideAspect();
   },
   get vfs() {
-    return vfs;
+    return project.vfs();
   },
-
   get serverMode() {
-    return serverMode;
+    return project.isServerMode();
   },
-
-  // --- GitHub ---
   get github() {
-    return { login: githubLogin, remote, status: syncStatus, warning: syncWarning };
+    return github.github();
   },
-  async connectGithub(token: string) {
-    const user = await getUser(token.trim()); // validates the token
-    await saveAuth({ token: token.trim(), login: user.login });
-    githubToken = token.trim();
-    githubLogin = user.login;
-    if (vfs) {
-      remote = (await loadRemote(vfs)) ?? null;
-      await refreshSyncStatus();
-    }
-  },
-  async disconnectGithub() {
-    await clearAuth();
-    githubToken = null;
-    githubLogin = null;
-    remote = null;
-    syncStatus = "none";
-    syncWarning = null;
-  },
-  listGithubRepos(): Promise<Repo[]> {
-    if (!githubToken) return Promise.reject(new Error("Not connected to GitHub"));
-    return listRepos(githubToken);
-  },
-  async cloneProject(name: string, owner: string, repo: string) {
-    if (!githubToken) throw new Error("Not connected to GitHub");
-    const token = githubToken;
-    await this.createProject(name, async (v) => {
-      await ghClone(v, token, owner, repo);
-    });
-  },
-  async linkRepo(owner: string, repo: string) {
-    if (!vfs || !githubToken) throw new Error("Connect GitHub and open a project first");
-    syncStatus = "syncing";
-    remote = await ghLink(vfs, githubToken, owner, repo);
-    await runPull();
-  },
-  async unlinkRepo() {
-    if (vfs) await unlink(vfs);
-    remote = null;
-    syncStatus = "none";
-    syncWarning = null;
-  },
-  async pull() {
-    await runPull();
-  },
-  async push(message = "Update from slideck") {
-    if (!vfs || !remote || !githubToken) return;
-    await saveCurrent();
-    syncStatus = "syncing";
-    try {
-      const res = await ghPush(vfs, githubToken, remote, message);
-      if (res.conflicts.length > 0) {
-        syncWarning = {
-          title: "Push blocked: pull first to resolve conflicts",
-          files: res.conflicts.map((c) => c.path),
-        };
-        syncStatus = "conflict";
-        return;
-      }
-      syncWarning = null;
-      await refreshSyncStatus();
-    } catch (e) {
-      syncStatus = "error";
-      errors = [new PipelineError(`GitHub push failed: ${String(e)}`)];
-    }
-  },
-  dismissSyncWarning() {
-    syncWarning = null;
-  },
-
-  // Boot: under slideck serve, open the editor immediately in disk-linked mode.
-  // Otherwise, restore the last opened project if there is one
-  // (to handle reloading #editor). Which screen to show is decided by the URL hash (App).
-  async boot() {
-    await loadGithubAuth();
-    installUnloadGuard();
-    const info = await probeServer();
-    if (info) {
-      serverMode = true;
-      vfs = openHttpVfs();
-      currentProject = info.name;
-      await loadCurrentProject();
-      booting = false;
-      return;
-    }
-    void navigator.storage?.persist?.();
-    const last = getLastProject();
-    if (last && projectExists(last)) {
-      await useVfs(last);
-      await loadCurrentProject(true); // auto-pull on open
-    }
-    booting = false;
-  },
-
-  // Open an existing project (from the selection screen).
-  async openProject(name: string) {
-    if (!projectExists(name)) throw new Error(`Project "${name}" does not exist`);
-    ready = false;
-    await useVfs(name);
-    await loadCurrentProject(true); // auto-pull on open
-  },
-
-  // Create a new project. init writes the initial files.
-  // Error if the name is empty or duplicate.
-  async createProject(name: string, init: (vfs: VFS) => Promise<void>) {
-    const trimmed = name.trim();
-    if (!trimmed) throw new Error("Please enter a project name");
-    if (projectExists(trimmed)) {
-      throw new Error(`Project "${trimmed}" already exists`);
-    }
-    ready = false;
-    await useVfs(trimmed);
-    await init(vfs!);
-    registerProject(trimmed);
-    projectsVersion++;
-    await loadCurrentProject();
-  },
-
-  // Create a project from a template. The built-in sample installs from the
-  // bundled example; a project template copies its files (but not its GitHub
-  // repository settings, which are stored in meta and not copied).
-  async createFromTemplate(name: string, template: { sample: boolean; name?: string }) {
-    await this.createProject(name, async (dest) => {
-      if (template.sample) {
-        await installSample(dest, `${import.meta.env.BASE_URL}examples/basic/`);
-      } else if (template.name) {
-        const src = await openVfs(dbNameFor(template.name));
-        try {
-          await copyProjectFiles(src, dest);
-        } finally {
-          src.dispose();
-        }
-      }
-    });
-  },
-
-  // Delete a project (from the selection screen).
-  async deleteProject(name: string) {
-    if (currentProject === name) {
-      unsubscribe?.();
-      unsubscribe = null;
-      vfs?.dispose();
-      vfs = null;
-      currentProject = null;
-      ready = false;
-    }
-    unregisterProject(name);
-    projectsVersion++;
-    indexedDB.deleteDatabase(dbNameFor(name));
-  },
-
-  // --- Open / save files ---
-  async openFile(path: string) {
-    const v = vfs;
-    if (!v) return;
-    if (dirty && isText(openPath)) await this.save();
-    openPath = path;
-    yamlText = isText(path) ? await v.readText(path) : "";
-    dirty = false;
-    refreshSlideRanges();
-  },
-
-  // Manual save (Ctrl/Cmd+S). Normally edits are auto-saved.
-  async save() {
-    await saveCurrent();
-  },
-
-  setYaml(text: string) {
-    applyYaml(text);
-  },
-
-  // --- ZIP ---
-  async exportZip() {
-    if (!vfs) return;
-    const blob = await vfs.exportZip();
-    const { downloadBytes } = await import("../lib/download");
-    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    downloadBytes(new Uint8Array(await blob.arrayBuffer()), `deck-${ts}.zip`, "application/zip");
-  },
-  async importZip(file: File, targetDir = "/") {
-    if (!vfs) return;
-    await vfs.importZip(file, targetDir);
-  },
-
-  // --- Tree state ---
+  connectGithub: github.connectGithub,
+  disconnectGithub: github.disconnectGithub,
+  listGithubRepos: github.listGithubRepos,
+  cloneProject: github.cloneProject,
+  linkRepo: github.linkRepo,
+  unlinkRepo: github.unlinkRepo,
+  pull: github.pull,
+  push: github.push,
+  dismissSyncWarning: github.dismissSyncWarning,
+  boot: project.boot,
+  openProject: project.openProject,
+  createProject: project.createProject,
+  createFromTemplate: project.createFromTemplate,
+  deleteProject: project.deleteProject,
+  openFile: document.openFile,
+  save: document.save,
+  setYaml: document.setYaml,
+  exportZip: files.exportZip,
+  importZip: files.importZip,
   get expanded() {
-    return expanded;
+    return files.expandedPaths();
   },
   get showHidden() {
-    return showHidden;
+    return files.hiddenFilesShown();
   },
-  isExpanded(path: string): boolean {
-    return expanded.has(path);
-  },
-  toggleExpanded(path: string) {
-    const s = new Set(expanded);
-    if (s.has(path)) s.delete(path);
-    else s.add(path);
-    expanded = s;
-    void vfs?.setMeta("treeExpanded", [...s]);
-  },
-  setExpanded(path: string, on: boolean) {
-    const s = new Set(expanded);
-    if (on) s.add(path);
-    else s.delete(path);
-    expanded = s;
-    void vfs?.setMeta("treeExpanded", [...s]);
-  },
-  toggleHidden() {
-    showHidden = !showHidden;
-    void vfs?.setMeta("showHidden", showHidden);
-  },
-
-  // --- File operations ---
-  async createFile(dir: string, name: string) {
-    const v = vfs;
-    if (!v) return;
-    const p = normalize(join(dir, name));
-    await v.writeText(p, "");
-    this.setExpanded(dir, true);
-    await this.openFile(p);
-  },
-  async createFolder(dir: string, name: string) {
-    if (!vfs) return;
-    await vfs.createFolder(normalize(join(dir, name)));
-    this.setExpanded(dir, true);
-  },
-  async renamePath(path: string, newName: string) {
-    if (!vfs || basename(path) === newName) return;
-    const to = normalize(join(dirname(path), newName));
-    await vfs.move(path, to);
-    await this.followMove(path, to);
-  },
-  async moveNode(from: string, toDir: string) {
-    const v = vfs;
-    if (!v) return;
-    const to = normalize(join(toDir, basename(from)));
-    if (from === to || to.startsWith(from + "/")) return;
-    await v.move(from, to);
-    await this.followMove(from, to);
-  },
-  // After a move, keep the open file's path in sync.
-  async followMove(from: string, to: string) {
-    if (openPath === from) await this.openFile(to);
-    else if (isDescendant(openPath, from)) {
-      await this.openFile(to + openPath.slice(from.length));
-    }
-  },
-  async deletePath(path: string) {
-    if (!vfs) return;
-    const affectsOpen = openPath === path || isDescendant(openPath, path);
-    await vfs.delete(path);
-    if (affectsOpen) {
-      if (await vfs.exists("/deck.yaml")) await this.openFile("/deck.yaml");
-      else {
-        openPath = "/";
-        yamlText = "";
-        dirty = false;
-        refreshSlideRanges();
-      }
-    }
-  },
-  async duplicatePath(path: string) {
-    if (!vfs) return;
-    const dir = dirname(path);
-    const name = await uniqueName(vfs, dir, basename(path));
-    await vfs.copy(path, normalize(join(dir, name)));
-  },
-  async downloadFile(path: string) {
-    if (!vfs) return;
-    const bytes = await vfs.readBytes(path);
-    const { downloadBytes } = await import("../lib/download");
-    const { mimeFromPath } = await import("@slideck/core");
-    downloadBytes(bytes, basename(path), mimeFromPath(path));
-  },
-  // Upload from the OS. With overwrite=false, conflicts are skipped.
-  async uploadEntries(targetDir: string, entries: UploadEntry[], overwrite: boolean) {
-    if (!vfs) return;
-    for (const e of entries) {
-      const p = normalize(join(targetDir, e.path));
-      if (!overwrite && (await vfs.exists(p))) continue;
-      await vfs.writeBlob(p, new Blob([e.data as BlobPart]));
-    }
-    this.setExpanded(targetDir, true);
-  },
-
-  // --- Slide operations ---
-  // moveCursor: when true, also asks the editor to move its cursor to the
-  // start of the chosen slide's YAML (set by thumbnail click / arrow nav,
-  // not by the cursor-driven update path so the editor doesn't fight itself).
-  goSlide(i: number, opts?: { moveCursor?: boolean }) {
-    const next = Math.max(0, Math.min(this.slideCount - 1, i));
-    currentSlide = next;
-    if (opts?.moveCursor) {
-      const start = slideRanges[next]?.[0];
-      if (start !== undefined) editorCursorTarget = start;
-    }
-  },
-  next() {
-    this.goSlide(currentSlide + 1, { moveCursor: true });
-  },
-  prev() {
-    this.goSlide(currentSlide - 1, { moveCursor: true });
-  },
-  // Called from the editor when the CodeMirror selection (cursor head)
-  // changes. Resolves the offset to a slide index and updates the preview;
-  // a no-op when the cursor is before the first slide (e.g. inside bases:).
-  cursorMoved(offset: number) {
-    const i = slideAtOffset(offset);
-    if (i !== null && i !== currentSlide) currentSlide = i;
-  },
-  renderSvg(index = currentSlide): string {
-    if (!compiled) return "";
-    return renderSlideSvg(compiled, index) ?? "";
-  },
+  isExpanded: files.isExpanded,
+  toggleExpanded: files.toggleExpanded,
+  setExpanded: files.setExpanded,
+  toggleHidden: files.toggleHidden,
+  createFile: files.createFile,
+  createFolder: files.createFolder,
+  renamePath: files.renamePath,
+  moveNode: files.moveNode,
+  followMove: files.followMove,
+  deletePath: files.deletePath,
+  duplicatePath: files.duplicatePath,
+  downloadFile: files.downloadFile,
+  uploadEntries: files.uploadEntries,
+  goSlide: document.goSlide,
+  next: document.next,
+  prev: document.prev,
+  cursorMoved: document.cursorMoved,
+  renderSvg: compile.renderSvg,
 };
