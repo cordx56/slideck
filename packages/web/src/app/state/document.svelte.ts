@@ -101,7 +101,7 @@ export function onSaved(listener: DocumentListener): () => void {
 }
 
 export function refreshSlideRanges(): void {
-  slideRanges = openPath === "/" + project.ENTRY ? slideRangesOf(yamlText) : [];
+  slideRanges = openPath === project.ENTRY ? slideRangesOf(yamlText) : [];
 }
 
 export function slideAtOffset(offset: number): number | null {
