@@ -104,6 +104,29 @@ describe("renderMath (KaTeX -> native primitives)", () => {
     const b = renderMath("x+1", 40)!;
     expect(b.width / a.width).toBeCloseTo(2, 1);
   });
+  it.each([
+    // KaTeX merges "hab" into one node here, only when the preceding letter
+    // has no italic correction, so the merged run must still span all three.
+    ["reachable", [..."reachable"]],
+    // "ee" is merged; the opening paren used to overlap the second "e".
+    ["free()", [..."free()"]],
+    // Upright and text fonts merge whole words.
+    ["\\mathrm{max}", ["\\mathrm{m}", "\\mathrm{a}", "\\mathrm{x}"]],
+    ["\\text{ab}", ["\\text{a}", "\\text{b}"]],
+  ])("glyphs merged by KaTeX keep their full width: %s", (tex, parts) => {
+    const whole = renderMath(tex, 100)!;
+    const sum = parts.reduce((acc, part) => acc + renderMath(part, 100)!.width, 0);
+    expect(whole.width).toBeCloseTo(sum, 6);
+  });
+  it("places the glyph after a merged run past its end (no overlap)", () => {
+    const texts = renderMath("reachable", 100)!.items.filter((item) => item.kind === "text");
+    const merged = texts.findIndex((item) => item.text === "hab");
+    // Guard: the fixture must still exercise KaTeX's merging.
+    expect(merged).toBeGreaterThan(-1);
+    // Measure the run from separately laid out letters, which KaTeX never merges.
+    const run = [..."hab"].reduce((acc, char) => acc + renderMath(char, 100)!.width, 0);
+    expect(texts[merged + 1]!.x).toBeCloseTo(texts[merged]!.x + run, 6);
+  });
 });
 
 describe("lower of rich text (native expansion)", () => {

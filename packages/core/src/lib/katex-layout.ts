@@ -2,6 +2,7 @@ import type {} from "../types/katex";
 import { __renderToHTMLTree, type KatexInternalNode } from "katex";
 import { toHex } from "./color";
 import { katexFontFamily } from "./katex-fonts";
+import { katexCharWidth } from "./katex-metrics";
 
 // KaTeX's public API emits HTML, which neither the SVG LIR nor pdf-lib can
 // consume directly. Its internal HTML tree already contains TeX metrics and
@@ -189,10 +190,22 @@ function vlistWidth(node: KatexInternalNode, ctx: LayoutContext): number {
   return width;
 }
 
+function symbolWidth(node: KatexInternalNode, ctx: LayoutContext): number {
+  // KaTeX merges adjacent symbols sharing classes and style into one node (the
+  // "hab" of `reachable`, the whole of `\mathrm{max}`) but keeps only the first
+  // glyph's width; the browser would measure the rest. Add the merged glyphs
+  // back from KaTeX's metric table so following siblings do not overlap them.
+  // `italic` already holds the last glyph's correction.
+  const font = fontName(ctx.fontClasses);
+  const [, ...merged] = node.text ?? "";
+  const advance = merged.reduce((sum, char) => sum + katexCharWidth(char, font), node.width ?? 0);
+  return advance + (node.italic ?? 0);
+}
+
 function intrinsicContentWidth(node: KatexInternalNode, ctx: LayoutContext): number {
   const classes = classesOf(node);
   const size = ctx.rootSize * ctx.scale;
-  if (node.text !== undefined) return (node.width ?? 0) * size + (node.italic ?? 0) * size;
+  if (node.text !== undefined) return symbolWidth(node, ctx) * size;
   if (
     classes.includes("katex-strut") ||
     classes.includes("pstrut") ||
